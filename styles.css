@@ -117,6 +117,10 @@ textarea {
   padding: 32px 22px 48px;
 }
 
+.mobile-nav {
+  display: none;
+}
+
 .hero,
 .top-grid,
 .main-grid {
@@ -210,6 +214,11 @@ h3 {
 .text-button:hover {
   color: var(--text);
   background: transparent;
+}
+
+.text-button:focus-visible {
+  outline: 2px solid rgba(181, 92, 51, 0.28);
+  outline-offset: 4px;
 }
 
 .top-grid {
@@ -764,7 +773,7 @@ textarea {
 
 @media (max-width: 720px) {
   .app-shell {
-    padding: 16px 12px 28px;
+    padding: 16px 12px 90px;
   }
 
   .hero {
@@ -775,6 +784,7 @@ textarea {
   .hero-meta-row {
     margin-bottom: 8px;
     gap: 10px;
+    justify-content: flex-start;
   }
 
   .panel {
@@ -804,7 +814,7 @@ textarea {
   input,
   select,
   textarea {
-    min-height: 42px;
+    min-height: 40px;
   }
 
   input,
@@ -844,12 +854,25 @@ textarea {
   }
 
   .date-card {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 8px 12px;
     padding: 12px;
   }
 
   .date-card label {
-    margin-bottom: 6px;
+    margin-bottom: 0;
     font-size: 0.95rem;
+  }
+
+  .date-card input {
+    min-height: 38px;
+    padding: 8px 10px;
+  }
+
+  .date-card .subtle-copy {
+    display: none;
   }
 
   .metric-value {
@@ -905,19 +928,25 @@ textarea {
 
   .timeline-bottom {
     display: grid;
-    gap: 10px;
-  }
-
-  .timeline-bottom .button-row {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
   }
 
+  .timeline-bottom .button-row {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
   .timeline-bottom .ghost-button.small {
-    min-height: 34px;
-    padding: 7px 10px;
+    min-height: auto;
+    padding: 0;
     font-size: 0.8rem;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: var(--accent-strong);
+    box-shadow: none;
   }
 
   .quick-add-inline {
@@ -954,9 +983,60 @@ textarea {
     margin-bottom: 2px;
   }
 
+  .hero-meta-row .text-button {
+    min-height: auto;
+    padding: 0;
+  }
+
+  .balance-panel .panel-heading .ghost-button,
+  .summary-panel .warning-row .ghost-button.small {
+    min-height: auto;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: var(--accent-strong);
+    box-shadow: none;
+  }
+
+  .mobile-nav {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    bottom: 10px;
+    z-index: 40;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    padding: 8px;
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    background: rgba(255, 248, 240, 0.94);
+    box-shadow: 0 14px 32px rgba(62, 39, 15, 0.14);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+  }
+
+  .mobile-nav-button {
+    min-height: 40px;
+    padding: 8px 10px;
+    border: 0;
+    border-radius: 12px;
+    background: transparent;
+    color: var(--muted);
+    font: inherit;
+    font-size: 0.84rem;
+    font-weight: 700;
+  }
+
+  .mobile-nav-button.is-active {
+    background: rgba(181, 92, 51, 0.12);
+    color: var(--accent-strong);
+  }
+
   .undo-banner {
     right: 8px;
-    bottom: 8px;
+    bottom: 72px;
   }
 
   .undo-pill {
