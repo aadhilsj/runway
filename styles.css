@@ -117,14 +117,6 @@ textarea {
   padding: 32px 22px 48px;
 }
 
-.top-utility-bar {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 12px;
-  margin-bottom: 20px;
-}
-
 .hero,
 .top-grid,
 .main-grid {
@@ -185,6 +177,14 @@ h3 {
   color: var(--muted);
 }
 
+.hero-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
 .sync-status {
   display: inline-block;
   color: var(--muted);
@@ -196,6 +196,20 @@ h3 {
   display: flex;
   align-items: flex-start;
   justify-content: flex-end;
+}
+
+.text-button {
+  min-height: auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  box-shadow: none;
+}
+
+.text-button:hover {
+  color: var(--text);
+  background: transparent;
 }
 
 .top-grid {
@@ -753,23 +767,22 @@ textarea {
     padding: 16px 12px 28px;
   }
 
-  .top-utility-bar {
-    margin-bottom: 14px;
+  .hero {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .hero-meta-row {
+    margin-bottom: 8px;
     gap: 10px;
   }
 
-  .hero {
-    grid-template-columns: 1fr;
-    gap: 14px;
-  }
-
   .panel {
-    padding: 16px;
-    border-radius: 22px;
+    padding: 14px;
+    border-radius: 20px;
   }
 
   .timeline-top,
-  .timeline-bottom,
   .scenario-top,
   .template-top,
   .panel-heading,
@@ -787,8 +800,23 @@ textarea {
   }
 
   .primary-button,
+  .ghost-button,
+  input,
+  select,
+  textarea {
+    min-height: 42px;
+  }
+
+  input,
+  select,
+  textarea {
+    padding: 11px 13px;
+    border-radius: 12px;
+  }
+
+  .primary-button,
   .ghost-button {
-    min-height: 46px;
+    padding: 10px 14px;
   }
 
   .timeline-item,
@@ -796,7 +824,134 @@ textarea {
   .template-card,
   .history-item,
   .breakdown-item {
-    padding: 14px;
+    padding: 12px;
+  }
+
+  .balance-stack,
+  .summary-grid,
+  .timeline-list,
+  .scenario-list,
+  .template-list,
+  .history-list,
+  .breakdown-list,
+  .bucket-grid,
+  .panel-section-spaced {
+    gap: 10px;
+  }
+
+  .panel-heading {
+    margin-bottom: 12px;
+  }
+
+  .date-card {
+    padding: 12px;
+  }
+
+  .date-card label {
+    margin-bottom: 6px;
+    font-size: 0.95rem;
+  }
+
+  .metric-value {
+    font-size: clamp(1.8rem, 8vw, 2.35rem);
+  }
+
+  .summary-item {
+    padding: 12px 14px;
+  }
+
+  .summary-value {
+    font-size: 1.35rem;
+  }
+
+  .timeline-item {
+    gap: 10px;
+  }
+
+  .timeline-top {
+    gap: 8px;
+  }
+
+  .timeline-main {
+    gap: 2px;
+  }
+
+  .timeline-title {
+    font-size: 0.98rem;
+    line-height: 1.2;
+  }
+
+  .timeline-meta,
+  .scenario-copy,
+  .template-copy,
+  .history-copy,
+  .breakdown-copy {
+    font-size: 0.84rem;
+    line-height: 1.35;
+  }
+
+  .timeline-amount {
+    font-size: 0.96rem;
+  }
+
+  .chip-row {
+    gap: 6px;
+  }
+
+  .chip {
+    padding: 5px 9px;
+    font-size: 0.72rem;
+  }
+
+  .timeline-bottom {
+    display: grid;
+    gap: 10px;
+  }
+
+  .timeline-bottom .button-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .timeline-bottom .ghost-button.small {
+    min-height: 34px;
+    padding: 7px 10px;
+    font-size: 0.8rem;
+  }
+
+  .quick-add-inline {
+    margin-bottom: 12px;
+    gap: 8px;
+  }
+
+  .quick-add-inline .primary-button.small {
+    min-height: 40px;
+  }
+
+  .scenario-card {
+    display: grid;
+    gap: 12px;
+  }
+
+  .scenario-top {
+    gap: 10px;
+  }
+
+  .scenario-top .primary-button.small,
+  .scenario-card .button-row .ghost-button.small {
+    min-height: 34px;
+    padding: 7px 12px;
+    font-size: 0.8rem;
+  }
+
+  .scenario-top .primary-button.small {
+    justify-self: start;
+  }
+
+  .scenario-card .chip-row {
+    margin-top: 2px;
+    margin-bottom: 2px;
   }
 
   .undo-banner {
