@@ -397,9 +397,12 @@ h3 {
   min-width: 0;
 }
 
-.timeline-side {
+.timeline-side,
+.timeline-value-row {
   display: grid;
-  justify-items: end;
+  grid-template-columns: auto auto;
+  align-items: center;
+  justify-content: space-between;
   gap: 8px;
 }
 
@@ -965,6 +968,8 @@ textarea {
   }
 
   .timeline-bottom {
+    display: grid;
+    gap: 8px;
     margin-top: -2px;
   }
 
@@ -973,6 +978,12 @@ textarea {
     flex-direction: row;
     flex-wrap: wrap;
     justify-content: flex-end;
+    gap: 10px;
+  }
+
+  .timeline-value-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
     gap: 10px;
   }
 
@@ -1107,15 +1118,22 @@ textarea {
   }
 
   .modal-card {
-    width: min(100vw - 16px, 560px);
-    padding: 16px;
-    border-radius: 22px;
+    width: min(100vw - 36px, 420px);
+    max-height: min(78vh, 700px);
+    overflow: auto;
+    padding: 14px;
+    border-radius: 20px;
   }
 
   .modal-card input,
   .modal-card select,
   .modal-card textarea {
     max-width: 100%;
+  }
+
+  .modal {
+    width: min(100vw - 36px, 420px);
+    max-width: calc(100vw - 36px);
   }
 
   .modal-header {
@@ -1154,8 +1172,9 @@ textarea {
   }
 
   .undo-banner {
-    right: 8px;
-    bottom: 72px;
+    left: 12px;
+    right: auto;
+    bottom: 88px;
   }
 
   .undo-pill {
