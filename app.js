@@ -1,4 +1,5 @@
 const STORAGE_KEY = "runway-mvp-v2";
+const SUPABASE_TABLE = "runway_state";
 const HISTORY_WINDOW_HOURS = 12;
 const UNDO_VISIBLE_MS = 3000;
 const CATEGORY_OPTIONS = [
@@ -52,14 +53,22 @@ const defaultState = {
 
 seedEvents(defaultState);
 
-let state = loadState();
+let state = loadLocalCache();
 let undoStack = [];
 let pendingSetting = null;
 let planDraftEvents = [];
 let activePlanId = null;
 let undoTimer = null;
+let supabaseClient = null;
+let authUser = null;
+let lastRemoteUpdatedAt = null;
 
 const elements = {
+  authShell: document.querySelector("#auth-shell"),
+  authForm: document.querySelector("#auth-form"),
+  authEmail: document.querySelector("#auth-email"),
+  authSubmit: document.querySelector("#auth-submit"),
+  authMessage: document.querySelector("#auth-message"),
   undoBanner: document.querySelector("#undo-banner"),
   undoMessage: document.querySelector("#undo-message"),
   undoButton: document.querySelector("#undo-button"),
@@ -124,13 +133,17 @@ const elements = {
   settingsTitle: document.querySelector("#settings-title"),
   settingsLabel: document.querySelector("#settings-label"),
   settingsValue: document.querySelector("#settings-value"),
-  closeSettingsModal: document.querySelector("#close-settings-modal")
+  closeSettingsModal: document.querySelector("#close-settings-modal"),
+  signOutButton: document.querySelector("#sign-out-button"),
+  syncBadge: document.querySelector("#sync-badge")
 };
 
 attachEventListeners();
 render();
+void bootstrap();
 
 function attachEventListeners() {
+  elements.authForm.addEventListener("submit", handleAuthSubmit);
   elements.undoButton.addEventListener("click", handleUndo);
   elements.openEntryModal.addEventListener("click", () => openEntryModal());
   elements.closeEntryModal.addEventListener("click", () => elements.entryModal.close());
@@ -160,6 +173,90 @@ function attachEventListeners() {
   elements.editThresholdButton.addEventListener("click", () => openSettingsModal("threshold"));
   elements.closeSettingsModal.addEventListener("click", () => elements.settingsModal.close());
   elements.settingsForm.addEventListener("submit", handleSettingsSubmit);
+  elements.signOutButton.addEventListener("click", handleSignOut);
+  window.addEventListener("focus", () => {
+    if (authUser) void refreshRemoteState();
+  });
+}
+
+async function bootstrap() {
+  initSupabase();
+  updateAuthUI();
+  if (!supabaseClient) {
+    elements.authMessage.textContent = "Supabase config is missing.";
+    elements.authShell.hidden = false;
+    return;
+  }
+
+  const { data, error } = await supabaseClient.auth.getSession();
+  if (error) {
+    elements.authMessage.textContent = "Unable to restore session.";
+    elements.authShell.hidden = false;
+    return;
+  }
+
+  authUser = data.session?.user || null;
+  updateAuthUI();
+  if (authUser) {
+    await loadRemoteState();
+  }
+
+  supabaseClient.auth.onAuthStateChange(async (_event, session) => {
+    authUser = session?.user || null;
+    updateAuthUI();
+    if (authUser) {
+      await loadRemoteState();
+    } else {
+      state = loadLocalCache();
+      render();
+    }
+  });
+}
+
+function initSupabase() {
+  const config = window.RUNWAY_CONFIG || {};
+  if (!config.supabaseUrl || !config.supabaseAnonKey || !window.supabase?.createClient) return;
+  supabaseClient = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey);
+}
+
+async function handleAuthSubmit(event) {
+  event.preventDefault();
+  if (!supabaseClient) return;
+  const email = elements.authEmail.value.trim();
+  if (!email) return;
+
+  elements.authSubmit.disabled = true;
+  elements.authMessage.textContent = "Sending magic link...";
+  const redirectTarget = window.location.origin.startsWith("http")
+    ? window.location.origin
+    : "https://runway-xi.vercel.app";
+  const { error } = await supabaseClient.auth.signInWithOtp({
+    email,
+    options: {
+      emailRedirectTo: redirectTarget
+    }
+  });
+
+  elements.authSubmit.disabled = false;
+  elements.authMessage.textContent = error
+    ? "Unable to send magic link."
+    : "Magic link sent. Open it on this device to sign in.";
+}
+
+async function handleSignOut() {
+  if (!supabaseClient) return;
+  await supabaseClient.auth.signOut();
+  authUser = null;
+  updateAuthUI();
+}
+
+function updateAuthUI() {
+  const signedIn = Boolean(authUser);
+  elements.authShell.hidden = signedIn;
+  elements.signOutButton.hidden = !signedIn;
+  elements.openEntryModal.disabled = !signedIn;
+  elements.quickAddButton.disabled = !signedIn;
+  elements.syncBadge.textContent = signedIn ? "Syncing with Supabase" : "Sign in required";
 }
 
 function render() {
@@ -1066,7 +1163,7 @@ function compareEvents(left, right) {
   return left.date.localeCompare(right.date);
 }
 
-function loadState() {
+function loadLocalCache() {
   try {
     const stored = JSON.parse(localStorage.getItem(STORAGE_KEY));
     if (stored) return normalizeState(stored);
@@ -1077,7 +1174,92 @@ function loadState() {
 }
 
 function persist() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(serializeState(state)));
+  if (authUser && supabaseClient) {
+    elements.syncBadge.textContent = "Saving";
+    void saveRemoteState();
+  }
+}
+
+async function loadRemoteState() {
+  if (!authUser || !supabaseClient) return;
+
+  elements.syncBadge.textContent = "Loading latest data";
+  const { data, error } = await supabaseClient
+    .from(SUPABASE_TABLE)
+    .select("state, updated_at")
+    .eq("user_id", authUser.id)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Unable to load remote state", error);
+    elements.syncBadge.textContent = "Using local cache";
+    return;
+  }
+
+  if (!data) {
+    state = normalizeState(structuredClone(defaultState));
+    persist();
+    elements.syncBadge.textContent = "Synced";
+    render();
+    return;
+  }
+
+  lastRemoteUpdatedAt = data.updated_at || null;
+  state = normalizeState(data.state);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(serializeState(state)));
+  elements.syncBadge.textContent = "Synced";
+  render();
+}
+
+async function refreshRemoteState() {
+  if (!authUser || !supabaseClient) return;
+  const { data, error } = await supabaseClient
+    .from(SUPABASE_TABLE)
+    .select("state, updated_at")
+    .eq("user_id", authUser.id)
+    .maybeSingle();
+
+  if (error || !data?.updated_at) return;
+  if (lastRemoteUpdatedAt && data.updated_at <= lastRemoteUpdatedAt) return;
+  lastRemoteUpdatedAt = data.updated_at;
+  state = normalizeState(data.state);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(serializeState(state)));
+  render();
+}
+
+async function saveRemoteState() {
+  if (!authUser || !supabaseClient) return;
+
+  const payload = {
+    user_id: authUser.id,
+    state: serializeState(state),
+    updated_at: new Date().toISOString()
+  };
+
+  const { error } = await supabaseClient.from(SUPABASE_TABLE).upsert(payload);
+  if (error) {
+    console.error("Unable to save remote state", error);
+    elements.syncBadge.textContent = "Sync failed";
+    return;
+  }
+
+  lastRemoteUpdatedAt = payload.updated_at;
+  elements.syncBadge.textContent = "Synced";
+}
+
+function serializeState(sourceState) {
+  return {
+    account: sourceState.account,
+    ui: {
+      selectedDate: sourceState.ui.selectedDate,
+      history: sourceState.ui.history || []
+    },
+    buckets: sourceState.buckets,
+    scenarios: sourceState.scenarios,
+    templates: sourceState.templates,
+    events: sourceState.events
+  };
 }
 
 function normalizeState(rawState) {
