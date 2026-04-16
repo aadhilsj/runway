@@ -76,29 +76,32 @@
       <article class="panel summary-panel">
         <div class="panel-heading">
           <span class="section-label">Clarity</span>
+          <button class="ghost-button small text-button clarity-toggle" id="clarity-toggle-button" type="button">Show</button>
         </div>
-        <div class="summary-grid">
-          <div class="summary-item">
-            <p class="metric-label" id="thirty-day-label">Balance in 30 days</p>
-            <p class="summary-value" id="thirty-day-value"></p>
-          </div>
-          <div class="summary-item">
-            <p class="metric-label" id="lowest-balance-label">Lowest projected point</p>
-            <p class="summary-value" id="lowest-balance-value"></p>
-          </div>
-          <div class="summary-item">
-            <p class="metric-label" id="month-end-label">Month end</p>
-            <p class="summary-value" id="month-end-value"></p>
-          </div>
-          <div class="summary-item">
-            <p class="metric-label">Warning floor</p>
-            <div class="warning-row">
-              <p class="summary-value" id="warning-threshold-value"></p>
-              <button class="ghost-button small" id="edit-threshold-button">Adjust</button>
+        <div id="clarity-panel-body">
+          <div class="summary-grid">
+            <div class="summary-item">
+              <p class="metric-label" id="thirty-day-label">Balance in 30 days</p>
+              <p class="summary-value" id="thirty-day-value"></p>
+            </div>
+            <div class="summary-item">
+              <p class="metric-label" id="lowest-balance-label">Lowest projected point</p>
+              <p class="summary-value" id="lowest-balance-value"></p>
+            </div>
+            <div class="summary-item">
+              <p class="metric-label" id="month-end-label">Month end</p>
+              <p class="summary-value" id="month-end-value"></p>
+            </div>
+            <div class="summary-item">
+              <p class="metric-label">Warning floor</p>
+              <div class="warning-row">
+                <p class="summary-value" id="warning-threshold-value"></p>
+                <button class="ghost-button small" id="edit-threshold-button">Adjust</button>
+              </div>
             </div>
           </div>
+          <div class="warning-banner" id="warning-banner" hidden></div>
         </div>
-        <div class="warning-banner" id="warning-banner" hidden></div>
       </article>
     </section>
 
@@ -209,6 +212,7 @@
     <button class="mobile-nav-button" type="button" data-mobile-tab-target="plans">Plans</button>
     <button class="mobile-nav-button" type="button" data-mobile-tab-target="more">More</button>
   </nav>
+  <button class="mobile-fab" id="mobile-fab" type="button" aria-label="Quick add">+</button>
 
   <dialog class="modal" id="entry-modal">
     <form method="dialog" class="modal-card" id="entry-form">
