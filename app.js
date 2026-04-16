@@ -2,6 +2,7 @@ const STORAGE_KEY = "runway-mvp-v2";
 const SUPABASE_TABLE = "runway_state";
 const HISTORY_WINDOW_HOURS = 12;
 const UNDO_VISIBLE_MS = 3000;
+const MOBILE_BREAKPOINT = 720;
 const CATEGORY_OPTIONS = [
   "Income",
   "Housing",
@@ -30,6 +31,7 @@ const defaultState = {
   },
   ui: {
     selectedDate: localISODate(new Date()),
+    mobileTab: "forecast",
     undoNotice: null,
     history: []
   },
@@ -70,6 +72,8 @@ const elements = {
   authEmail: document.querySelector("#auth-email"),
   authSubmit: document.querySelector("#auth-submit"),
   authMessage: document.querySelector("#auth-message"),
+  heroSection: document.querySelector("#hero-section"),
+  forecastOverview: document.querySelector("#forecast-overview"),
   undoBanner: document.querySelector("#undo-banner"),
   undoMessage: document.querySelector("#undo-message"),
   undoButton: document.querySelector("#undo-button"),
@@ -90,7 +94,14 @@ const elements = {
   warningBanner: document.querySelector("#warning-banner"),
   selectedDate: document.querySelector("#selected-date"),
   selectedDateCaption: document.querySelector("#selected-date-caption"),
+  timelinePanel: document.querySelector("#timeline-panel"),
   timelineList: document.querySelector("#timeline-list"),
+  sidebarStack: document.querySelector("#sidebar-stack"),
+  budgetsShell: document.querySelector("#budgets-shell"),
+  plansShell: document.querySelector("#plans-shell"),
+  templatesShell: document.querySelector("#templates-shell"),
+  bucketHistoryShell: document.querySelector("#bucket-history-shell"),
+  historyShell: document.querySelector("#history-shell"),
   scenarioList: document.querySelector("#scenario-list"),
   templateList: document.querySelector("#template-list"),
   historyList: document.querySelector("#history-list"),
@@ -136,7 +147,10 @@ const elements = {
   settingsValue: document.querySelector("#settings-value"),
   closeSettingsModal: document.querySelector("#close-settings-modal"),
   signOutButton: document.querySelector("#sign-out-button"),
-  syncBadge: document.querySelector("#sync-badge")
+  syncBadge: document.querySelector("#sync-badge"),
+  plansPanel: document.querySelector("#plans-panel"),
+  mobileNav: document.querySelector("#mobile-nav"),
+  mobileNavButtons: Array.from(document.querySelectorAll("[data-mobile-tab-target]"))
 };
 
 attachEventListeners();
@@ -175,9 +189,13 @@ function attachEventListeners() {
   elements.closeSettingsModal.addEventListener("click", () => elements.settingsModal.close());
   elements.settingsForm.addEventListener("submit", handleSettingsSubmit);
   elements.signOutButton.addEventListener("click", handleSignOut);
+  elements.mobileNavButtons.forEach((button) => {
+    button.addEventListener("click", () => setMobileTab(button.dataset.mobileTabTarget));
+  });
   window.addEventListener("focus", () => {
     if (authUser) void refreshRemoteState();
   });
+  window.addEventListener("resize", handleViewportChange);
 }
 
 async function bootstrap() {
@@ -266,6 +284,9 @@ function updateAuthUI() {
 }
 
 function render() {
+  if (!state.ui.mobileTab) {
+    state.ui.mobileTab = "forecast";
+  }
   pruneHistory();
   ensureCurrentMonthBuckets(state);
   const forecast = computeForecast(state);
@@ -309,6 +330,56 @@ function render() {
   renderBucketHistory();
   syncScenarioOptions();
   syncCategoryOptions();
+  applyMobileLayout();
+}
+
+function setMobileTab(tab) {
+  if (!["forecast", "plans", "more"].includes(tab) || state.ui.mobileTab === tab) return;
+  state.ui.mobileTab = tab;
+  persist();
+  render();
+  window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+}
+
+function handleViewportChange() {
+  applyMobileLayout();
+}
+
+function isMobileViewport() {
+  return window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT}px)`).matches;
+}
+
+function applyMobileLayout() {
+  const isMobile = isMobileViewport();
+  const activeTab = state.ui.mobileTab || "forecast";
+  const sections = [
+    { element: elements.forecastOverview, tabs: ["forecast"] },
+    { element: elements.timelinePanel, tabs: ["forecast"] },
+    { element: elements.sidebarStack, tabs: ["plans", "more"] },
+    { element: elements.budgetsShell, tabs: ["more"] },
+    { element: elements.plansShell, tabs: ["plans"] },
+    { element: elements.templatesShell, tabs: ["more"] },
+    { element: elements.bucketHistoryShell, tabs: ["more"] },
+    { element: elements.historyShell, tabs: ["more"] }
+  ];
+
+  elements.mobileNav.hidden = !isMobile;
+  elements.appShell.dataset.mobileTab = isMobile ? activeTab : "";
+
+  sections.forEach(({ element, tabs }) => {
+    if (!element) return;
+    element.hidden = isMobile ? !tabs.includes(activeTab) : false;
+  });
+
+  if (elements.plansPanel && isMobile) {
+    elements.plansPanel.open = activeTab === "plans";
+  }
+
+  elements.mobileNavButtons.forEach((button) => {
+    const isActive = button.dataset.mobileTabTarget === activeTab;
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-pressed", isActive ? "true" : "false");
+  });
 }
 
 function renderUndoBanner() {
