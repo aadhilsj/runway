@@ -202,6 +202,12 @@ function attachEventListeners() {
     if (authUser) void refreshRemoteState();
   });
   window.addEventListener("resize", handleViewportChange);
+
+  [elements.entryModal, elements.scenarioModal, elements.settingsModal].forEach((modal) => {
+    modal.addEventListener("click", (event) => {
+      if (event.target === modal) modal.close();
+    });
+  });
 }
 
 async function bootstrap() {
