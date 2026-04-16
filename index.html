@@ -33,12 +33,12 @@
     </button>
   </div>
   <main class="app-shell" id="app-shell">
-    <div class="top-utility-bar">
-      <span class="sync-status" id="sync-badge">Local cache</span>
-      <button class="ghost-button small" id="sign-out-button" type="button">Sign out</button>
-    </div>
-    <header class="hero">
+    <header class="hero" id="hero-section">
       <div>
+        <div class="hero-meta-row">
+          <span class="sync-status" id="sync-badge">Local cache</span>
+          <button class="ghost-button small text-button" id="sign-out-button" type="button">Sign out</button>
+        </div>
         <p class="eyebrow">Forecast-first money planning</p>
         <h1>Runway</h1>
         <p class="hero-copy">
@@ -50,7 +50,7 @@
       </div>
     </header>
 
-    <section class="top-grid">
+    <section class="top-grid" id="forecast-overview">
       <article class="panel balance-panel">
         <div class="panel-heading">
           <span class="section-label">Primary account</span>
@@ -103,7 +103,7 @@
     </section>
 
     <section class="main-grid">
-      <article class="panel timeline-panel">
+      <article class="panel timeline-panel" id="timeline-panel">
         <div class="panel-heading panel-heading-stack">
           <div>
             <span class="section-label">Forecast timeline</span>
@@ -117,8 +117,8 @@
         <div id="timeline-list" class="timeline-list"></div>
       </article>
 
-      <aside class="sidebar-stack">
-        <article class="panel">
+      <aside class="sidebar-stack" id="sidebar-stack">
+        <article class="panel" id="budgets-shell">
           <details class="collapsible-panel" id="budgets-panel">
             <summary class="panel-summary">
               <div>
@@ -143,7 +143,7 @@
           </details>
         </article>
 
-        <article class="panel">
+        <article class="panel" id="plans-shell">
           <details class="collapsible-panel" id="plans-panel">
             <summary class="panel-summary">
               <div>
@@ -160,7 +160,7 @@
           </details>
         </article>
 
-        <article class="panel">
+        <article class="panel" id="templates-shell">
           <details class="collapsible-panel" id="templates-panel">
             <summary class="panel-summary">
               <div>
@@ -174,7 +174,7 @@
           </details>
         </article>
 
-        <article class="panel">
+        <article class="panel" id="bucket-history-shell">
           <details class="collapsible-panel" id="bucket-history-panel">
             <summary class="panel-summary">
               <div>
@@ -188,7 +188,7 @@
           </details>
         </article>
 
-        <article class="panel">
+        <article class="panel" id="history-shell">
           <details class="collapsible-panel" id="history-panel">
             <summary class="panel-summary">
               <div>
@@ -204,6 +204,11 @@
       </aside>
     </section>
   </main>
+  <nav class="mobile-nav" id="mobile-nav" aria-label="Sections">
+    <button class="mobile-nav-button is-active" type="button" data-mobile-tab-target="forecast">Forecast</button>
+    <button class="mobile-nav-button" type="button" data-mobile-tab-target="plans">Plans</button>
+    <button class="mobile-nav-button" type="button" data-mobile-tab-target="more">More</button>
+  </nav>
 
   <dialog class="modal" id="entry-modal">
     <form method="dialog" class="modal-card" id="entry-form">
