@@ -41,6 +41,45 @@ body {
     linear-gradient(180deg, #f7f1e8 0%, #efe5d8 100%);
 }
 
+.auth-shell {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 100vw;
+  min-height: 100dvh;
+  padding: 20px;
+  background: rgba(247, 241, 232, 0.96);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.auth-shell.is-visible {
+  display: flex;
+}
+
+.auth-card {
+  width: min(460px, calc(100vw - 24px));
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xl);
+  background: rgba(255, 248, 240, 0.98);
+  box-shadow: var(--shadow);
+}
+
+.app-shell.is-auth-blocked {
+  pointer-events: none;
+  user-select: none;
+  filter: blur(2px);
+  opacity: 0.35;
+}
+
+body.auth-required {
+  overflow: hidden;
+}
+
 .undo-banner {
   position: fixed;
   right: 18px;
@@ -136,6 +175,18 @@ h3 {
   font-size: 1rem;
   line-height: 1.6;
   color: var(--muted);
+}
+
+.sync-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 9px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.6);
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
 }
 
 .top-grid {
