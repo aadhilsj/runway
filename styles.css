@@ -121,6 +121,10 @@ textarea {
   display: none;
 }
 
+.mobile-fab {
+  display: none;
+}
+
 .hero,
 .top-grid,
 .main-grid {
@@ -202,6 +206,10 @@ h3 {
   justify-content: flex-end;
 }
 
+.clarity-toggle {
+  display: none;
+}
+
 .text-button {
   min-height: auto;
   padding: 0;
@@ -214,6 +222,7 @@ h3 {
 .text-button:hover {
   color: var(--text);
   background: transparent;
+  transform: none;
 }
 
 .text-button:focus-visible {
@@ -385,6 +394,13 @@ h3 {
 .timeline-main {
   display: grid;
   gap: 4px;
+  min-width: 0;
+}
+
+.timeline-side {
+  display: grid;
+  justify-items: end;
+  gap: 8px;
 }
 
 .timeline-title {
@@ -732,6 +748,7 @@ textarea {
   display: grid;
   gap: 8px;
   margin-bottom: 14px;
+  min-width: 0;
 }
 
 .field span {
@@ -740,6 +757,10 @@ textarea {
 
 .field-grid {
   grid-template-columns: 1fr 1fr;
+}
+
+.field-grid > * {
+  min-width: 0;
 }
 
 .checkbox-field {
@@ -787,6 +808,10 @@ textarea {
     justify-content: flex-start;
   }
 
+  .hero-actions {
+    display: none;
+  }
+
   .panel {
     padding: 14px;
     border-radius: 20px;
@@ -815,6 +840,7 @@ textarea {
   select,
   textarea {
     min-height: 40px;
+    max-width: 100%;
   }
 
   input,
@@ -854,21 +880,27 @@ textarea {
   }
 
   .date-card {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
+    display: flex;
     align-items: center;
-    gap: 8px 12px;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px 10px;
     padding: 12px;
   }
 
   .date-card label {
     margin-bottom: 0;
-    font-size: 0.95rem;
+    font-size: 0.92rem;
   }
 
   .date-card input {
-    min-height: 38px;
-    padding: 8px 10px;
+    width: auto;
+    min-width: 0;
+    min-height: 34px;
+    max-width: 170px;
+    padding: 6px 10px;
+    border-radius: 10px;
+    text-align: center;
   }
 
   .date-card .subtle-copy {
@@ -892,6 +924,7 @@ textarea {
   }
 
   .timeline-top {
+    align-items: start;
     gap: 8px;
   }
 
@@ -917,6 +950,11 @@ textarea {
     font-size: 0.96rem;
   }
 
+  .timeline-side {
+    flex: 0 0 auto;
+    gap: 4px;
+  }
+
   .chip-row {
     gap: 6px;
   }
@@ -927,21 +965,21 @@ textarea {
   }
 
   .timeline-bottom {
-    display: grid;
-    gap: 8px;
+    margin-top: -2px;
   }
 
-  .timeline-bottom .button-row {
+  .timeline-actions {
     display: flex;
     flex-direction: row;
     flex-wrap: wrap;
-    gap: 12px;
+    justify-content: flex-end;
+    gap: 10px;
   }
 
-  .timeline-bottom .ghost-button.small {
+  .timeline-actions .ghost-button.small {
     min-height: auto;
     padding: 0;
-    font-size: 0.8rem;
+    font-size: 0.74rem;
     border: 0;
     border-radius: 0;
     background: transparent;
@@ -986,6 +1024,9 @@ textarea {
   .hero-meta-row .text-button {
     min-height: auto;
     padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
   }
 
   .balance-panel .panel-heading .ghost-button,
@@ -1032,6 +1073,84 @@ textarea {
   .mobile-nav-button.is-active {
     background: rgba(181, 92, 51, 0.12);
     color: var(--accent-strong);
+  }
+
+  .mobile-fab {
+    position: fixed;
+    right: 16px;
+    bottom: 86px;
+    z-index: 41;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border: 0;
+    border-radius: 999px;
+    background: var(--accent);
+    color: #fff9f2;
+    font-size: 1.6rem;
+    line-height: 1;
+    box-shadow: 0 14px 32px rgba(62, 39, 15, 0.22);
+  }
+
+  .clarity-toggle {
+    display: inline-flex;
+  }
+
+  .summary-panel .panel-heading {
+    margin-bottom: 0;
+  }
+
+  .summary-panel #clarity-panel-body[hidden] {
+    display: none;
+  }
+
+  .modal-card {
+    width: min(100vw - 16px, 560px);
+    padding: 16px;
+    border-radius: 22px;
+  }
+
+  .modal-card input,
+  .modal-card select,
+  .modal-card textarea {
+    max-width: 100%;
+  }
+
+  .modal-header {
+    margin-bottom: 12px;
+  }
+
+  .field {
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+
+  .field span {
+    font-size: 0.92rem;
+  }
+
+  .field-grid {
+    gap: 10px;
+  }
+
+  .plan-builder {
+    margin-top: 10px;
+    padding-top: 10px;
+  }
+
+  .plan-builder .compact-heading {
+    margin-bottom: 8px;
+  }
+
+  .plan-builder h2 {
+    font-size: 1.05rem;
+  }
+
+  #scenario-event-notes,
+  #entry-notes {
+    min-height: 38px;
   }
 
   .undo-banner {
