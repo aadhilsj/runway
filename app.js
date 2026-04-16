@@ -361,7 +361,7 @@ function renderClarityPanel() {
   const isExpanded = !isMobile || state.ui.clarityExpanded;
   elements.clarityPanelBody.hidden = !isExpanded;
   elements.clarityToggleButton.hidden = !isMobile || state.ui.mobileTab !== "forecast";
-  elements.clarityToggleButton.textContent = isExpanded ? "Hide" : "Show";
+  elements.clarityToggleButton.textContent = isExpanded ? "−" : "+";
   elements.clarityToggleButton.setAttribute("aria-expanded", isExpanded ? "true" : "false");
 }
 
