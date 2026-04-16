@@ -11,6 +11,21 @@
 </head>
 <body>
   <div class="background"></div>
+  <section class="auth-shell" id="auth-shell" hidden>
+    <form class="auth-card" id="auth-form">
+      <p class="eyebrow">Secure sync</p>
+      <h2>Sign in to Runway</h2>
+      <p class="hero-copy">Use a magic link so the same data stays synced across desktop and mobile.</p>
+      <label class="field">
+        <span>Email</span>
+        <input id="auth-email" type="email" placeholder="you@example.com" required>
+      </label>
+      <div class="button-row">
+        <button class="primary-button" type="submit" id="auth-submit">Send magic link</button>
+      </div>
+      <p class="subtle-copy" id="auth-message"></p>
+    </form>
+  </section>
   <div class="undo-banner" id="undo-banner" aria-hidden="true">
     <button class="ghost-button small undo-pill" id="undo-button">
       <span id="undo-message"></span>
@@ -26,7 +41,11 @@
           A fast personal cash planner for seeing what your balance looks like after the decisions you are considering.
         </p>
       </div>
-      <button class="primary-button" id="open-entry-modal">Quick Add</button>
+      <div class="button-row">
+        <span class="sync-badge" id="sync-badge">Local cache</span>
+        <button class="ghost-button" id="sign-out-button" type="button">Sign out</button>
+        <button class="primary-button" id="open-entry-modal">Quick Add</button>
+      </div>
     </header>
 
     <section class="top-grid">
@@ -338,6 +357,8 @@
     </form>
   </dialog>
 
+  <script src="./config.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="./app.js"></script>
 </body>
 </html>
