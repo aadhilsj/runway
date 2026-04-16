@@ -831,7 +831,6 @@ textarea {
   }
 
   .toolbar,
-  .button-row,
   .quick-add-inline,
   .modal-actions {
     flex-direction: column;
@@ -1054,6 +1053,7 @@ textarea {
     background: transparent;
     color: var(--accent-strong);
     box-shadow: none;
+    font-size: 0.78rem;
   }
 
   .balance-panel .panel-heading {
@@ -1120,6 +1120,19 @@ textarea {
 
   .clarity-toggle {
     display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    min-height: unset;
+    padding: 0;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.6);
+    color: var(--muted);
+    font-weight: 700;
+    font-size: 1rem;
+    box-shadow: none;
   }
 
   .summary-panel .panel-heading {
