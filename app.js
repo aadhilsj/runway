@@ -64,6 +64,7 @@ let authUser = null;
 let lastRemoteUpdatedAt = null;
 
 const elements = {
+  appShell: document.querySelector("#app-shell"),
   authShell: document.querySelector("#auth-shell"),
   authForm: document.querySelector("#auth-form"),
   authEmail: document.querySelector("#auth-email"),
@@ -184,14 +185,16 @@ async function bootstrap() {
   updateAuthUI();
   if (!supabaseClient) {
     elements.authMessage.textContent = "Supabase config is missing.";
-    elements.authShell.hidden = false;
+    elements.authShell.classList.add("is-visible");
+    elements.authShell.setAttribute("aria-hidden", "false");
     return;
   }
 
   const { data, error } = await supabaseClient.auth.getSession();
   if (error) {
     elements.authMessage.textContent = "Unable to restore session.";
-    elements.authShell.hidden = false;
+    elements.authShell.classList.add("is-visible");
+    elements.authShell.setAttribute("aria-hidden", "false");
     return;
   }
 
@@ -252,7 +255,10 @@ async function handleSignOut() {
 
 function updateAuthUI() {
   const signedIn = Boolean(authUser);
-  elements.authShell.hidden = signedIn;
+  elements.authShell.classList.toggle("is-visible", !signedIn);
+  elements.authShell.setAttribute("aria-hidden", signedIn ? "true" : "false");
+  elements.appShell.classList.toggle("is-auth-blocked", !signedIn);
+  document.body.classList.toggle("auth-required", !signedIn);
   elements.signOutButton.hidden = !signedIn;
   elements.openEntryModal.disabled = !signedIn;
   elements.quickAddButton.disabled = !signedIn;
