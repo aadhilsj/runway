@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Runway</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="background"></div>
+  <div class="undo-banner" id="undo-banner" aria-hidden="true">
+    <button class="ghost-button small undo-pill" id="undo-button">
+      <span id="undo-message"></span>
+      <span>Undo</span>
+    </button>
+  </div>
+  <main class="app-shell">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">Forecast-first money planning</p>
+        <h1>Runway</h1>
+        <p class="hero-copy">
+          A fast personal cash planner for seeing what your balance looks like after the decisions you are considering.
+        </p>
+      </div>
+      <button class="primary-button" id="open-entry-modal">Quick Add</button>
+    </header>
+
+    <section class="top-grid">
+      <article class="panel balance-panel">
+        <div class="panel-heading">
+          <span class="section-label">Primary account</span>
+          <button class="ghost-button" id="edit-balance-button">Edit balance</button>
+        </div>
+        <div class="balance-stack">
+          <div>
+            <p class="metric-label">Current balance</p>
+            <p class="metric-value" id="current-balance-value"></p>
+          </div>
+          <div>
+            <p class="metric-label">Projected on selected date</p>
+            <p class="metric-value accent" id="selected-balance-value"></p>
+          </div>
+        </div>
+        <div class="date-card">
+          <label for="selected-date">Forecast date</label>
+          <input id="selected-date" type="date">
+          <p id="selected-date-caption" class="subtle-copy"></p>
+        </div>
+      </article>
+
+      <article class="panel summary-panel">
+        <div class="panel-heading">
+          <span class="section-label">Clarity</span>
+        </div>
+        <div class="summary-grid">
+          <div class="summary-item">
+            <p class="metric-label" id="thirty-day-label">Balance in 30 days</p>
+            <p class="summary-value" id="thirty-day-value"></p>
+          </div>
+          <div class="summary-item">
+            <p class="metric-label" id="lowest-balance-label">Lowest projected point</p>
+            <p class="summary-value" id="lowest-balance-value"></p>
+          </div>
+          <div class="summary-item">
+            <p class="metric-label" id="month-end-label">Month end</p>
+            <p class="summary-value" id="month-end-value"></p>
+          </div>
+          <div class="summary-item">
+            <p class="metric-label">Warning floor</p>
+            <div class="warning-row">
+              <p class="summary-value" id="warning-threshold-value"></p>
+              <button class="ghost-button small" id="edit-threshold-button">Adjust</button>
+            </div>
+          </div>
+        </div>
+        <div class="warning-banner" id="warning-banner" hidden></div>
+      </article>
+    </section>
+
+    <section class="main-grid">
+      <article class="panel timeline-panel">
+        <div class="panel-heading panel-heading-stack">
+          <div>
+            <span class="section-label">Forecast timeline</span>
+            <h2>Upcoming money events</h2>
+          </div>
+        </div>
+        <div class="quick-add-inline">
+          <input id="quick-add-input" type="text" placeholder="Quick add idea: Rent 1450 1 May">
+          <button class="primary-button small" id="quick-add-button">Add</button>
+        </div>
+        <div id="timeline-list" class="timeline-list"></div>
+      </article>
+
+      <aside class="sidebar-stack">
+        <article class="panel">
+          <details class="collapsible-panel" id="budgets-panel">
+            <summary class="panel-summary">
+              <div>
+                <span class="section-label">Flexible budgets</span>
+                <h2>Groceries and miscellaneous</h2>
+              </div>
+            </summary>
+            <div class="panel-section-spaced">
+              <div id="bucket-list" class="bucket-grid"></div>
+              <div class="insight-grid">
+                <div class="summary-item">
+                  <p class="metric-label">Settled this month</p>
+                  <p class="summary-value" id="settled-spend-value"></p>
+                </div>
+                <div class="summary-item">
+                  <p class="metric-label">Against plan</p>
+                  <p class="summary-value" id="variance-value"></p>
+                </div>
+              </div>
+              <div id="category-breakdown" class="breakdown-list"></div>
+            </div>
+          </details>
+        </article>
+
+        <article class="panel">
+          <details class="collapsible-panel" id="plans-panel">
+            <summary class="panel-summary">
+              <div>
+                <span class="section-label">Scenarios</span>
+                <h2>Plans and toggles</h2>
+              </div>
+            </summary>
+            <div class="panel-section-spaced">
+              <div class="button-row">
+                <button class="ghost-button small" id="new-scenario-button">New plan</button>
+              </div>
+              <div id="scenario-list" class="scenario-list"></div>
+            </div>
+          </details>
+        </article>
+
+        <article class="panel">
+          <details class="collapsible-panel" id="templates-panel">
+            <summary class="panel-summary">
+              <div>
+                <span class="section-label">Templates</span>
+                <h2>Fast re-use</h2>
+              </div>
+            </summary>
+            <div class="panel-section-spaced">
+              <div id="template-list" class="template-list"></div>
+            </div>
+          </details>
+        </article>
+
+        <article class="panel">
+          <details class="collapsible-panel" id="bucket-history-panel">
+            <summary class="panel-summary">
+              <div>
+                <span class="section-label">Bucket history</span>
+                <h2>Month-to-month variance</h2>
+              </div>
+            </summary>
+            <div class="panel-section-spaced">
+              <div id="bucket-history-list" class="history-list"></div>
+            </div>
+          </details>
+        </article>
+
+        <article class="panel">
+          <details class="collapsible-panel" id="history-panel">
+            <summary class="panel-summary">
+              <div>
+                <span class="section-label">History</span>
+                <h2>Recent actions</h2>
+              </div>
+            </summary>
+            <div class="panel-section-spaced">
+              <div id="history-list" class="history-list"></div>
+            </div>
+          </details>
+        </article>
+      </aside>
+    </section>
+  </main>
+
+  <dialog class="modal" id="entry-modal">
+    <form method="dialog" class="modal-card" id="entry-form">
+      <div class="modal-header">
+        <div>
+          <p class="section-label">Event</p>
+          <h3 id="entry-modal-title">Add money event</h3>
+        </div>
+        <button class="ghost-button small" type="button" id="close-entry-modal">Close</button>
+      </div>
+
+      <input type="hidden" id="entry-id">
+
+      <label class="field">
+        <span>Label</span>
+        <input id="entry-label" type="text" placeholder="Salary, rent, groceries, flight">
+      </label>
+
+      <div class="field-grid">
+        <label class="field">
+          <span>Amount</span>
+          <input id="entry-amount" type="number" step="0.01" placeholder="-850 or 2500">
+        </label>
+        <label class="field">
+          <span>Date</span>
+          <input id="entry-date" type="date">
+        </label>
+      </div>
+
+      <div class="field-grid">
+        <label class="field">
+          <span>Scenario</span>
+          <select id="entry-scenario"></select>
+        </label>
+        <label class="field">
+          <span>Category</span>
+          <select id="entry-category"></select>
+        </label>
+      </div>
+
+      <div class="field-grid">
+        <label class="field checkbox-field">
+          <span>Settled</span>
+          <input id="entry-settled" type="checkbox">
+        </label>
+        <label class="field">
+          <span>Actual amount</span>
+          <input id="entry-actual-amount" type="number" step="0.01" placeholder="Optional actual amount">
+        </label>
+      </div>
+
+      <label class="field">
+        <span>Notes</span>
+        <textarea id="entry-notes" rows="3" placeholder="Optional context"></textarea>
+      </label>
+
+      <div class="modal-actions">
+        <button class="ghost-button" type="button" id="delete-entry-button" hidden>Delete</button>
+        <button class="primary-button" type="submit">Save event</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog class="modal" id="scenario-modal">
+    <form method="dialog" class="modal-card" id="scenario-form">
+      <div class="modal-header">
+        <div>
+          <p class="section-label">Scenario</p>
+          <h3 id="scenario-modal-title">Create plan</h3>
+        </div>
+        <button class="ghost-button small" type="button" id="close-scenario-modal">Close</button>
+      </div>
+
+      <input type="hidden" id="scenario-id">
+
+      <label class="field">
+        <span>Name</span>
+        <input id="scenario-name" type="text" placeholder="Morocco trip, new laptop, summer move">
+      </label>
+
+      <label class="field">
+        <span>Description</span>
+        <textarea id="scenario-description" rows="3" placeholder="Optional note about what this plan includes"></textarea>
+      </label>
+
+      <div class="plan-builder">
+        <div class="panel-heading panel-heading-stack compact-heading">
+          <div>
+            <span class="section-label">Plan items</span>
+            <h2>Add costs inside this plan</h2>
+          </div>
+        </div>
+
+        <div class="field-grid">
+          <label class="field">
+            <span>Label</span>
+            <input id="scenario-event-label" type="text" placeholder="Flight, hotel, daily food">
+          </label>
+          <label class="field">
+            <span>Amount</span>
+            <input id="scenario-event-amount" type="number" step="0.01" placeholder="-2400">
+          </label>
+        </div>
+
+        <div class="field-grid">
+          <label class="field">
+            <span>Date</span>
+            <input id="scenario-event-date" type="date">
+          </label>
+          <label class="field">
+            <span>Category</span>
+            <select id="scenario-event-category"></select>
+          </label>
+        </div>
+
+        <label class="field">
+          <span>Notes</span>
+          <input id="scenario-event-notes" type="text" placeholder="Optional context for this plan item">
+        </label>
+
+        <div class="button-row">
+          <button class="ghost-button small" type="button" id="add-scenario-event-button">Add item to plan</button>
+        </div>
+
+        <div id="scenario-events-list" class="history-list"></div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="ghost-button" type="button" id="delete-scenario-button" hidden>Delete plan</button>
+        <button class="primary-button" type="submit">Save plan</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog class="modal" id="settings-modal">
+    <form method="dialog" class="modal-card" id="settings-form">
+      <div class="modal-header">
+        <div>
+          <p class="section-label">Settings</p>
+          <h3 id="settings-title">Update value</h3>
+        </div>
+        <button class="ghost-button small" type="button" id="close-settings-modal">Close</button>
+      </div>
+
+      <label class="field">
+        <span id="settings-label">Value</span>
+        <input id="settings-value" type="number" step="0.01">
+      </label>
+
+      <div class="modal-actions">
+        <button class="primary-button" type="submit">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="./app.js"></script>
+</body>
+</html>

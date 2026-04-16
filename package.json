@@ -1,0 +1,8 @@
+{
+  "name": "runway-mvp",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "start": "node -e \"require('http').createServer((req,res)=>{const fs=require('fs');const path=require('path');const root=process.cwd();let file=req.url==='/'?'index.html':req.url.slice(1);file=path.join(root,file);fs.readFile(file,(err,data)=>{if(err){res.statusCode=404;return res.end('Not found')}const ext=path.extname(file);const types={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'application/javascript; charset=utf-8','.json':'application/json; charset=utf-8'};res.setHeader('Content-Type',types[ext]||'text/plain; charset=utf-8');res.end(data)})}).listen(3001,()=>console.log('http://localhost:3001'))\""
+  }
+}
