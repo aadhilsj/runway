@@ -32,6 +32,7 @@ const defaultState = {
   ui: {
     selectedDate: localISODate(new Date()),
     mobileTab: "forecast",
+    clarityExpanded: false,
     undoNotice: null,
     history: []
   },
@@ -85,6 +86,8 @@ const elements = {
   thirtyDayLabel: document.querySelector("#thirty-day-label"),
   lowestBalanceLabel: document.querySelector("#lowest-balance-label"),
   monthEndLabel: document.querySelector("#month-end-label"),
+  clarityPanelBody: document.querySelector("#clarity-panel-body"),
+  clarityToggleButton: document.querySelector("#clarity-toggle-button"),
   warningThresholdValue: document.querySelector("#warning-threshold-value"),
   settledSpendValue: document.querySelector("#settled-spend-value"),
   varianceValue: document.querySelector("#variance-value"),
@@ -106,6 +109,7 @@ const elements = {
   templateList: document.querySelector("#template-list"),
   historyList: document.querySelector("#history-list"),
   openEntryModal: document.querySelector("#open-entry-modal"),
+  mobileFab: document.querySelector("#mobile-fab"),
   closeEntryModal: document.querySelector("#close-entry-modal"),
   entryModal: document.querySelector("#entry-modal"),
   entryForm: document.querySelector("#entry-form"),
@@ -161,6 +165,7 @@ function attachEventListeners() {
   elements.authForm.addEventListener("submit", handleAuthSubmit);
   elements.undoButton.addEventListener("click", handleUndo);
   elements.openEntryModal.addEventListener("click", () => openEntryModal());
+  elements.mobileFab.addEventListener("click", () => openEntryModal());
   elements.closeEntryModal.addEventListener("click", () => elements.entryModal.close());
   elements.entryForm.addEventListener("submit", handleEntrySubmit);
   elements.deleteEntryButton.addEventListener("click", handleEntryDelete);
@@ -186,6 +191,7 @@ function attachEventListeners() {
 
   elements.editBalanceButton.addEventListener("click", () => openSettingsModal("balance"));
   elements.editThresholdButton.addEventListener("click", () => openSettingsModal("threshold"));
+  elements.clarityToggleButton.addEventListener("click", handleClarityToggle);
   elements.closeSettingsModal.addEventListener("click", () => elements.settingsModal.close());
   elements.settingsForm.addEventListener("submit", handleSettingsSubmit);
   elements.signOutButton.addEventListener("click", handleSignOut);
@@ -279,6 +285,7 @@ function updateAuthUI() {
   document.body.classList.toggle("auth-required", !signedIn);
   elements.signOutButton.hidden = !signedIn;
   elements.openEntryModal.disabled = !signedIn;
+  elements.mobileFab.disabled = !signedIn;
   elements.quickAddButton.disabled = !signedIn;
   elements.syncBadge.textContent = signedIn ? "Syncing with Supabase" : "Sign in required";
 }
@@ -286,6 +293,9 @@ function updateAuthUI() {
 function render() {
   if (!state.ui.mobileTab) {
     state.ui.mobileTab = "forecast";
+  }
+  if (typeof state.ui.clarityExpanded !== "boolean") {
+    state.ui.clarityExpanded = false;
   }
   pruneHistory();
   ensureCurrentMonthBuckets(state);
@@ -318,6 +328,7 @@ function render() {
       : "";
   elements.selectedDate.value = selectedDate;
   elements.selectedDateCaption.textContent = buildSelectedDateCaption(selectedDate, balanceOnSelectedDate);
+  renderClarityPanel();
 
   renderUndoBanner();
   renderWarning(forecast.lowestBalance);
@@ -331,6 +342,21 @@ function render() {
   syncScenarioOptions();
   syncCategoryOptions();
   applyMobileLayout();
+}
+
+function handleClarityToggle() {
+  state.ui.clarityExpanded = !state.ui.clarityExpanded;
+  persist();
+  render();
+}
+
+function renderClarityPanel() {
+  const isMobile = isMobileViewport();
+  const isExpanded = !isMobile || state.ui.clarityExpanded;
+  elements.clarityPanelBody.hidden = !isExpanded;
+  elements.clarityToggleButton.hidden = !isMobile || state.ui.mobileTab !== "forecast";
+  elements.clarityToggleButton.textContent = isExpanded ? "Hide" : "Show";
+  elements.clarityToggleButton.setAttribute("aria-expanded", isExpanded ? "true" : "false");
 }
 
 function setMobileTab(tab) {
@@ -365,6 +391,8 @@ function applyMobileLayout() {
 
   elements.mobileNav.hidden = !isMobile;
   elements.appShell.dataset.mobileTab = isMobile ? activeTab : "";
+  elements.mobileFab.hidden = !isMobile || activeTab !== "forecast";
+  elements.openEntryModal.hidden = isMobile;
 
   sections.forEach(({ element, tabs }) => {
     if (!element) return;
@@ -433,7 +461,17 @@ function renderTimeline(timeline) {
             <p class="timeline-title">${escapeHTML(event.label)}</p>
             <p class="timeline-meta">${formatDate(event.date)}${event.notes ? ` • ${escapeHTML(event.notes)}` : ""}</p>
           </div>
-          <p class="timeline-amount ${amountClass}">${formatCurrency(displayAmount)}</p>
+          <div class="timeline-side">
+            <p class="timeline-amount ${amountClass}">${formatCurrency(displayAmount)}</p>
+            ${isBucketEvent ? "" : `
+            <div class="button-row timeline-actions">
+              <button class="ghost-button small" data-action="toggle-settled" data-event-id="${event.id}">
+                ${event.isSettled ? "Mark upcoming" : "Mark settled"}
+              </button>
+              <button class="ghost-button small" data-action="edit-event" data-event-id="${event.id}">Edit</button>
+            </div>
+            `}
+          </div>
         </div>
         <div class="timeline-bottom">
           <div class="chip-row">
@@ -441,14 +479,6 @@ function renderTimeline(timeline) {
             ${event.actualAmount !== null && event.actualAmount !== undefined ? `<span class="chip">Actual: ${formatCurrency(event.actualAmount)}</span>` : ""}
             <span class="chip">After event: ${formatCurrency(item.runningBalance)}</span>
           </div>
-          ${isBucketEvent ? "" : `
-          <div class="button-row">
-            <button class="ghost-button small" data-action="toggle-settled" data-event-id="${event.id}">
-              ${event.isSettled ? "Mark upcoming" : "Mark settled"}
-            </button>
-            <button class="ghost-button small" data-action="edit-event" data-event-id="${event.id}">Edit</button>
-          </div>
-          `}
         </div>
       </section>
     `;
