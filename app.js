@@ -461,7 +461,9 @@ function renderTimeline(timeline) {
             <p class="timeline-title">${escapeHTML(event.label)}</p>
             <p class="timeline-meta">${formatDate(event.date)}${event.notes ? ` • ${escapeHTML(event.notes)}` : ""}</p>
           </div>
-          <div class="timeline-side">
+        </div>
+        <div class="timeline-bottom">
+          <div class="timeline-value-row">
             <p class="timeline-amount ${amountClass}">${formatCurrency(displayAmount)}</p>
             ${isBucketEvent ? "" : `
             <div class="button-row timeline-actions">
@@ -472,8 +474,6 @@ function renderTimeline(timeline) {
             </div>
             `}
           </div>
-        </div>
-        <div class="timeline-bottom">
           <div class="chip-row">
             ${chips}
             ${event.actualAmount !== null && event.actualAmount !== undefined ? `<span class="chip">Actual: ${formatCurrency(event.actualAmount)}</span>` : ""}
