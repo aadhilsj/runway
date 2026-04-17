@@ -74,6 +74,7 @@ const elements = {
   authSubmit: document.querySelector("#auth-submit"),
   authMessage: document.querySelector("#auth-message"),
   heroSection: document.querySelector("#hero-section"),
+  accountShell: document.querySelector("#account-shell"),
   forecastOverview: document.querySelector("#forecast-overview"),
   balancePanel: document.querySelector("#balance-panel"),
   summaryPanel: document.querySelector("#summary-panel"),
@@ -387,6 +388,7 @@ function applyMobileLayout() {
   const isMobile = isMobileViewport();
   const activeTab = state.ui.mobileTab || "forecast";
   const sections = [
+    { element: elements.heroSection, tabs: ["forecast"] },
     { element: elements.balancePanel, tabs: ["forecast", "plans"] },
     { element: elements.summaryPanel, tabs: ["forecast"] },
     { element: elements.timelinePanel, tabs: ["forecast"] },
@@ -395,7 +397,8 @@ function applyMobileLayout() {
     { element: elements.plansShell, tabs: ["plans"] },
     { element: elements.templatesShell, tabs: ["more"] },
     { element: elements.bucketHistoryShell, tabs: ["more"] },
-    { element: elements.historyShell, tabs: ["more"] }
+    { element: elements.historyShell, tabs: ["more"] },
+    { element: elements.accountShell, tabs: ["more"] }
   ];
 
   elements.mobileNav.hidden = !isMobile;
@@ -731,7 +734,10 @@ function openEntryModal(entry = null) {
   syncScenarioOptions(entry?.scenarioId || "");
   syncCategoryOptions(entry?.category || inferCategory(entry?.label || ""));
   elements.entryModal.showModal();
-  requestAnimationFrame(() => elements.entryLabel.focus());
+  requestAnimationFrame(() => {
+    elements.entryLabel.focus({ preventScroll: true });
+    elements.entryLabel.blur();
+  });
 }
 
 function handleEntrySubmit(event) {
@@ -842,7 +848,10 @@ function openPlanModal(scenarioId = null) {
 
   renderPlanEvents();
   elements.scenarioModal.showModal();
-  requestAnimationFrame(() => elements.scenarioName.focus());
+  requestAnimationFrame(() => {
+    elements.scenarioName.focus({ preventScroll: true });
+    elements.scenarioName.blur();
+  });
 }
 
 function handleAddPlanEvent() {
@@ -966,7 +975,10 @@ function openSettingsModal(kind, meta = {}) {
   }
 
   elements.settingsModal.showModal();
-  requestAnimationFrame(() => elements.settingsValue.focus());
+  requestAnimationFrame(() => {
+    elements.settingsValue.focus({ preventScroll: true });
+    elements.settingsValue.blur();
+  });
 }
 
 function handleSettingsSubmit(event) {
