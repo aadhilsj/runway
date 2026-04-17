@@ -1,0 +1,24 @@
+{
+  "name": "Runway",
+  "short_name": "Runway",
+  "description": "A forecast-first personal cash planner for seeing what your balance looks like after the decisions you are considering.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f5efe5",
+  "theme_color": "#f5efe5",
+  "icons": [
+    {
+      "src": "./icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
