@@ -731,6 +731,7 @@ function openEntryModal(entry = null) {
   syncScenarioOptions(entry?.scenarioId || "");
   syncCategoryOptions(entry?.category || inferCategory(entry?.label || ""));
   elements.entryModal.showModal();
+  requestAnimationFrame(() => elements.entryLabel.focus());
 }
 
 function handleEntrySubmit(event) {
@@ -841,6 +842,7 @@ function openPlanModal(scenarioId = null) {
 
   renderPlanEvents();
   elements.scenarioModal.showModal();
+  requestAnimationFrame(() => elements.scenarioName.focus());
 }
 
 function handleAddPlanEvent() {
@@ -964,6 +966,7 @@ function openSettingsModal(kind, meta = {}) {
   }
 
   elements.settingsModal.showModal();
+  requestAnimationFrame(() => elements.settingsValue.focus());
 }
 
 function handleSettingsSubmit(event) {
