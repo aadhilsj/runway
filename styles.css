@@ -810,9 +810,19 @@ textarea {
   }
 
   .hero-meta-row {
-    margin-bottom: 8px;
+    margin-bottom: 4px;
     gap: 10px;
     justify-content: flex-start;
+  }
+
+  .hero .eyebrow,
+  .hero .hero-copy {
+    display: none;
+  }
+
+  .hero h1 {
+    font-size: 2.4rem;
+    margin: 4px 0 8px;
   }
 
   .hero-actions {
@@ -1069,6 +1079,13 @@ textarea {
     grid-template-columns: unset;
   }
 
+  .account-panel-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
   .mobile-nav {
     position: fixed;
     left: 12px;
@@ -1252,6 +1269,13 @@ textarea {
     background: rgba(255, 255, 255, 0.6);
     color: var(--text);
     margin-left: auto;
+  }
+
+  .modal-card input:focus:not(:focus-visible),
+  .modal-card select:focus:not(:focus-visible),
+  .modal-card textarea:focus:not(:focus-visible) {
+    outline: none;
+    box-shadow: none;
   }
 
   .modal-card #close-entry-modal:focus:not(:focus-visible),
