@@ -26,6 +26,10 @@
   box-sizing: border-box;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 html,
 body {
   margin: 0;
@@ -950,6 +954,7 @@ textarea {
 
   .timeline-amount {
     font-size: 0.96rem;
+    flex: 1;
   }
 
   .timeline-side {
@@ -1137,6 +1142,11 @@ textarea {
 
   .summary-panel .panel-heading {
     margin-bottom: 0;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    grid-template-columns: unset;
   }
 
   .summary-panel #clarity-panel-body[hidden] {
