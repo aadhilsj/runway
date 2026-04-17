@@ -75,6 +75,8 @@ const elements = {
   authMessage: document.querySelector("#auth-message"),
   heroSection: document.querySelector("#hero-section"),
   forecastOverview: document.querySelector("#forecast-overview"),
+  balancePanel: document.querySelector("#balance-panel"),
+  summaryPanel: document.querySelector("#summary-panel"),
   undoBanner: document.querySelector("#undo-banner"),
   undoMessage: document.querySelector("#undo-message"),
   undoButton: document.querySelector("#undo-button"),
@@ -385,7 +387,8 @@ function applyMobileLayout() {
   const isMobile = isMobileViewport();
   const activeTab = state.ui.mobileTab || "forecast";
   const sections = [
-    { element: elements.forecastOverview, tabs: ["forecast"] },
+    { element: elements.balancePanel, tabs: ["forecast", "plans"] },
+    { element: elements.summaryPanel, tabs: ["forecast"] },
     { element: elements.timelinePanel, tabs: ["forecast"] },
     { element: elements.sidebarStack, tabs: ["plans", "more"] },
     { element: elements.budgetsShell, tabs: ["more"] },
@@ -518,12 +521,10 @@ function renderScenarios() {
             ${scenario.isIncluded ? "Included" : "Excluded"}
           </button>
         </div>
-        <div class="chip-row">
+        <div class="chip-row scenario-chip-row">
           <span class="chip">${events.length} event${events.length === 1 ? "" : "s"}</span>
           <span class="chip">${formatCurrency(total)}</span>
-        </div>
-        <div class="button-row">
-          <button class="ghost-button small" data-action="open-scenario" data-scenario-id="${scenario.id}">Open plan</button>
+          <button class="ghost-button small scenario-open-btn" data-action="open-scenario" data-scenario-id="${scenario.id}">Open plan</button>
         </div>
       </section>
     `;
