@@ -1165,10 +1165,15 @@ textarea {
   .modal-card select,
   .modal-card textarea {
     max-width: 100%;
-    padding: 8px 11px;
-    font-size: 15px;
+    padding: 7px 10px;
+    font-size: 14px;
     border-radius: 10px;
-    min-height: 36px;
+    min-height: 34px;
+  }
+
+  .modal-card textarea {
+    min-height: 54px;
+    max-height: 80px;
   }
 
   .modal-card .primary-button,
@@ -1194,16 +1199,16 @@ textarea {
   }
 
   .field {
-    gap: 6px;
-    margin-bottom: 10px;
+    gap: 4px;
+    margin-bottom: 8px;
   }
 
   .field span {
-    font-size: 0.92rem;
+    font-size: 0.82rem;
   }
 
   .field-grid {
-    gap: 10px;
+    gap: 8px;
   }
 
   .plan-builder {
@@ -1222,6 +1227,17 @@ textarea {
   #scenario-event-notes,
   #entry-notes {
     min-height: 38px;
+  }
+
+  .scenario-open-btn {
+    min-height: auto !important;
+    padding: 5px 10px !important;
+    font-size: 0.78rem;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.6);
+    color: var(--text);
+    margin-left: auto;
   }
 
   .undo-banner {
