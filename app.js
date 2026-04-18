@@ -65,13 +65,19 @@ let undoTimer = null;
 let supabaseClient = null;
 let authUser = null;
 let lastRemoteUpdatedAt = null;
+let authPendingEmail = null;
 
 const elements = {
   appShell: document.querySelector("#app-shell"),
   authShell: document.querySelector("#auth-shell"),
   authForm: document.querySelector("#auth-form"),
+  authCopy: document.querySelector("#auth-copy"),
   authEmail: document.querySelector("#auth-email"),
+  authCodeField: document.querySelector("#auth-code-field"),
+  authCode: document.querySelector("#auth-code"),
   authSubmit: document.querySelector("#auth-submit"),
+  authChangeEmail: document.querySelector("#auth-change-email"),
+  authSecondaryActions: document.querySelector("#auth-secondary-actions"),
   authMessage: document.querySelector("#auth-message"),
   heroSection: document.querySelector("#hero-section"),
   accountShell: document.querySelector("#account-shell"),
@@ -166,6 +172,7 @@ void bootstrap();
 
 function attachEventListeners() {
   elements.authForm.addEventListener("submit", handleAuthSubmit);
+  elements.authChangeEmail.addEventListener("click", resetAuthStep);
   elements.undoButton.addEventListener("click", handleUndo);
   elements.openEntryModal.addEventListener("click", () => openEntryModal());
   elements.mobileFab.addEventListener("click", () => openEntryModal());
@@ -261,22 +268,49 @@ async function handleAuthSubmit(event) {
   const email = elements.authEmail.value.trim();
   if (!email) return;
 
-  elements.authSubmit.disabled = true;
-  elements.authMessage.textContent = "Sending magic link...";
-  const redirectTarget = window.location.origin.startsWith("http")
-    ? window.location.origin
-    : "https://runway-xi.vercel.app";
-  const { error } = await supabaseClient.auth.signInWithOtp({
-    email,
-    options: {
-      emailRedirectTo: redirectTarget
-    }
-  });
+  if (!authPendingEmail) {
+    elements.authSubmit.disabled = true;
+    elements.authMessage.textContent = "Sending verification code...";
+    const { error } = await supabaseClient.auth.signInWithOtp({
+      email
+    });
 
+    elements.authSubmit.disabled = false;
+    if (error) {
+      elements.authMessage.textContent = `Unable to send code: ${error.message}`;
+      return;
+    }
+
+    authPendingEmail = email;
+    updateAuthStepUI();
+    elements.authMessage.textContent = `Code sent to ${email}. Enter it below to sign in.`;
+    return;
+  }
+
+  const token = elements.authCode.value.trim();
+  if (!token) {
+    elements.authMessage.textContent = "Enter the 6-digit code from your email.";
+    return;
+  }
+
+  elements.authSubmit.disabled = true;
+  elements.authMessage.textContent = "Verifying code...";
+  const { error } = await supabaseClient.auth.verifyOtp({
+    email: authPendingEmail,
+    token,
+    type: "email"
+  });
   elements.authSubmit.disabled = false;
-  elements.authMessage.textContent = error
-    ? "Unable to send magic link."
-    : "Magic link sent. Open it on this device to sign in.";
+
+  if (error) {
+    elements.authMessage.textContent = `Unable to verify code: ${error.message}`;
+    return;
+  }
+
+  elements.authMessage.textContent = "Signed in.";
+  authPendingEmail = null;
+  elements.authCode.value = "";
+  updateAuthStepUI();
 }
 
 async function handleSignOut() {
@@ -297,6 +331,36 @@ function updateAuthUI() {
   elements.mobileFab.disabled = !signedIn;
   elements.quickAddButton.disabled = !signedIn;
   elements.syncBadge.textContent = signedIn ? "Syncing with Supabase" : "Sign in required";
+  if (!signedIn) {
+    if (!authPendingEmail) {
+      elements.authCode.value = "";
+      elements.authMessage.textContent = "";
+    }
+    updateAuthStepUI();
+  }
+}
+
+function updateAuthStepUI() {
+  const isCodeStep = Boolean(authPendingEmail);
+  elements.authCopy.textContent = isCodeStep
+    ? "Enter the one-time code from your email to finish signing in inside this app."
+    : "Use a one-time code so the same data stays synced across desktop and mobile.";
+  elements.authEmail.disabled = isCodeStep;
+  elements.authCodeField.hidden = !isCodeStep;
+  elements.authSecondaryActions.hidden = !isCodeStep;
+  elements.authSubmit.textContent = isCodeStep ? "Verify code" : "Send code";
+  elements.authSubmit.disabled = false;
+  if (isCodeStep) {
+    elements.authCode.focus();
+  }
+}
+
+function resetAuthStep() {
+  authPendingEmail = null;
+  elements.authCode.value = "";
+  elements.authMessage.textContent = "";
+  updateAuthStepUI();
+  elements.authEmail.focus();
 }
 
 function render() {
