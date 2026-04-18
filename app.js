@@ -3,6 +3,7 @@ const SUPABASE_TABLE = "runway_state";
 const HISTORY_WINDOW_HOURS = 12;
 const UNDO_VISIBLE_MS = 3000;
 const MOBILE_BREAKPOINT = 720;
+const BUILD_VERSION = window.RUNWAY_BUILD || "dev";
 const DEFAULT_BUCKET_TEMPLATES = [
   { name: "Groceries", defaultBudget: 1000, isEnabledByDefault: true },
   { name: "Misc", defaultBudget: 1000, isEnabledByDefault: true }
@@ -85,6 +86,8 @@ const elements = {
   authMessage: document.querySelector("#auth-message"),
   heroSection: document.querySelector("#hero-section"),
   accountShell: document.querySelector("#account-shell"),
+  buildVersion: document.querySelector("#build-version"),
+  accountBuildVersion: document.querySelector("#account-build-version"),
   forecastOverview: document.querySelector("#forecast-overview"),
   balancePanel: document.querySelector("#balance-panel"),
   summaryPanel: document.querySelector("#summary-panel"),
@@ -167,6 +170,8 @@ const elements = {
   closeSettingsModal: document.querySelector("#close-settings-modal"),
   signOutButton: document.querySelector("#sign-out-button"),
   syncBadge: document.querySelector("#sync-badge"),
+  updateBanner: document.querySelector("#update-banner"),
+  updateRefreshButton: document.querySelector("#update-refresh-button"),
   plansPanel: document.querySelector("#plans-panel"),
   mobileNav: document.querySelector("#mobile-nav"),
   mobileNavButtons: Array.from(document.querySelectorAll("[data-mobile-tab-target]"))
@@ -218,9 +223,11 @@ function attachEventListeners() {
   elements.closeSettingsModal.addEventListener("click", () => elements.settingsModal.close());
   elements.settingsForm.addEventListener("submit", handleSettingsSubmit);
   elements.signOutButton.addEventListener("click", handleSignOut);
+  elements.updateRefreshButton.addEventListener("click", handleRefreshToUpdate);
   elements.mobileNavButtons.forEach((button) => {
     button.addEventListener("click", () => setMobileTab(button.dataset.mobileTabTarget));
   });
+  window.addEventListener("runway-update-ready", showUpdateBanner);
   window.addEventListener("focus", () => {
     if (authUser) void refreshRemoteState();
   });
@@ -415,6 +422,8 @@ function render() {
       : "";
   elements.selectedDate.value = selectedDate;
   elements.selectedDateCaption.textContent = buildSelectedDateCaption(selectedDate, balanceOnSelectedDate);
+  elements.buildVersion.textContent = BUILD_VERSION;
+  elements.accountBuildVersion.textContent = BUILD_VERSION;
   renderClarityPanel();
 
   renderUndoBanner();
@@ -429,6 +438,20 @@ function render() {
   syncScenarioOptions();
   syncCategoryOptions();
   applyMobileLayout();
+}
+
+function showUpdateBanner() {
+  elements.updateBanner.classList.add("is-visible");
+  elements.updateBanner.setAttribute("aria-hidden", "false");
+}
+
+async function handleRefreshToUpdate() {
+  const registration = await navigator.serviceWorker.getRegistration();
+  if (registration?.waiting) {
+    registration.waiting.postMessage({ type: "SKIP_WAITING" });
+    return;
+  }
+  window.location.reload();
 }
 
 function handleClarityToggle() {
