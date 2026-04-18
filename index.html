@@ -54,6 +54,7 @@
       <div>
         <div class="hero-meta-row">
           <span class="sync-status" id="sync-badge">Local cache</span>
+          <span class="build-badge" id="build-version">v2026.04.18.1</span>
         </div>
         <p class="eyebrow">Forecast-first money planning</p>
         <h1>Runway</h1>
@@ -229,10 +230,15 @@
             <span class="section-label">Account</span>
             <button class="ghost-button small text-button" id="sign-out-button" type="button">Sign out</button>
           </div>
+          <p class="account-helper">Build <span id="account-build-version">v2026.04.18.1</span></p>
         </article>
       </aside>
     </section>
   </main>
+  <div class="update-banner" id="update-banner" aria-hidden="true">
+    <span>New version available</span>
+    <button class="ghost-button small" id="update-refresh-button" type="button">Refresh</button>
+  </div>
   <nav class="mobile-nav" id="mobile-nav" aria-label="Sections">
     <button class="mobile-nav-button is-active" type="button" data-mobile-tab-target="forecast">Forecast</button>
     <button class="mobile-nav-button" type="button" data-mobile-tab-target="plans">Plans</button>
@@ -398,9 +404,36 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="./app.js"></script>
   <script>
+    window.RUNWAY_BUILD = "v2026.04.18.1";
+
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-        navigator.serviceWorker.register("./sw.js").catch(() => {});
+        navigator.serviceWorker.register("./sw.js").then((registration) => {
+          function showUpdateBanner() {
+            window.dispatchEvent(new CustomEvent("runway-update-ready"));
+          }
+
+          if (registration.waiting) {
+            showUpdateBanner();
+          }
+
+          registration.addEventListener("updatefound", () => {
+            const newWorker = registration.installing;
+            if (!newWorker) return;
+            newWorker.addEventListener("statechange", () => {
+              if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
+                showUpdateBanner();
+              }
+            });
+          });
+        }).catch(() => {});
+
+        let hasRefreshedForUpdate = false;
+        navigator.serviceWorker.addEventListener("controllerchange", () => {
+          if (hasRefreshedForUpdate) return;
+          hasRefreshedForUpdate = true;
+          window.location.reload();
+        });
       });
     }
   </script>
