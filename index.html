@@ -10,6 +10,9 @@
   <meta name="apple-mobile-web-app-title" content="Runway">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="description" content="A forecast-first personal cash planner for seeing what your balance looks like after the decisions you are considering.">
+  <script>
+    window.RUNWAY_BUILD = "v2026.04.18.2";
+  </script>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="icon" href="./icon-192.png" sizes="192x192" type="image/png">
@@ -54,16 +57,12 @@
       <div>
         <div class="hero-meta-row">
           <span class="sync-status" id="sync-badge">Local cache</span>
-          <span class="build-badge" id="build-version">v2026.04.18.1</span>
         </div>
         <p class="eyebrow">Forecast-first money planning</p>
         <h1>Runway</h1>
         <p class="hero-copy">
           A fast personal cash planner for seeing what your balance looks like after the decisions you are considering.
         </p>
-      </div>
-      <div class="hero-actions">
-        <button class="primary-button" id="open-entry-modal">Quick Add</button>
       </div>
     </header>
 
@@ -230,7 +229,7 @@
             <span class="section-label">Account</span>
             <button class="ghost-button small text-button" id="sign-out-button" type="button">Sign out</button>
           </div>
-          <p class="account-helper">Build <span id="account-build-version">v2026.04.18.1</span></p>
+          <p class="account-helper"><span id="account-build-version">v2026.04.18.2</span></p>
         </article>
       </aside>
     </section>
@@ -404,8 +403,6 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="./app.js"></script>
   <script>
-    window.RUNWAY_BUILD = "v2026.04.18.1";
-
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
         navigator.serviceWorker.register("./sw.js").then((registration) => {
