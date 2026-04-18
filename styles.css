@@ -269,6 +269,7 @@ h3 {
 
 .top-grid {
   grid-template-columns: 1.1fr 1fr;
+  align-items: start;
   margin-bottom: 18px;
 }
 
@@ -640,6 +641,51 @@ h3 {
   margin-top: 14px;
   padding-top: 14px;
   border-top: 1px solid var(--line);
+}
+
+.bucket-log-details {
+  margin-top: 14px;
+}
+
+.bucket-log-details[open] {
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.bucket-log-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  list-style: none;
+}
+
+.bucket-log-summary::-webkit-details-marker {
+  display: none;
+}
+
+.bucket-log-summary::after {
+  content: "+";
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.55);
+  color: var(--muted);
+  font-size: 0.95rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.bucket-log-details[open] .bucket-log-summary::after {
+  content: "−";
 }
 
 .bucket-entry-list.is-empty {
