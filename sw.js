@@ -1,4 +1,4 @@
-const CACHE_NAME = "runway-pwa-v2";
+const CACHE_NAME = "runway-pwa-v3";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -11,6 +11,18 @@ const APP_SHELL = [
   "./icon-192.png",
   "./icon-512.png"
 ];
+const NETWORK_FIRST = new Set([
+  "./",
+  "./index.html",
+  "./styles.css",
+  "./app.js",
+  "./config.js",
+  "/",
+  "/index.html",
+  "/styles.css",
+  "/app.js",
+  "/config.js"
+]);
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -34,6 +46,27 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
+
+  const url = new URL(event.request.url);
+  const cacheKey = url.origin === self.location.origin ? url.pathname || "/" : event.request.url;
+
+  if (NETWORK_FIRST.has(cacheKey)) {
+    event.respondWith(
+      fetch(event.request)
+        .then((networkResponse) => {
+          const responseClone = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseClone);
+          });
+          return networkResponse;
+        })
+        .catch(async () => {
+          const cachedResponse = await caches.match(event.request);
+          return cachedResponse || caches.match("./index.html");
+        })
+    );
+    return;
+  }
 
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
