@@ -185,7 +185,9 @@ function attachEventListeners() {
   elements.authForm.addEventListener("submit", handleAuthSubmit);
   elements.authChangeEmail.addEventListener("click", resetAuthStep);
   elements.undoButton.addEventListener("click", handleUndo);
-  elements.openEntryModal.addEventListener("click", () => openEntryModal());
+  if (elements.openEntryModal) {
+    elements.openEntryModal.addEventListener("click", () => openEntryModal());
+  }
   elements.mobileFab.addEventListener("click", () => openEntryModal());
   elements.closeEntryModal.addEventListener("click", () => elements.entryModal.close());
   elements.entryForm.addEventListener("submit", handleEntrySubmit);
@@ -347,7 +349,9 @@ function updateAuthUI() {
   elements.appShell.classList.toggle("is-auth-blocked", !signedIn);
   document.body.classList.toggle("auth-required", !signedIn);
   elements.signOutButton.hidden = !signedIn;
-  elements.openEntryModal.disabled = !signedIn;
+  if (elements.openEntryModal) {
+    elements.openEntryModal.disabled = !signedIn;
+  }
   elements.mobileFab.disabled = !signedIn;
   elements.quickAddButton.disabled = !signedIn;
   elements.syncBadge.textContent = signedIn ? "Syncing with Supabase" : "Sign in required";
@@ -422,8 +426,12 @@ function render() {
       : "";
   elements.selectedDate.value = selectedDate;
   elements.selectedDateCaption.textContent = buildSelectedDateCaption(selectedDate, balanceOnSelectedDate);
-  elements.buildVersion.textContent = BUILD_VERSION;
-  elements.accountBuildVersion.textContent = BUILD_VERSION;
+  if (elements.buildVersion) {
+    elements.buildVersion.textContent = BUILD_VERSION;
+  }
+  if (elements.accountBuildVersion) {
+    elements.accountBuildVersion.textContent = BUILD_VERSION;
+  }
   renderClarityPanel();
 
   renderUndoBanner();
@@ -505,7 +513,9 @@ function applyMobileLayout() {
   elements.mobileNav.hidden = !isMobile;
   elements.appShell.dataset.mobileTab = isMobile ? activeTab : "";
   elements.mobileFab.hidden = !isMobile || activeTab !== "forecast";
-  elements.openEntryModal.hidden = isMobile;
+  if (elements.openEntryModal) {
+    elements.openEntryModal.hidden = isMobile;
+  }
 
   sections.forEach(({ element, tabs }) => {
     if (!element) return;
