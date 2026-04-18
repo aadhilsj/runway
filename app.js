@@ -706,6 +706,7 @@ function renderBuckets() {
     const bucket = monthBuckets[category];
     const spent = bucket.entries.reduce((sum, entry) => sum + entry.amount, 0);
     const remaining = bucket.budgeted - spent;
+    const entryCountLabel = `${bucket.entries.length} ${bucket.entries.length === 1 ? "entry" : "entries"}`;
     const entryRows = [...bucket.entries]
       .sort((left, right) => right.date.localeCompare(left.date))
       .slice(0, 4)
@@ -749,7 +750,7 @@ function renderBuckets() {
           </div>
         </div>
         <div class="chip-row bucket-meta-row">
-          <span class="chip">${bucket.entries.length} ${bucket.entries.length === 1 ? "entry" : "entries"}</span>
+          <span class="chip">${entryCountLabel}</span>
           <span class="chip ${bucket.isActive ? "positive" : ""}">${bucket.isActive ? "Active this month" : "Hidden this month"}</span>
         </div>
         <p class="bucket-helper">${bucket.isActive ? `Forecast impact this month: ${formatCurrency(Math.max(remaining, 0))} remaining.` : "This bucket is hidden from this month’s forecast timeline."}</p>
@@ -757,9 +758,21 @@ function renderBuckets() {
           <input class="bucket-inline-input" type="number" step="10" min="0" placeholder="Log spend" data-action="bucket-spend-input" data-category="${escapeAttribute(category)}">
           <button class="ghost-button small" data-action="log-bucket-spend" data-category="${escapeAttribute(category)}">Add</button>
         </div>
-        <div class="bucket-entry-list ${bucket.entries.length ? "" : "is-empty"}">
-          ${bucket.entries.length ? entryRows : `<p class="bucket-helper">No spend logged for this month yet.</p>`}
-        </div>
+        ${bucket.entries.length ? `
+          <details class="bucket-log-details">
+            <summary class="bucket-log-summary">
+              <span>Log history</span>
+              <span>${entryCountLabel}</span>
+            </summary>
+            <div class="bucket-entry-list">
+              ${entryRows}
+            </div>
+          </details>
+        ` : `
+          <div class="bucket-entry-list is-empty">
+            <p class="bucket-helper">No spend logged for this month yet.</p>
+          </div>
+        `}
         <div class="button-row bucket-footer-actions">
           <button class="ghost-button small text-button" data-action="clear-bucket-month" data-category="${escapeAttribute(category)}">Clear month</button>
         </div>
