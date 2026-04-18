@@ -3,6 +3,10 @@ const SUPABASE_TABLE = "runway_state";
 const HISTORY_WINDOW_HOURS = 12;
 const UNDO_VISIBLE_MS = 3000;
 const MOBILE_BREAKPOINT = 720;
+const DEFAULT_BUCKET_TEMPLATES = [
+  { name: "Groceries", defaultBudget: 1000, isEnabledByDefault: true },
+  { name: "Misc", defaultBudget: 1000, isEnabledByDefault: true }
+];
 const CATEGORY_OPTIONS = [
   "Income",
   "Housing",
@@ -22,7 +26,6 @@ const HISTORY_ACTIONS = new Set([
   "undid"
 ]);
 const UNDOABLE_ACTIONS = new Set(["deleted", "settled", "reopened"]);
-const BUCKET_CATEGORIES = ["Groceries", "Misc"];
 
 const defaultState = {
   account: {
@@ -36,6 +39,7 @@ const defaultState = {
     undoNotice: null,
     history: []
   },
+  bucketTemplates: structuredClone(DEFAULT_BUCKET_TEMPLATES),
   buckets: {},
   scenarios: [
     {
@@ -101,6 +105,8 @@ const elements = {
   settledSpendValue: document.querySelector("#settled-spend-value"),
   varianceValue: document.querySelector("#variance-value"),
   bucketList: document.querySelector("#bucket-list"),
+  newBucketName: document.querySelector("#new-bucket-name"),
+  addBucketButton: document.querySelector("#add-bucket-button"),
   bucketHistoryList: document.querySelector("#bucket-history-list"),
   categoryBreakdown: document.querySelector("#category-breakdown"),
   warningBanner: document.querySelector("#warning-banner"),
@@ -191,6 +197,13 @@ function attachEventListeners() {
     state.ui.selectedDate = elements.selectedDate.value || localISODate(new Date());
     persist();
     render();
+  });
+  elements.addBucketButton.addEventListener("click", handleAddBucket);
+  elements.newBucketName.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      handleAddBucket();
+    }
   });
 
   elements.newScenarioButton.addEventListener("click", () => openPlanModal());
@@ -654,11 +667,24 @@ function renderTemplates() {
 function renderBuckets() {
   const monthKey = currentMonthKey();
   const monthBuckets = state.buckets[monthKey];
+  const bucketNames = getBucketNames(state);
 
-  elements.bucketList.innerHTML = BUCKET_CATEGORIES.map((category) => {
+  elements.bucketList.innerHTML = bucketNames.map((category) => {
     const bucket = monthBuckets[category];
     const spent = bucket.entries.reduce((sum, entry) => sum + entry.amount, 0);
     const remaining = bucket.budgeted - spent;
+    const entryRows = [...bucket.entries]
+      .sort((left, right) => right.date.localeCompare(left.date))
+      .slice(0, 4)
+      .map((entry) => `
+        <div class="bucket-entry-row">
+          <div>
+            <strong>${formatCurrency(entry.amount)}</strong>
+            <p class="bucket-entry-copy">${formatDate(entry.date)}${entry.note ? ` • ${escapeHTML(entry.note)}` : ""}</p>
+          </div>
+          <button class="ghost-button small text-button" data-action="delete-bucket-entry" data-category="${escapeAttribute(category)}" data-entry-id="${entry.id}">Delete</button>
+        </div>
+      `).join("");
 
     return `
       <section class="bucket-card">
@@ -667,7 +693,13 @@ function renderBuckets() {
             <p class="timeline-title">${escapeHTML(category)}</p>
             <p class="template-copy">Budget for ${formatMonthKey(monthKey)}</p>
           </div>
-          <button class="ghost-button small" data-action="edit-bucket-budget" data-category="${category}">Set budget</button>
+          <div class="bucket-header-actions">
+            <label class="bucket-toggle">
+              <input type="checkbox" data-action="toggle-bucket-active" data-category="${escapeAttribute(category)}" ${bucket.isActive ? "checked" : ""}>
+              <span>${bucket.isActive ? "On" : "Off"}</span>
+            </label>
+            <button class="ghost-button small" data-action="edit-bucket-budget" data-category="${escapeAttribute(category)}">Set budget</button>
+          </div>
         </div>
         <div class="bucket-stat-row">
           <div class="bucket-stat">
@@ -685,17 +717,24 @@ function renderBuckets() {
         </div>
         <div class="chip-row bucket-meta-row">
           <span class="chip">${bucket.entries.length} ${bucket.entries.length === 1 ? "entry" : "entries"}</span>
+          <span class="chip ${bucket.isActive ? "positive" : ""}">${bucket.isActive ? "Active this month" : "Hidden this month"}</span>
         </div>
-        <p class="bucket-helper">Forecast impact this month: ${formatCurrency(Math.max(remaining, 0))} remaining.</p>
+        <p class="bucket-helper">${bucket.isActive ? `Forecast impact this month: ${formatCurrency(Math.max(remaining, 0))} remaining.` : "This bucket is hidden from this month’s forecast timeline."}</p>
         <div class="bucket-action-grid">
-          <input class="bucket-inline-input" type="number" step="10" min="0" placeholder="Log spend" data-action="bucket-spend-input" data-category="${category}">
-          <button class="ghost-button small" data-action="log-bucket-spend" data-category="${category}">Add</button>
+          <input class="bucket-inline-input" type="number" step="10" min="0" placeholder="Log spend" data-action="bucket-spend-input" data-category="${escapeAttribute(category)}">
+          <button class="ghost-button small" data-action="log-bucket-spend" data-category="${escapeAttribute(category)}">Add</button>
+        </div>
+        <div class="bucket-entry-list ${bucket.entries.length ? "" : "is-empty"}">
+          ${bucket.entries.length ? entryRows : `<p class="bucket-helper">No spend logged for this month yet.</p>`}
+        </div>
+        <div class="button-row bucket-footer-actions">
+          <button class="ghost-button small text-button" data-action="clear-bucket-month" data-category="${escapeAttribute(category)}">Clear month</button>
         </div>
       </section>
     `;
   }).join("");
 
-  elements.bucketList.querySelectorAll("button[data-action='edit-bucket-budget']").forEach((button) => {
+  elements.bucketList.querySelectorAll("[data-action='edit-bucket-budget']").forEach((button) => {
     button.addEventListener("click", () => {
       const category = button.dataset.category;
       openSettingsModal("bucket-budget", { category, monthKey });
@@ -719,6 +758,40 @@ function renderBuckets() {
       render();
     });
   });
+
+  elements.bucketList.querySelectorAll("[data-action='toggle-bucket-active']").forEach((input) => {
+    input.addEventListener("change", () => {
+      const category = input.dataset.category;
+      state.buckets[monthKey][category].isActive = input.checked;
+      logHistory("edited", `${input.checked ? "Enabled" : "Hidden"} ${category} for ${formatMonthKey(monthKey)}.`);
+      persist();
+      render();
+    });
+  });
+
+  elements.bucketList.querySelectorAll("[data-action='delete-bucket-entry']").forEach((button) => {
+    button.addEventListener("click", () => {
+      const category = button.dataset.category;
+      const bucket = state.buckets[monthKey][category];
+      bucket.entries = bucket.entries.filter((entry) => entry.id !== button.dataset.entryId);
+      logHistory("deleted", `Deleted spend log from ${category}.`);
+      persist();
+      render();
+    });
+  });
+
+  elements.bucketList.querySelectorAll("[data-action='clear-bucket-month']").forEach((button) => {
+    button.addEventListener("click", () => {
+      const category = button.dataset.category;
+      const bucket = state.buckets[monthKey][category];
+      if (!bucket.entries.length) return;
+      if (!window.confirm(`Clear all ${category} spend logs for ${formatMonthKey(monthKey)}?`)) return;
+      bucket.entries = [];
+      logHistory("deleted", `Cleared ${category} spend for ${formatMonthKey(monthKey)}.`);
+      persist();
+      render();
+    });
+  });
 }
 
 function renderBucketHistory() {
@@ -728,21 +801,22 @@ function renderBucketHistory() {
     .slice(0, 6)
     .flatMap((monthKey) => {
       const monthBuckets = state.buckets[monthKey];
-      return BUCKET_CATEGORIES.map((category) => {
+      return getBucketNames(state).flatMap((category) => {
+        if (!monthBuckets[category]) return [];
         const bucket = monthBuckets[category];
         const spent = bucket.entries.reduce((sum, entry) => sum + entry.amount, 0);
-        return {
+        return [{
           monthKey,
           category,
           budgeted: bucket.budgeted,
           spent,
           variance: bucket.budgeted - spent
-        };
+        }];
       });
     });
 
   if (!historyRows.length) {
-    elements.bucketHistoryList.innerHTML = `<div class="empty-state">Once you start logging grocery and misc spend, recent monthly variance will appear here.</div>`;
+    elements.bucketHistoryList.innerHTML = `<div class="empty-state">Once you start logging flexible-budget spend, recent monthly variance will appear here.</div>`;
     return;
   }
 
@@ -769,6 +843,27 @@ function renderInsights(insights) {
       <strong>${formatCurrency(entry.total)}</strong>
     </div>
   `).join("");
+}
+
+function handleAddBucket() {
+  const rawName = elements.newBucketName.value.trim().replace(/\s+/g, " ");
+  if (!rawName) return;
+  const exists = state.bucketTemplates.some((bucket) => bucket.name.toLowerCase() === rawName.toLowerCase());
+  if (exists) {
+    elements.newBucketName.value = "";
+    return;
+  }
+
+  state.bucketTemplates.push({
+    name: rawName,
+    defaultBudget: 1000,
+    isEnabledByDefault: true
+  });
+  ensureCurrentMonthBuckets(state);
+  logHistory("added", `Added ${rawName} flexible budget.`);
+  elements.newBucketName.value = "";
+  persist();
+  render();
 }
 
 function renderHistory() {
@@ -1101,8 +1196,8 @@ function computeInsights(sourceState) {
   const monthPrefix = currentMonthKey();
   const settledThisMonth = sourceState.events.filter((event) => event.isSettled && event.date.startsWith(monthPrefix));
   const bucketSpendThisMonth = sourceState.buckets[monthPrefix]
-    ? BUCKET_CATEGORIES.flatMap((category) =>
-        sourceState.buckets[monthPrefix][category].entries.map((entry) => ({
+    ? getBucketNames(sourceState).flatMap((category) =>
+        (sourceState.buckets[monthPrefix][category]?.entries || []).map((entry) => ({
           category,
           amount: entry.amount
         }))
@@ -1118,7 +1213,7 @@ function computeInsights(sourceState) {
     return sum + (event.actualAmount - event.amount);
   }, 0) + calculateBucketVariance(sourceState, monthPrefix);
 
-  const byCategory = CATEGORY_OPTIONS
+  const byCategory = [...new Set([...CATEGORY_OPTIONS, ...getBucketNames(sourceState)])]
     .map((category) => {
       const total = settledThisMonth
         .filter((event) => event.category === category && effectiveAmount(event) < 0)
@@ -1235,8 +1330,9 @@ function buildBucketForecastEvents(sourceState) {
   ensureMonthBuckets(sourceState, monthKey);
   const monthEnd = endOfMonthISO(`${monthKey}-01`);
 
-  return BUCKET_CATEGORIES.map((category) => {
+  return getBucketNames(sourceState).map((category) => {
     const bucket = sourceState.buckets[monthKey][category];
+    if (!bucket?.isActive) return null;
     const spent = bucket.entries.reduce((sum, entry) => sum + entry.amount, 0);
     const remaining = Math.max(bucket.budgeted - spent, 0);
 
@@ -1251,15 +1347,16 @@ function buildBucketForecastEvents(sourceState) {
       actualAmount: null,
       notes: `Remaining ${formatMonthKey(monthKey)} bucket.`
     };
-  }).filter((event) => event.amount !== 0);
+  }).filter((event) => event && event.amount !== 0);
 }
 
 function calculateBucketVariance(sourceState, monthKey) {
   const monthBuckets = sourceState.buckets[monthKey];
   if (!monthBuckets) return 0;
 
-  return BUCKET_CATEGORIES.reduce((sum, category) => {
+  return getBucketNames(sourceState).reduce((sum, category) => {
     const bucket = monthBuckets[category];
+    if (!bucket?.isActive) return sum;
     const spent = bucket.entries.reduce((entrySum, entry) => entrySum + entry.amount, 0);
     return sum + (bucket.budgeted - spent);
   }, 0);
@@ -1276,12 +1373,26 @@ function ensureCurrentMonthBuckets(sourceState) {
 function ensureMonthBuckets(sourceState, monthKey) {
   sourceState.buckets ||= {};
   sourceState.buckets[monthKey] ||= {};
-  BUCKET_CATEGORIES.forEach((category) => {
+  getBucketTemplates(sourceState).forEach((template) => {
+    const category = template.name;
     sourceState.buckets[monthKey][category] ||= {
-      budgeted: 1000,
-      entries: []
+      budgeted: template.defaultBudget,
+      entries: [],
+      isActive: template.isEnabledByDefault
     };
   });
+}
+
+function getBucketTemplates(sourceState) {
+  return (sourceState.bucketTemplates?.length ? sourceState.bucketTemplates : DEFAULT_BUCKET_TEMPLATES).map((template) => ({
+    name: template.name,
+    defaultBudget: Number(template.defaultBudget) || 1000,
+    isEnabledByDefault: template.isEnabledByDefault !== false
+  }));
+}
+
+function getBucketNames(sourceState) {
+  return getBucketTemplates(sourceState).map((template) => template.name);
 }
 
 function registerUndo(action, label) {
@@ -1449,6 +1560,7 @@ function serializeState(sourceState) {
       selectedDate: sourceState.ui.selectedDate,
       history: sourceState.ui.history || []
     },
+    bucketTemplates: sourceState.bucketTemplates,
     buckets: sourceState.buckets,
     scenarios: sourceState.scenarios,
     templates: sourceState.templates,
@@ -1459,12 +1571,22 @@ function serializeState(sourceState) {
 function normalizeState(rawState) {
   const normalizedBuckets = {};
   const rawBuckets = rawState.buckets || {};
+  const bucketTemplates = (rawState.bucketTemplates || DEFAULT_BUCKET_TEMPLATES)
+    .map((template) => ({
+      name: (template.name || "").trim(),
+      defaultBudget: Number(template.defaultBudget) || 1000,
+      isEnabledByDefault: template.isEnabledByDefault !== false
+    }))
+    .filter((template, index, array) => template.name && array.findIndex((item) => item.name.toLowerCase() === template.name.toLowerCase()) === index);
+  const effectiveTemplates = bucketTemplates.length ? bucketTemplates : structuredClone(DEFAULT_BUCKET_TEMPLATES);
+
   Object.keys(rawBuckets).forEach((monthKey) => {
     normalizedBuckets[monthKey] = {};
-    BUCKET_CATEGORIES.forEach((category) => {
+    effectiveTemplates.forEach((template) => {
+      const category = template.name;
       const rawBucket = rawBuckets[monthKey]?.[category] || {};
       normalizedBuckets[monthKey][category] = {
-        budgeted: Number(rawBucket.budgeted) || 1000,
+        budgeted: Number(rawBucket.budgeted) || template.defaultBudget,
         entries: Array.isArray(rawBucket.entries)
           ? rawBucket.entries.map((entry) => ({
               id: entry.id || crypto.randomUUID(),
@@ -1472,17 +1594,22 @@ function normalizeState(rawState) {
               date: entry.date || `${monthKey}-01`,
               note: entry.note || ""
             }))
-          : []
+          : [],
+        isActive: rawBucket.isActive !== false
       };
     });
   });
 
   if (!Object.keys(normalizedBuckets).length) {
     const monthKey = currentMonthKey();
-    normalizedBuckets[monthKey] = {
-      Groceries: { budgeted: 1000, entries: [] },
-      Misc: { budgeted: 1000, entries: [] }
-    };
+    normalizedBuckets[monthKey] = {};
+    effectiveTemplates.forEach((template) => {
+      normalizedBuckets[monthKey][template.name] = {
+        budgeted: template.defaultBudget,
+        entries: [],
+        isActive: template.isEnabledByDefault
+      };
+    });
   }
 
   return {
@@ -1495,6 +1622,7 @@ function normalizeState(rawState) {
       undoNotice: null,
       history: Array.isArray(rawState.ui?.history) ? rawState.ui.history : []
     },
+    bucketTemplates: effectiveTemplates,
     buckets: normalizedBuckets,
     scenarios: (rawState.scenarios || []).map((scenario) => ({
       id: scenario.id || crypto.randomUUID(),
@@ -1683,4 +1811,8 @@ function escapeHTML(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
+}
+
+function escapeAttribute(value) {
+  return escapeHTML(value);
 }
