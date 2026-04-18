@@ -287,9 +287,9 @@ async function handleAuthSubmit(event) {
     return;
   }
 
-  const token = elements.authCode.value.trim();
+  const token = elements.authCode.value.replace(/\s+/g, "").trim().toUpperCase();
   if (!token) {
-    elements.authMessage.textContent = "Enter the 6-digit code from your email.";
+    elements.authMessage.textContent = "Enter the code from your email.";
     return;
   }
 
@@ -351,6 +351,7 @@ function updateAuthStepUI() {
   elements.authSubmit.textContent = isCodeStep ? "Verify code" : "Send code";
   elements.authSubmit.disabled = false;
   if (isCodeStep) {
+    elements.authCode.value = elements.authCode.value.replace(/\s+/g, "").toUpperCase();
     elements.authCode.focus();
   }
 }
