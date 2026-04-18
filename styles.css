@@ -490,6 +490,12 @@ h3 {
   flex-wrap: wrap;
 }
 
+.bucket-create-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+}
+
 .bucket-button-row {
   margin-top: 14px;
 }
@@ -521,6 +527,35 @@ h3 {
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 14px;
+}
+
+.bucket-header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.bucket-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.55);
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.bucket-toggle input {
+  width: 16px;
+  height: 16px;
+  min-height: 16px;
+  margin: 0;
+  accent-color: var(--accent);
 }
 
 .bucket-card .summary-value {
@@ -564,6 +599,41 @@ h3 {
 
 .bucket-helper + .bucket-action-grid {
   margin-top: 14px;
+}
+
+.bucket-entry-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.bucket-entry-list.is-empty {
+  gap: 0;
+}
+
+.bucket-entry-row {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.bucket-entry-row strong {
+  display: block;
+  font-size: 0.94rem;
+}
+
+.bucket-entry-copy {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.bucket-footer-actions {
+  margin-top: 10px;
 }
 
 .bucket-stat-row {
@@ -850,6 +920,11 @@ textarea {
     flex-direction: column;
   }
 
+  .bucket-create-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
   .primary-button,
   .ghost-button,
   input,
@@ -1049,6 +1124,37 @@ textarea {
   .scenario-card .chip-row {
     margin-top: 2px;
     margin-bottom: 2px;
+  }
+
+  .bucket-header-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .bucket-toggle {
+    padding: 6px 9px;
+    font-size: 0.72rem;
+  }
+
+  .bucket-toggle input {
+    width: 14px;
+    height: 14px;
+    min-height: 14px;
+  }
+
+  .bucket-entry-list {
+    gap: 8px;
+    margin-top: 12px;
+    padding-top: 12px;
+  }
+
+  .bucket-entry-row {
+    gap: 10px;
+  }
+
+  .bucket-entry-row .text-button {
+    font-size: 0.76rem;
+    white-space: nowrap;
   }
 
   .hero-meta-row .text-button {
