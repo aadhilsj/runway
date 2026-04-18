@@ -214,8 +214,8 @@ h3 {
 .hero-meta-row {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  gap: 12px;
+  justify-content: flex-start;
+  gap: 10px;
   margin-bottom: 14px;
 }
 
@@ -1218,12 +1218,17 @@ textarea {
     grid-template-columns: unset;
   }
 
-  .account-panel-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-  }
+.account-panel-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+#account-build-version {
+  font-family: var(--font-sans);
+  font-weight: 700;
+}
 
   .mobile-nav {
     position: fixed;
