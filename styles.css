@@ -96,6 +96,28 @@ body.auth-required {
   display: block;
 }
 
+.update-banner {
+  position: fixed;
+  left: 50%;
+  bottom: 20px;
+  transform: translateX(-50%);
+  z-index: 30;
+  display: none;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid rgba(181, 92, 51, 0.18);
+  border-radius: 999px;
+  background: rgba(255, 248, 240, 0.97);
+  box-shadow: 0 14px 32px rgba(62, 39, 15, 0.16);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.update-banner.is-visible {
+  display: inline-flex;
+}
+
 button,
 input,
 select,
@@ -202,6 +224,17 @@ h3 {
   color: var(--muted);
   font-size: 0.82rem;
   font-weight: 700;
+}
+
+.build-badge,
+.account-helper {
+  color: var(--muted);
+  font-size: 0.76rem;
+  line-height: 1.3;
+}
+
+.account-helper {
+  margin: 10px 0 0;
 }
 
 .hero-actions {
@@ -1244,6 +1277,14 @@ textarea {
     font-size: 1.6rem;
     line-height: 1;
     box-shadow: 0 14px 32px rgba(62, 39, 15, 0.22);
+  }
+
+  .update-banner {
+    left: 12px;
+    right: 12px;
+    bottom: 142px;
+    transform: none;
+    justify-content: space-between;
   }
 
   .clarity-toggle {
