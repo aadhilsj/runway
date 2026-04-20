@@ -131,13 +131,13 @@
         </div>
         <div class="timeline-filter-row">
           <input id="timeline-search" type="search" placeholder="Search label, notes, category">
-          <select id="timeline-status-filter" aria-label="Filter by status">
+          <select id="timeline-status-filter" class="compact-select" aria-label="Filter by status">
             <option value="all">All upcoming</option>
             <option value="plain">Base events</option>
             <option value="scenario">Plans only</option>
             <option value="bucket">Buckets only</option>
           </select>
-          <select id="timeline-category-filter" aria-label="Filter by category">
+          <select id="timeline-category-filter" class="compact-select" aria-label="Filter by category">
             <option value="all">All categories</option>
           </select>
         </div>
@@ -392,7 +392,7 @@
 
       <div class="modal-actions modal-actions-spread">
         <button class="ghost-button" type="button" id="delete-scenario-button" hidden>Delete plan</button>
-        <button class="primary-button" type="submit">Save plan</button>
+        <button class="ghost-button" type="submit" id="save-scenario-button">Save plan</button>
       </div>
     </form>
   </dialog>
@@ -436,13 +436,13 @@
           </label>
           <label class="field">
             <span>Category</span>
-            <select id="template-category"></select>
+            <select id="template-category" class="compact-select"></select>
           </label>
         </div>
 
         <label class="field">
-          <span>Days from today</span>
-          <input id="template-days-from-now" type="number" step="1" placeholder="14">
+          <span>Default date</span>
+          <input id="template-date" type="date">
         </label>
       </section>
 
@@ -482,12 +482,12 @@
 
           <div class="field-grid">
             <label class="field">
-              <span>Day of month</span>
-              <input id="template-item-day" type="number" min="1" max="31" step="1" placeholder="1">
+              <span>First occurrence</span>
+              <input id="template-item-date" type="date">
             </label>
             <label class="field">
               <span>Category</span>
-              <select id="template-item-category"></select>
+              <select id="template-item-category" class="compact-select"></select>
             </label>
           </div>
 
@@ -507,7 +507,7 @@
 
       <div class="modal-actions modal-actions-spread">
         <button class="ghost-button" type="button" id="delete-template-button" hidden>Delete template</button>
-        <button class="primary-button" type="submit">Save template</button>
+        <button class="ghost-button" type="submit" id="save-template-button">Save template</button>
       </div>
     </form>
   </dialog>
