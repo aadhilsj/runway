@@ -195,7 +195,6 @@ const elements = {
   templateItemAmount: document.querySelector("#template-item-amount"),
   templateItemDate: document.querySelector("#template-item-date"),
   templateItemCategory: document.querySelector("#template-item-category"),
-  templateItemNotes: document.querySelector("#template-item-notes"),
   addTemplateItemButton: document.querySelector("#add-template-item-button"),
   clearTemplateItemButton: document.querySelector("#clear-template-item-button"),
   templateItemsList: document.querySelector("#template-items-list"),
@@ -1526,16 +1525,14 @@ function readTemplateItemDraft() {
   const label = elements.templateItemLabel.value.trim();
   const amount = Number(elements.templateItemAmount.value);
   const firstDate = elements.templateItemDate.value;
-  const notes = elements.templateItemNotes.value.trim();
-  if (!label && !elements.templateItemAmount.value.trim() && !notes) return null;
+  if (!label && !elements.templateItemAmount.value.trim()) return null;
   if (!label || Number.isNaN(amount) || !firstDate) return null;
   return {
     id: elements.templateItemId.value || crypto.randomUUID(),
     label,
     amount,
     firstDate,
-    category: elements.templateItemCategory.value || "Misc",
-    notes
+    category: elements.templateItemCategory.value || "Misc"
   };
 }
 
@@ -1553,7 +1550,7 @@ function renderTemplateItems() {
         <div class="template-top">
           <div>
             <strong>${escapeHTML(item.label)}</strong>
-            <p class="history-copy">${formatDate(item.firstDate)} • ${escapeHTML(item.category)}${item.notes ? ` • ${escapeHTML(item.notes)}` : ""}</p>
+            <p class="history-copy">${formatDate(item.firstDate)} • ${escapeHTML(item.category)}</p>
           </div>
           <strong>${formatCurrency(item.amount)}</strong>
         </div>
@@ -1587,7 +1584,6 @@ function fillTemplateItemDraft(item) {
   elements.templateItemAmount.value = item.amount;
   elements.templateItemDate.value = item.firstDate;
   elements.templateItemCategory.value = item.category || "Misc";
-  elements.templateItemNotes.value = item.notes || "";
   elements.addTemplateItemButton.textContent = "Update recurring item";
 }
 
@@ -1597,7 +1593,6 @@ function clearTemplateItemDraft() {
   elements.templateItemLabel.value = "";
   elements.templateItemAmount.value = "";
   elements.templateItemDate.value = "";
-  elements.templateItemNotes.value = "";
   elements.templateItemCategory.value = "Misc";
   elements.addTemplateItemButton.textContent = "Add recurring item";
   syncTemplateDefaultDates();
@@ -1825,14 +1820,14 @@ function parseQuickAdd(raw) {
   const sanitized = raw.trim();
   const detectedDate = inferDateFromText(sanitized);
   const cleanedForAmount = stripDateText(sanitized);
-  const amountMatch = cleanedForAmount.match(/-?\d+(?:[.,]\d{1,2})?/);
+  const amountMatch = cleanedForAmount.match(/[+-]?\d+(?:[.,]\d{1,2})?/);
   const amount = amountMatch ? Number(amountMatch[0].replace(",", ".")) : 0;
-  const label = cleanedForAmount.replace(amountMatch?.[0] || "", "").trim().replace(/\s+/g, " ");
+  const label = cleanedForAmount.replace(amountMatch?.[0] || "", "").trim().replace(/[+-]\s*$/, "").trim().replace(/\s+/g, " ");
 
   return {
     id: crypto.randomUUID(),
     label: label || "Quick event",
-    amount: inferSignedAmount(sanitized, amount),
+    amount: inferSignedAmount(sanitized, amountMatch?.[0] || "", amount),
     date: detectedDate,
     scenarioId: null,
     category: inferCategory(sanitized),
@@ -1882,20 +1877,22 @@ function stripDateText(raw) {
     .trim();
 }
 
-function inferSignedAmount(raw, amount) {
+function inferSignedAmount(raw, rawAmountToken, amount) {
   const lower = raw.toLowerCase();
   const absolute = Math.abs(amount);
+  if (rawAmountToken.startsWith("+")) return absolute;
+  if (rawAmountToken.startsWith("-")) return -absolute;
   if (amount < 0) return amount;
-  if (["salary", "pay", "invoice", "bonus", "refund", "income"].some((keyword) => lower.includes(keyword))) return absolute;
+  if (/\b(salary|paycheck|invoice|bonus|refund|income)\b/.test(lower)) return absolute;
   return -absolute;
 }
 
 function inferCategory(raw) {
   const lower = raw.toLowerCase();
-  if (["salary", "bonus", "invoice", "refund", "income"].some((keyword) => lower.includes(keyword))) return "Income";
+  if (/\b(credit card|card payment|payment|bill|phone|subscription|internet|electricity)\b/.test(lower)) return "Bills";
+  if (/\b(salary|paycheck|bonus|invoice|refund|income)\b/.test(lower)) return "Income";
   if (["rent", "mortgage", "apartment"].some((keyword) => lower.includes(keyword))) return "Housing";
   if (["groceries", "grocery", "food", "supermarket"].some((keyword) => lower.includes(keyword))) return "Groceries";
-  if (["bill", "phone", "subscription", "internet", "electricity"].some((keyword) => lower.includes(keyword))) return "Bills";
   if (["train", "taxi", "uber", "bus", "fuel"].some((keyword) => lower.includes(keyword))) return "Transport";
   if (["flight", "hotel", "trip", "travel"].some((keyword) => lower.includes(keyword))) return "Travel";
   if (["buy", "shopping", "purchase", "clothes"].some((keyword) => lower.includes(keyword))) return "Shopping";
