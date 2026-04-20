@@ -129,22 +129,6 @@
             <h2>Upcoming money events</h2>
           </div>
         </div>
-        <div class="timeline-filter-row">
-          <input id="timeline-search" type="search" placeholder="Search label, notes, category">
-          <select id="timeline-status-filter" class="compact-select" aria-label="Filter by status">
-            <option value="all">All upcoming</option>
-            <option value="plain">Base events</option>
-            <option value="scenario">Plans only</option>
-            <option value="bucket">Buckets only</option>
-          </select>
-          <select id="timeline-category-filter" class="compact-select" aria-label="Filter by category">
-            <option value="all">All categories</option>
-          </select>
-        </div>
-        <div class="quick-add-inline">
-          <input id="quick-add-input" type="text" placeholder="Quick add idea: Rent 1450 1 May">
-          <button class="primary-button small" id="quick-add-button">Add</button>
-        </div>
         <div class="timeline-bulk-bar" id="timeline-bulk-bar" hidden>
           <div class="button-row">
             <button class="ghost-button small" type="button" id="timeline-select-toggle">Select</button>
@@ -155,6 +139,24 @@
             <span class="timeline-selection-count" id="timeline-selection-count" hidden>0 selected</span>
             <button class="ghost-button small destructive-button" type="button" id="timeline-delete-selected" hidden>Delete selected</button>
           </div>
+        </div>
+        <div class="timeline-filter-row">
+          <input id="timeline-search" type="search" placeholder="Search label, notes, category">
+          <div class="timeline-filter-selects">
+            <select id="timeline-status-filter" class="compact-select" aria-label="Filter by status">
+              <option value="all">All upcoming</option>
+              <option value="plain">Base events</option>
+              <option value="scenario">Plans only</option>
+              <option value="bucket">Buckets only</option>
+            </select>
+            <select id="timeline-category-filter" class="compact-select" aria-label="Filter by category">
+              <option value="all">All categories</option>
+            </select>
+          </div>
+        </div>
+        <div class="quick-add-inline">
+          <input id="quick-add-input" type="text" placeholder="Quick add idea: Rent 1450 1 May">
+          <button class="primary-button small" id="quick-add-button">Add</button>
         </div>
         <div id="timeline-list" class="timeline-list"></div>
       </article>
