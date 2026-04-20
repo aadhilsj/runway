@@ -273,6 +273,10 @@ h3 {
   margin-bottom: 18px;
 }
 
+.summary-panel {
+  margin-top: 34px;
+}
+
 .main-grid {
   grid-template-columns: minmax(0, 1.4fr) minmax(320px, 0.8fr);
   align-items: start;
@@ -383,9 +387,26 @@ h3 {
 
 .toolbar,
 .modal-actions,
-.quick-add-inline {
+.quick-add-inline,
+.timeline-filter-row,
+.plan-builder-actions {
   display: flex;
   gap: 10px;
+}
+
+.timeline-filter-row {
+  margin-bottom: 14px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.timeline-filter-row input {
+  flex: 1 1 220px;
+}
+
+.timeline-filter-row select {
+  width: auto;
+  min-width: 160px;
 }
 
 .quick-add-inline {
@@ -404,6 +425,34 @@ h3 {
 .bucket-grid {
   display: grid;
   gap: 12px;
+}
+
+.timeline-month-group {
+  display: grid;
+  gap: 10px;
+}
+
+.timeline-month-items {
+  display: grid;
+  gap: 12px;
+}
+
+.timeline-month-separator {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.timeline-month-separator::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(181, 92, 51, 0.18), rgba(181, 92, 51, 0));
 }
 
 .timeline-item,
@@ -761,13 +810,17 @@ h3 {
 }
 
 .plan-builder {
-  margin-top: 14px;
-  padding-top: 14px;
+  margin-top: 20px;
+  padding-top: 20px;
   border-top: 1px solid var(--line);
 }
 
+.recurring-builder {
+  margin-top: 8px;
+}
+
 .compact-heading {
-  margin-bottom: 10px;
+  margin-bottom: 16px;
 }
 
 .panel-summary {
@@ -894,6 +947,14 @@ textarea {
   gap: 14px;
 }
 
+.modal-actions-spread {
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
 .modal-header {
   grid-template-columns: 1fr auto;
   align-items: start;
@@ -917,6 +978,11 @@ textarea {
 
 .field-grid > * {
   min-width: 0;
+}
+
+.plan-builder-actions {
+  margin-bottom: 18px;
+  align-items: center;
 }
 
 .checkbox-field {
@@ -995,8 +1061,14 @@ textarea {
 
   .toolbar,
   .quick-add-inline,
-  .modal-actions {
+  .modal-actions,
+  .timeline-filter-row,
+  .plan-builder-actions {
     flex-direction: column;
+  }
+
+  .summary-panel {
+    margin-top: 0;
   }
 
   .bucket-create-row {
