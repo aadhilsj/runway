@@ -183,6 +183,7 @@ const elements = {
   templateType: document.querySelector("#template-type"),
   templateLabel: document.querySelector("#template-label"),
   templateDescription: document.querySelector("#template-description"),
+  templateDescriptionRecurring: document.querySelector("#template-description-recurring"),
   singleTemplateFields: document.querySelector("#single-template-fields"),
   recurringTemplateFields: document.querySelector("#recurring-template-fields"),
   templateAmount: document.querySelector("#template-amount"),
@@ -1428,6 +1429,9 @@ function openTemplateModal(templateId = null) {
     elements.templateType.value = template.type || "single";
     elements.templateLabel.value = template.label;
     elements.templateDescription.value = template.description || "";
+    if (elements.templateDescriptionRecurring) {
+      elements.templateDescriptionRecurring.value = template.description || "";
+    }
     elements.templateAmount.value = template.amount ?? "";
     elements.templateDate.value = template.date || addDaysISO(localISODate(new Date()), 14);
     elements.templateCategory.value = template.category || "Misc";
@@ -1461,10 +1465,21 @@ function handleTemplateSubmit(event) {
     id: elements.templateId.value || crypto.randomUUID(),
     type: isRecurring ? "recurring" : "single",
     label,
-    description: elements.templateDescription.value.trim()
+    description: isRecurring
+      ? (elements.templateDescriptionRecurring?.value || "").trim()
+      : elements.templateDescription.value.trim()
   };
 
   if (isRecurring) {
+    const pendingDraft = readTemplateItemDraft();
+    if (pendingDraft) {
+      const existingIndex = templateDraftItems.findIndex((entry) => entry.id === pendingDraft.id);
+      if (existingIndex >= 0) {
+        templateDraftItems[existingIndex] = pendingDraft;
+      } else {
+        templateDraftItems.push(pendingDraft);
+      }
+    }
     if (!templateDraftItems.length || !elements.templateStartMonth.value || !elements.templateEndMonth.value) return;
     if (elements.templateStartMonth.value > elements.templateEndMonth.value) return;
     payload.startMonth = elements.templateStartMonth.value;
@@ -1610,7 +1625,14 @@ function syncTemplateDefaultDates() {
     if (elements.templateDate && !elements.templateDate.value) {
       elements.templateDate.value = addDaysISO(localISODate(new Date()), 14);
     }
+    if (elements.templateDescriptionRecurring && !elements.templateDescriptionRecurring.value && elements.templateDescription.value) {
+      elements.templateDescriptionRecurring.value = elements.templateDescription.value;
+    }
     return;
+  }
+
+  if (elements.templateDescription && !elements.templateDescription.value && elements.templateDescriptionRecurring?.value) {
+    elements.templateDescription.value = elements.templateDescriptionRecurring.value;
   }
 
   if (elements.templateStartMonth && !elements.templateStartMonth.value) {
