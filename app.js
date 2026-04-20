@@ -26,7 +26,7 @@ const HISTORY_ACTIONS = new Set([
   "reopened",
   "undid"
 ]);
-const UNDOABLE_ACTIONS = new Set(["deleted", "settled", "reopened"]);
+const UNDOABLE_ACTIONS = new Set(["added", "deleted", "settled", "reopened"]);
 
 const defaultState = {
   account: {
@@ -1729,8 +1729,7 @@ function renderTemplateItems() {
       const item = templateDraftItems.find((entry) => entry.id === button.dataset.itemId);
       if (!item) return;
       fillTemplateItemDraft(item);
-      const modalCard = elements.templateModal.querySelector(".modal-card");
-      if (modalCard) modalCard.scrollTo({ top: 0, behavior: "smooth" });
+      elements.templateModal.scrollTo({ top: 0, behavior: "smooth" });
     });
   });
   elements.templateItemsList.querySelectorAll("button[data-action='remove-template-item']").forEach((button) => {
