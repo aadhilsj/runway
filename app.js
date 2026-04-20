@@ -781,7 +781,8 @@ function renderTimelineBulkBar(filteredTimeline) {
     .map((event) => event.id);
   const selectedCount = (state.ui.selectedTimelineEventIds || []).length;
   elements.timelineBulkBar.hidden = !visibleSelectableIds.length;
-  elements.timelineSelectToggle.textContent = state.ui.timelineSelectionMode ? "Done" : "Select";
+  elements.timelineBulkBar.classList.toggle("is-active", Boolean(state.ui.timelineSelectionMode));
+  elements.timelineSelectToggle.textContent = state.ui.timelineSelectionMode ? "×" : "Select";
   elements.timelineSelectToggle.setAttribute("aria-pressed", state.ui.timelineSelectionMode ? "true" : "false");
   elements.timelineSelectAll.hidden = !state.ui.timelineSelectionMode;
   elements.timelineClearSelection.hidden = !state.ui.timelineSelectionMode || !selectedCount;
