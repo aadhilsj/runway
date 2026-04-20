@@ -34,7 +34,9 @@ const defaultState = {
     warningThreshold: 2500
   },
   meta: {
-    lastModifiedAt: null
+    lastModifiedAt: null,
+    lastSyncedAt: null,
+    hasPendingRemoteSync: false
   },
   ui: {
     selectedDate: localISODate(new Date()),
@@ -255,14 +257,14 @@ function attachEventListeners() {
 
   elements.selectedDate.addEventListener("change", () => {
     state.ui.selectedDate = elements.selectedDate.value || localISODate(new Date());
-    persist();
+    persist({ markDirty: false, syncRemote: false });
     render();
   });
   if (elements.timelineSearch) {
     elements.timelineSearch.addEventListener("input", () => {
       state.ui.timelineSearch = elements.timelineSearch.value;
       pruneTimelineSelection();
-      persist();
+      persist({ markDirty: false, syncRemote: false });
       render();
     });
   }
@@ -270,7 +272,7 @@ function attachEventListeners() {
     elements.timelineStatusFilter.addEventListener("change", () => {
       state.ui.timelineStatusFilter = elements.timelineStatusFilter.value;
       pruneTimelineSelection();
-      persist();
+      persist({ markDirty: false, syncRemote: false });
       render();
     });
   }
@@ -278,7 +280,7 @@ function attachEventListeners() {
     elements.timelineCategoryFilter.addEventListener("change", () => {
       state.ui.timelineCategoryFilter = elements.timelineCategoryFilter.value;
       pruneTimelineSelection();
-      persist();
+      persist({ markDirty: false, syncRemote: false });
       render();
     });
   }
@@ -286,7 +288,7 @@ function attachEventListeners() {
     elements.timelineMonthFilter.addEventListener("change", () => {
       state.ui.timelineMonthFilter = elements.timelineMonthFilter.value;
       pruneTimelineSelection();
-      persist();
+      persist({ markDirty: false, syncRemote: false });
       render();
     });
   }
@@ -624,7 +626,7 @@ async function handleRefreshToUpdate() {
 
 function handleClarityToggle() {
   state.ui.clarityExpanded = !state.ui.clarityExpanded;
-  persist();
+  persist({ markDirty: false, syncRemote: false });
   render();
 }
 
@@ -640,7 +642,7 @@ function renderClarityPanel() {
 function setMobileTab(tab) {
   if (!["forecast", "plans", "more"].includes(tab) || state.ui.mobileTab === tab) return;
   state.ui.mobileTab = tab;
-  persist();
+  persist({ markDirty: false, syncRemote: false });
   render();
   window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
 }
@@ -852,7 +854,7 @@ function handleTimelineSelectionToggle() {
   } else {
     pruneTimelineSelection();
   }
-  persist();
+  persist({ markDirty: false, syncRemote: false });
   render();
 }
 
@@ -865,20 +867,20 @@ function handleTimelineSelectionChange(event) {
     next.delete(eventId);
   }
   state.ui.selectedTimelineEventIds = [...next];
-  persist();
+  persist({ markDirty: false, syncRemote: false });
   render();
 }
 
 function handleTimelineSelectAllVisible() {
   const visibleIds = getVisibleSelectableTimelineIds();
   state.ui.selectedTimelineEventIds = visibleIds;
-  persist();
+  persist({ markDirty: false, syncRemote: false });
   render();
 }
 
 function clearTimelineSelection() {
   state.ui.selectedTimelineEventIds = [];
-  persist();
+  persist({ markDirty: false, syncRemote: false });
   render();
 }
 
@@ -2236,7 +2238,7 @@ function scheduleUndoHide() {
   undoTimer = setTimeout(() => {
     state.ui.undoNotice = null;
     undoTimer = null;
-    persist();
+    persist({ markDirty: false, syncRemote: false });
     render();
   }, UNDO_VISIBLE_MS);
 }
@@ -2276,13 +2278,16 @@ function loadLocalCache() {
 }
 
 function persist(options = {}) {
-  const { markDirty = true } = options;
+  const { markDirty = true, syncRemote = markDirty } = options;
   ensureStateMeta(state);
   if (markDirty) {
     state.meta.lastModifiedAt = new Date().toISOString();
   }
+  if (syncRemote) {
+    state.meta.hasPendingRemoteSync = true;
+  }
   writeLocalCache(state);
-  if (authUser && supabaseClient) {
+  if (syncRemote && authUser && supabaseClient) {
     elements.syncBadge.textContent = "Saving";
     void saveRemoteState();
   }
@@ -2293,6 +2298,7 @@ async function loadRemoteState() {
 
   elements.syncBadge.textContent = "Loading latest data";
   const localState = loadLocalCache();
+  ensureStateMeta(localState);
   const { data, error } = await supabaseClient
     .from(SUPABASE_TABLE)
     .select("state, updated_at")
@@ -2308,7 +2314,13 @@ async function loadRemoteState() {
   if (!data) {
     state = localState;
     render();
-    persist({ markDirty: !state.meta.lastModifiedAt });
+    if (!state.meta.lastModifiedAt) {
+      state.meta.lastModifiedAt = new Date().toISOString();
+    }
+    state.meta.hasPendingRemoteSync = true;
+    writeLocalCache(state);
+    elements.syncBadge.textContent = "Saving";
+    void saveRemoteState();
     render();
     return;
   }
@@ -2316,27 +2328,23 @@ async function loadRemoteState() {
   const remoteState = normalizeState(data.state);
   const remoteUpdatedAt = data.updated_at || remoteState.meta.lastModifiedAt || null;
   const localUpdatedAt = localState.meta.lastModifiedAt || null;
-  const remoteIsNewer = isTimestampAfter(remoteUpdatedAt, localUpdatedAt);
-  const localIsNewer = isTimestampAfter(localUpdatedAt, remoteUpdatedAt);
+  const localHasPendingRemoteSync = Boolean(localState.meta.hasPendingRemoteSync);
+  const localHasUnsyncedChanges = localHasPendingRemoteSync && isTimestampAfter(localUpdatedAt, remoteUpdatedAt);
 
-  if (remoteIsNewer) {
-    lastRemoteUpdatedAt = remoteUpdatedAt;
-    state = remoteState;
-    writeLocalCache(state);
-    elements.syncBadge.textContent = "Synced";
+  lastRemoteUpdatedAt = remoteUpdatedAt;
+
+  if (localHasUnsyncedChanges || !remoteUpdatedAt) {
+    state = localState;
     render();
-    return;
-  }
-
-  state = localState;
-  render();
-  if (localIsNewer || !remoteUpdatedAt) {
     elements.syncBadge.textContent = "Saving";
     void saveRemoteState();
     return;
   }
 
-  lastRemoteUpdatedAt = remoteUpdatedAt;
+  state = remoteState;
+  state.meta.hasPendingRemoteSync = false;
+  state.meta.lastSyncedAt = remoteUpdatedAt;
+  writeLocalCache(state);
   elements.syncBadge.textContent = "Synced";
   render();
 }
@@ -2351,10 +2359,14 @@ async function refreshRemoteState() {
 
   if (error || !data?.updated_at) return;
   if (lastRemoteUpdatedAt && data.updated_at <= lastRemoteUpdatedAt) return;
-  if (isTimestampAfter(state.meta.lastModifiedAt, data.updated_at)) return;
+  ensureStateMeta(state);
+  if (state.meta.hasPendingRemoteSync && isTimestampAfter(state.meta.lastModifiedAt, data.updated_at)) return;
   lastRemoteUpdatedAt = data.updated_at;
   state = normalizeState(data.state);
+  state.meta.hasPendingRemoteSync = false;
+  state.meta.lastSyncedAt = data.updated_at;
   writeLocalCache(state);
+  elements.syncBadge.textContent = "Synced";
   render();
 }
 
@@ -2380,6 +2392,11 @@ async function saveRemoteState() {
   }
 
   lastRemoteUpdatedAt = payload.updated_at;
+  if (state.meta.lastModifiedAt === requestVersion) {
+    state.meta.lastSyncedAt = requestVersion;
+    state.meta.hasPendingRemoteSync = false;
+    writeLocalCache(state);
+  }
   if (state.meta.lastModifiedAt === requestVersion && latestSaveRequestVersion === requestVersion) {
     elements.syncBadge.textContent = "Synced";
     return;
@@ -2392,7 +2409,11 @@ function serializeState(sourceState) {
   ensureStateMeta(sourceState);
   return {
     account: sourceState.account,
-    meta: sourceState.meta,
+    meta: {
+      lastModifiedAt: sourceState.meta.lastModifiedAt || null,
+      lastSyncedAt: sourceState.meta.lastSyncedAt || null,
+      hasPendingRemoteSync: Boolean(sourceState.meta.hasPendingRemoteSync)
+    },
     ui: {
       selectedDate: sourceState.ui.selectedDate,
       mobileTab: sourceState.ui.mobileTab || "forecast",
@@ -2463,7 +2484,9 @@ function normalizeState(rawState) {
       warningThreshold: rawState.account?.warningThreshold ?? defaultState.account.warningThreshold
     },
     meta: {
-      lastModifiedAt: rawState.meta?.lastModifiedAt || null
+      lastModifiedAt: rawState.meta?.lastModifiedAt || null,
+      lastSyncedAt: rawState.meta?.lastSyncedAt || null,
+      hasPendingRemoteSync: Boolean(rawState.meta?.hasPendingRemoteSync)
     },
     ui: {
       selectedDate: rawState.ui?.selectedDate || localISODate(new Date()),
@@ -2526,12 +2549,22 @@ function normalizeState(rawState) {
 
 function ensureStateMeta(sourceState) {
   if (!sourceState.meta || typeof sourceState.meta !== "object") {
-    sourceState.meta = { lastModifiedAt: null };
+    sourceState.meta = {
+      lastModifiedAt: null,
+      lastSyncedAt: null,
+      hasPendingRemoteSync: false
+    };
     return;
   }
 
   if (!("lastModifiedAt" in sourceState.meta)) {
     sourceState.meta.lastModifiedAt = null;
+  }
+  if (!("lastSyncedAt" in sourceState.meta)) {
+    sourceState.meta.lastSyncedAt = null;
+  }
+  if (!("hasPendingRemoteSync" in sourceState.meta)) {
+    sourceState.meta.hasPendingRemoteSync = false;
   }
 }
 
