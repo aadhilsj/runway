@@ -634,7 +634,7 @@ function applyMobileLayout() {
     { element: elements.sidebarStack, tabs: ["plans", "more"] },
     { element: elements.budgetsShell, tabs: ["more"] },
     { element: elements.plansShell, tabs: ["plans"] },
-    { element: elements.templatesShell, tabs: ["more"] },
+    { element: elements.templatesShell, tabs: ["plans", "more"] },
     { element: elements.bucketHistoryShell, tabs: ["more"] },
     { element: elements.historyShell, tabs: ["more"] },
     { element: elements.accountShell, tabs: ["more"] }
@@ -654,6 +654,11 @@ function applyMobileLayout() {
 
   if (elements.plansPanel && isMobile) {
     elements.plansPanel.open = activeTab === "plans";
+  }
+
+  if (elements.templatesShell && isMobile) {
+    const templatesPanel = elements.templatesShell.querySelector(".collapsible-panel");
+    if (templatesPanel) templatesPanel.open = activeTab === "plans";
   }
 
   elements.mobileNavButtons.forEach((button) => {
