@@ -57,10 +57,10 @@ const defaultState = {
     }
   ],
   templates: [
-    { id: crypto.randomUUID(), type: "single", label: "Salary", description: "", amount: 22000, daysFromNow: 14, category: "Income" },
-    { id: crypto.randomUUID(), type: "single", label: "Rent", description: "", amount: -9500, daysFromNow: 12, category: "Housing" },
-    { id: crypto.randomUUID(), type: "single", label: "Groceries", description: "", amount: -850, daysFromNow: 2, category: "Groceries" },
-    { id: crypto.randomUUID(), type: "single", label: "Phone bill", description: "", amount: -399, daysFromNow: 8, category: "Bills" }
+    { id: crypto.randomUUID(), type: "single", label: "Salary", description: "", amount: 22000, date: addDaysISO(localISODate(new Date()), 14), category: "Income" },
+    { id: crypto.randomUUID(), type: "single", label: "Rent", description: "", amount: -9500, date: addDaysISO(localISODate(new Date()), 12), category: "Housing" },
+    { id: crypto.randomUUID(), type: "single", label: "Groceries", description: "", amount: -850, date: addDaysISO(localISODate(new Date()), 2), category: "Groceries" },
+    { id: crypto.randomUUID(), type: "single", label: "Phone bill", description: "", amount: -399, date: addDaysISO(localISODate(new Date()), 8), category: "Bills" }
   ],
   events: []
 };
@@ -187,13 +187,13 @@ const elements = {
   recurringTemplateFields: document.querySelector("#recurring-template-fields"),
   templateAmount: document.querySelector("#template-amount"),
   templateCategory: document.querySelector("#template-category"),
-  templateDaysFromNow: document.querySelector("#template-days-from-now"),
+  templateDate: document.querySelector("#template-date"),
   templateStartMonth: document.querySelector("#template-start-month"),
   templateEndMonth: document.querySelector("#template-end-month"),
   templateItemId: document.querySelector("#template-item-id"),
   templateItemLabel: document.querySelector("#template-item-label"),
   templateItemAmount: document.querySelector("#template-item-amount"),
-  templateItemDay: document.querySelector("#template-item-day"),
+  templateItemDate: document.querySelector("#template-item-date"),
   templateItemCategory: document.querySelector("#template-item-category"),
   templateItemNotes: document.querySelector("#template-item-notes"),
   addTemplateItemButton: document.querySelector("#add-template-item-button"),
@@ -843,7 +843,7 @@ function renderTemplates() {
           id: crypto.randomUUID(),
           label: template.label,
           amount: template.amount,
-          date: addDaysISO(localISODate(new Date()), template.daysFromNow),
+          date: template.date || localISODate(new Date()),
           scenarioId: null,
           isSettled: false,
           category: template.category,
@@ -1398,7 +1398,7 @@ function openTemplateModal(templateId = null) {
     elements.templateModalTitle.textContent = "Create template";
     elements.deleteTemplateButton.hidden = true;
     elements.templateType.value = "single";
-    elements.templateDaysFromNow.value = "14";
+    elements.templateDate.value = addDaysISO(localISODate(new Date()), 14);
     elements.templateStartMonth.value = currentMonthKey();
     elements.templateEndMonth.value = currentMonthKey();
   } else {
@@ -1411,7 +1411,7 @@ function openTemplateModal(templateId = null) {
     elements.templateLabel.value = template.label;
     elements.templateDescription.value = template.description || "";
     elements.templateAmount.value = template.amount ?? "";
-    elements.templateDaysFromNow.value = template.daysFromNow ?? 0;
+    elements.templateDate.value = template.date || addDaysISO(localISODate(new Date()), 14);
     elements.templateCategory.value = template.category || "Misc";
     elements.templateStartMonth.value = template.startMonth || currentMonthKey();
     elements.templateEndMonth.value = template.endMonth || currentMonthKey();
@@ -1452,10 +1452,10 @@ function handleTemplateSubmit(event) {
     payload.items = templateDraftItems.map((item) => ({ ...item }));
   } else {
     const amount = Number(elements.templateAmount.value);
-    const daysFromNow = Number(elements.templateDaysFromNow.value);
-    if (Number.isNaN(amount) || Number.isNaN(daysFromNow)) return;
+    const date = elements.templateDate.value;
+    if (Number.isNaN(amount) || !date) return;
     payload.amount = amount;
-    payload.daysFromNow = daysFromNow;
+    payload.date = date;
     payload.category = elements.templateCategory.value || "Misc";
   }
 
@@ -1500,18 +1500,18 @@ function handleAddTemplateItem() {
 }
 
 function readTemplateItemDraft() {
-  if (!elements.templateItemLabel || !elements.templateItemAmount || !elements.templateItemDay) return null;
+  if (!elements.templateItemLabel || !elements.templateItemAmount || !elements.templateItemDate) return null;
   const label = elements.templateItemLabel.value.trim();
   const amount = Number(elements.templateItemAmount.value);
-  const dayOfMonth = Number(elements.templateItemDay.value);
+  const firstDate = elements.templateItemDate.value;
   const notes = elements.templateItemNotes.value.trim();
   if (!label && !elements.templateItemAmount.value.trim() && !notes) return null;
-  if (!label || Number.isNaN(amount) || Number.isNaN(dayOfMonth) || dayOfMonth < 1 || dayOfMonth > 31) return null;
+  if (!label || Number.isNaN(amount) || !firstDate) return null;
   return {
     id: elements.templateItemId.value || crypto.randomUUID(),
     label,
     amount,
-    dayOfMonth,
+    firstDate,
     category: elements.templateItemCategory.value || "Misc",
     notes
   };
@@ -1525,13 +1525,13 @@ function renderTemplateItems() {
   }
 
   elements.templateItemsList.innerHTML = templateDraftItems
-    .sort((left, right) => left.dayOfMonth - right.dayOfMonth)
+    .sort((left, right) => left.firstDate.localeCompare(right.firstDate))
     .map((item) => `
       <div class="history-item">
         <div class="template-top">
           <div>
             <strong>${escapeHTML(item.label)}</strong>
-            <p class="history-copy">Day ${item.dayOfMonth} • ${escapeHTML(item.category)}${item.notes ? ` • ${escapeHTML(item.notes)}` : ""}</p>
+            <p class="history-copy">${formatDate(item.firstDate)} • ${escapeHTML(item.category)}${item.notes ? ` • ${escapeHTML(item.notes)}` : ""}</p>
           </div>
           <strong>${formatCurrency(item.amount)}</strong>
         </div>
@@ -1563,7 +1563,7 @@ function fillTemplateItemDraft(item) {
   elements.templateItemId.value = item.id;
   elements.templateItemLabel.value = item.label;
   elements.templateItemAmount.value = item.amount;
-  elements.templateItemDay.value = item.dayOfMonth;
+  elements.templateItemDate.value = item.firstDate;
   elements.templateItemCategory.value = item.category || "Misc";
   elements.templateItemNotes.value = item.notes || "";
   elements.addTemplateItemButton.textContent = "Update recurring item";
@@ -1574,7 +1574,7 @@ function clearTemplateItemDraft() {
   elements.templateItemId.value = "";
   elements.templateItemLabel.value = "";
   elements.templateItemAmount.value = "";
-  elements.templateItemDay.value = "";
+  elements.templateItemDate.value = "";
   elements.templateItemNotes.value = "";
   elements.templateItemCategory.value = "Misc";
   elements.addTemplateItemButton.textContent = "Add recurring item";
@@ -1603,7 +1603,7 @@ function describeTemplate(template) {
     const count = template.items?.length || 0;
     return `${count} recurring item${count === 1 ? "" : "s"} • ${formatMonthKey(template.startMonth)} to ${formatMonthKey(template.endMonth)}`;
   }
-  return `${escapeHTML(template.category)} • Creates an event ${template.daysFromNow} day${template.daysFromNow === 1 ? "" : "s"} from today.`;
+  return `${escapeHTML(template.category)} • Defaults to ${formatDate(template.date || localISODate(new Date()))}.`;
 }
 
 function formatTemplateAmount(template) {
@@ -1620,7 +1620,7 @@ function materializeRecurringTemplate(template) {
     id: crypto.randomUUID(),
     label: item.label,
     amount: item.amount,
-    date: buildMonthDayISO(monthKey, item.dayOfMonth),
+    date: buildMonthDayISO(monthKey, dayOfMonthFromISO(item.firstDate)),
     scenarioId: null,
     category: item.category || "Misc",
     isSettled: false,
@@ -1650,6 +1650,10 @@ function buildMonthDayISO(monthKey, dayOfMonth) {
   const [year, month] = monthKey.split("-").map(Number);
   const lastDay = new Date(year, month, 0).getDate();
   return buildISODate(year, month, Math.min(dayOfMonth, lastDay));
+}
+
+function dayOfMonthFromISO(isoDate) {
+  return Number(isoDate.split("-")[2]);
 }
 
 function openSettingsModal(kind, meta = {}) {
@@ -2227,7 +2231,7 @@ function normalizeState(rawState) {
         label: template.label || "Template",
         description: template.description || "",
         amount: Number(template.amount) || 0,
-        daysFromNow: Number(template.daysFromNow) || 0,
+        date: template.date || addDaysISO(localISODate(new Date()), Number(template.daysFromNow) || 0),
         category: template.category || inferCategory(template.label || ""),
         startMonth: template.startMonth || currentMonthKey(),
         endMonth: template.endMonth || currentMonthKey(),
@@ -2236,7 +2240,7 @@ function normalizeState(rawState) {
               id: item.id || crypto.randomUUID(),
               label: item.label || "Recurring item",
               amount: Number(item.amount) || 0,
-              dayOfMonth: Math.max(1, Math.min(31, Number(item.dayOfMonth) || 1)),
+              firstDate: item.firstDate || buildISODate(new Date().getFullYear(), new Date().getMonth() + 1, Math.max(1, Math.min(31, Number(item.dayOfMonth) || 1))),
               category: item.category || inferCategory(item.label || ""),
               notes: item.notes || ""
             }))
