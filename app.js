@@ -200,6 +200,8 @@ const elements = {
   clearTemplateItemButton: document.querySelector("#clear-template-item-button"),
   templateItemsList: document.querySelector("#template-items-list"),
   deleteTemplateButton: document.querySelector("#delete-template-button"),
+  saveTemplateButton: document.querySelector("#save-template-button"),
+  saveScenarioButton: document.querySelector("#save-scenario-button"),
   editBalanceButton: document.querySelector("#edit-balance-button"),
   editThresholdButton: document.querySelector("#edit-threshold-button"),
   settingsModal: document.querySelector("#settings-modal"),
@@ -280,6 +282,9 @@ function attachEventListeners() {
   }
   elements.closeScenarioModal.addEventListener("click", () => elements.scenarioModal.close());
   elements.scenarioForm.addEventListener("submit", handleScenarioSubmit);
+  if (elements.saveScenarioButton) {
+    elements.saveScenarioButton.addEventListener("click", handleScenarioSubmit);
+  }
   elements.addScenarioEventButton.addEventListener("click", handleAddPlanEvent);
   if (elements.clearScenarioEventButton) {
     elements.clearScenarioEventButton.addEventListener("click", clearPlanEventDraft);
@@ -291,8 +296,22 @@ function attachEventListeners() {
   if (elements.templateForm) {
     elements.templateForm.addEventListener("submit", handleTemplateSubmit);
   }
+  if (elements.saveTemplateButton) {
+    elements.saveTemplateButton.addEventListener("click", handleTemplateSubmit);
+  }
   if (elements.templateType) {
     elements.templateType.addEventListener("change", updateTemplateTypeUI);
+  }
+  if (elements.templateStartMonth) {
+    elements.templateStartMonth.addEventListener("change", () => {
+      if (elements.templateEndMonth.value < elements.templateStartMonth.value) {
+        elements.templateEndMonth.value = elements.templateStartMonth.value;
+      }
+      syncTemplateDefaultDates();
+    });
+  }
+  if (elements.templateEndMonth) {
+    elements.templateEndMonth.addEventListener("change", syncTemplateDefaultDates);
   }
   if (elements.addTemplateItemButton) {
     elements.addTemplateItemButton.addEventListener("click", handleAddTemplateItem);
@@ -1418,6 +1437,7 @@ function openTemplateModal(templateId = null) {
     templateDraftItems = (template.items || []).map((item) => ({ ...item }));
   }
 
+  syncTemplateDefaultDates();
   updateTemplateTypeUI();
   renderTemplateItems();
   elements.templateModal.showModal();
@@ -1428,11 +1448,12 @@ function updateTemplateTypeUI() {
   const isRecurring = elements.templateType.value === "recurring";
   elements.singleTemplateFields.hidden = isRecurring;
   elements.recurringTemplateFields.hidden = !isRecurring;
+  syncTemplateDefaultDates();
 }
 
 function handleTemplateSubmit(event) {
   if (!elements.templateType) return;
-  event.preventDefault();
+  event?.preventDefault?.();
   const isRecurring = elements.templateType.value === "recurring";
   const label = elements.templateLabel.value.trim();
   if (!label) return;
@@ -1487,6 +1508,7 @@ function handleDeleteTemplate() {
 
 function handleAddTemplateItem() {
   if (!elements.templateItemsList) return;
+  syncTemplateDefaultDates();
   const payload = readTemplateItemDraft();
   if (!payload) return;
   const existingIndex = templateDraftItems.findIndex((entry) => entry.id === payload.id);
@@ -1578,6 +1600,7 @@ function clearTemplateItemDraft() {
   elements.templateItemNotes.value = "";
   elements.templateItemCategory.value = "Misc";
   elements.addTemplateItemButton.textContent = "Add recurring item";
+  syncTemplateDefaultDates();
 }
 
 function syncTemplateCategoryOptions() {
@@ -1585,6 +1608,25 @@ function syncTemplateCategoryOptions() {
   const options = CATEGORY_OPTIONS.map((category) => `<option value="${category}">${category}</option>`).join("");
   elements.templateCategory.innerHTML = options;
   elements.templateItemCategory.innerHTML = options;
+}
+
+function syncTemplateDefaultDates() {
+  if (elements.templateType?.value === "single") {
+    if (elements.templateDate && !elements.templateDate.value) {
+      elements.templateDate.value = addDaysISO(localISODate(new Date()), 14);
+    }
+    return;
+  }
+
+  if (elements.templateStartMonth && !elements.templateStartMonth.value) {
+    elements.templateStartMonth.value = currentMonthKey();
+  }
+  if (elements.templateEndMonth && !elements.templateEndMonth.value) {
+    elements.templateEndMonth.value = elements.templateStartMonth.value || currentMonthKey();
+  }
+  if (elements.templateItemDate && !elements.templateItemDate.value) {
+    elements.templateItemDate.value = `${elements.templateStartMonth.value || currentMonthKey()}-01`;
+  }
 }
 
 function syncTimelineCategoryOptions() {
