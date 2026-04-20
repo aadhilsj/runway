@@ -1491,11 +1491,19 @@ function buildTemplatePayload() {
   if (isRecurring) {
     const pendingDraft = readTemplateItemDraft();
     const items = mergeTemplateDraftItems(pendingDraft);
-    if (!items.length || !elements.templateStartMonth.value || !elements.templateEndMonth.value) return null;
-    if (elements.templateStartMonth.value > elements.templateEndMonth.value) return null;
+    if (!items.length) return null;
+    const startMonth = normalizeTemplateMonthValue(
+      elements.templateStartMonth.value,
+      items[0]?.firstDate || `${currentMonthKey()}-01`
+    );
+    const endMonth = normalizeTemplateMonthValue(
+      elements.templateEndMonth.value,
+      addMonthsISO(`${startMonth}-01`, 3)
+    );
+    if (startMonth > endMonth) return null;
     templateDraftItems = items;
-    payload.startMonth = elements.templateStartMonth.value;
-    payload.endMonth = elements.templateEndMonth.value;
+    payload.startMonth = startMonth;
+    payload.endMonth = endMonth;
     payload.items = items.map((item) => ({ ...item }));
     return payload;
   }
@@ -1519,6 +1527,11 @@ function mergeTemplateDraftItems(pendingDraft) {
     items.push(pendingDraft);
   }
   return items;
+}
+
+function normalizeTemplateMonthValue(rawMonthValue, fallbackISODate) {
+  if (rawMonthValue && /^\d{4}-\d{2}$/.test(rawMonthValue)) return rawMonthValue;
+  return fallbackISODate.slice(0, 7);
 }
 
 function handleDeleteTemplate() {
