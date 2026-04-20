@@ -129,6 +129,18 @@
             <h2>Upcoming money events</h2>
           </div>
         </div>
+        <div class="timeline-filter-row">
+          <input id="timeline-search" type="search" placeholder="Search label, notes, category">
+          <select id="timeline-status-filter" aria-label="Filter by status">
+            <option value="all">All upcoming</option>
+            <option value="plain">Base events</option>
+            <option value="scenario">Plans only</option>
+            <option value="bucket">Buckets only</option>
+          </select>
+          <select id="timeline-category-filter" aria-label="Filter by category">
+            <option value="all">All categories</option>
+          </select>
+        </div>
         <div class="quick-add-inline">
           <input id="quick-add-input" type="text" placeholder="Quick add idea: Rent 1450 1 May">
           <button class="primary-button small" id="quick-add-button">Add</button>
@@ -192,6 +204,9 @@
               </div>
             </summary>
             <div class="panel-section-spaced">
+              <div class="button-row">
+                <button class="ghost-button small new-plan-btn" id="new-template-button" type="button">+ New template</button>
+              </div>
               <div id="template-list" class="template-list"></div>
             </div>
           </details>
@@ -334,8 +349,11 @@
           <div>
             <span class="section-label">Plan items</span>
             <h2>Add costs inside this plan</h2>
+            <p class="template-copy">Build the plan here, then save it once the item list looks right.</p>
           </div>
         </div>
+
+        <input type="hidden" id="scenario-event-id">
 
         <div class="field-grid">
           <label class="field">
@@ -364,16 +382,132 @@
           <input id="scenario-event-notes" type="text" placeholder="Optional context for this plan item">
         </label>
 
-        <div class="button-row">
-          <button class="ghost-button small" type="button" id="add-scenario-event-button">Add item to plan</button>
+        <div class="plan-builder-actions">
+          <button class="primary-button small" type="button" id="add-scenario-event-button">Add item to plan</button>
+          <button class="ghost-button small" type="button" id="clear-scenario-event-button">Clear item</button>
         </div>
 
         <div id="scenario-events-list" class="history-list"></div>
       </div>
 
-      <div class="modal-actions">
+      <div class="modal-actions modal-actions-spread">
         <button class="ghost-button" type="button" id="delete-scenario-button" hidden>Delete plan</button>
         <button class="primary-button" type="submit">Save plan</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog class="modal" id="template-modal">
+    <form method="dialog" class="modal-card" id="template-form">
+      <div class="modal-header">
+        <div>
+          <p class="section-label">Template</p>
+          <h3 id="template-modal-title">Create template</h3>
+        </div>
+        <button class="ghost-button small" type="button" id="close-template-modal">Close</button>
+      </div>
+
+      <input type="hidden" id="template-id">
+
+      <div class="field-grid">
+        <label class="field">
+          <span>Type</span>
+          <select id="template-type">
+            <option value="single">Single event</option>
+            <option value="recurring">Monthly recurring bundle</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Name</span>
+          <input id="template-label" type="text" placeholder="Rent, Monthly fixed costs">
+        </label>
+      </div>
+
+      <label class="field">
+        <span>Description</span>
+        <textarea id="template-description" rows="2" placeholder="Optional note about what this template is for"></textarea>
+      </label>
+
+      <section id="single-template-fields">
+        <div class="field-grid">
+          <label class="field">
+            <span>Amount</span>
+            <input id="template-amount" type="number" step="0.01" placeholder="-9500">
+          </label>
+          <label class="field">
+            <span>Category</span>
+            <select id="template-category"></select>
+          </label>
+        </div>
+
+        <label class="field">
+          <span>Days from today</span>
+          <input id="template-days-from-now" type="number" step="1" placeholder="14">
+        </label>
+      </section>
+
+      <section id="recurring-template-fields" hidden>
+        <div class="field-grid">
+          <label class="field">
+            <span>Start month</span>
+            <input id="template-start-month" type="month">
+          </label>
+          <label class="field">
+            <span>End month</span>
+            <input id="template-end-month" type="month">
+          </label>
+        </div>
+
+        <div class="plan-builder recurring-builder">
+          <div class="panel-heading panel-heading-stack compact-heading">
+            <div>
+              <span class="section-label">Bundle items</span>
+              <h2>Recurring monthly items</h2>
+              <p class="template-copy">Each item repeats once per month across the selected month range.</p>
+            </div>
+          </div>
+
+          <input type="hidden" id="template-item-id">
+
+          <div class="field-grid">
+            <label class="field">
+              <span>Label</span>
+              <input id="template-item-label" type="text" placeholder="Rent, phone bill, insurance">
+            </label>
+            <label class="field">
+              <span>Amount</span>
+              <input id="template-item-amount" type="number" step="0.01" placeholder="-9500">
+            </label>
+          </div>
+
+          <div class="field-grid">
+            <label class="field">
+              <span>Day of month</span>
+              <input id="template-item-day" type="number" min="1" max="31" step="1" placeholder="1">
+            </label>
+            <label class="field">
+              <span>Category</span>
+              <select id="template-item-category"></select>
+            </label>
+          </div>
+
+          <label class="field">
+            <span>Notes</span>
+            <input id="template-item-notes" type="text" placeholder="Optional context for this recurring item">
+          </label>
+
+          <div class="plan-builder-actions">
+            <button class="primary-button small" type="button" id="add-template-item-button">Add recurring item</button>
+            <button class="ghost-button small" type="button" id="clear-template-item-button">Clear item</button>
+          </div>
+
+          <div id="template-items-list" class="history-list"></div>
+        </div>
+      </section>
+
+      <div class="modal-actions modal-actions-spread">
+        <button class="ghost-button" type="button" id="delete-template-button" hidden>Delete template</button>
+        <button class="primary-button" type="submit">Save template</button>
       </div>
     </form>
   </dialog>
