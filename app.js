@@ -43,6 +43,7 @@ const defaultState = {
     timelineSearch: "",
     timelineStatusFilter: "all",
     timelineCategoryFilter: "all",
+    timelineMonthFilter: "all",
     timelineSelectionMode: false,
     selectedTimelineEventIds: [],
     undoNotice: null,
@@ -147,6 +148,7 @@ const elements = {
   timelineSearch: document.querySelector("#timeline-search"),
   timelineStatusFilter: document.querySelector("#timeline-status-filter"),
   timelineCategoryFilter: document.querySelector("#timeline-category-filter"),
+  timelineMonthFilter: document.querySelector("#timeline-month-filter"),
   openEntryModal: document.querySelector("#open-entry-modal"),
   mobileFab: document.querySelector("#mobile-fab"),
   closeEntryModal: document.querySelector("#close-entry-modal"),
@@ -274,6 +276,14 @@ function attachEventListeners() {
   if (elements.timelineCategoryFilter) {
     elements.timelineCategoryFilter.addEventListener("change", () => {
       state.ui.timelineCategoryFilter = elements.timelineCategoryFilter.value;
+      pruneTimelineSelection();
+      persist();
+      render();
+    });
+  }
+  if (elements.timelineMonthFilter) {
+    elements.timelineMonthFilter.addEventListener("change", () => {
+      state.ui.timelineMonthFilter = elements.timelineMonthFilter.value;
       pruneTimelineSelection();
       persist();
       render();
@@ -795,6 +805,7 @@ function filterTimeline(timeline) {
   const query = (state.ui.timelineSearch || "").trim().toLowerCase();
   const statusFilter = state.ui.timelineStatusFilter || "all";
   const categoryFilter = state.ui.timelineCategoryFilter || "all";
+  const monthFilter = state.ui.timelineMonthFilter || "all";
 
   return timeline.filter((entry) => {
     const event = entry.event;
@@ -803,6 +814,7 @@ function filterTimeline(timeline) {
     if (statusFilter === "bucket" && !event.id.startsWith("bucket-")) return false;
     if (statusFilter !== "bucket" && statusFilter !== "all" && statusFilter !== "plain" && statusFilter !== "scenario") return true;
     if (categoryFilter !== "all" && event.category !== categoryFilter) return false;
+    if (monthFilter !== "all" && event.date.slice(0, 7) !== monthFilter) return false;
     if (!query) return true;
 
     const haystack = [event.label, event.notes, event.category, scenarioNameForEvent(event)]
@@ -1804,6 +1816,21 @@ function syncTimelineCategoryOptions() {
   `).join("");
   elements.timelineSearch.value = state.ui.timelineSearch || "";
   elements.timelineStatusFilter.value = state.ui.timelineStatusFilter || "all";
+
+  if (elements.timelineMonthFilter) {
+    const currentMonth = state.ui.timelineMonthFilter || "all";
+    const monthKeys = [...new Set(
+      state.events.map((e) => e.date.slice(0, 7))
+    )].sort();
+    elements.timelineMonthFilter.innerHTML = [
+      `<option value="all">All months</option>`,
+      ...monthKeys.map((key) => {
+        const [year, month] = key.split("-").map(Number);
+        const label = new Intl.DateTimeFormat(undefined, { month: "long", year: "numeric" }).format(new Date(year, month - 1, 1));
+        return `<option value="${key}" ${currentMonth === key ? "selected" : ""}>${label}</option>`;
+      })
+    ].join("");
+  }
 }
 
 function describeTemplate(template) {
@@ -2353,6 +2380,7 @@ function serializeState(sourceState) {
       timelineSearch: sourceState.ui.timelineSearch || "",
       timelineStatusFilter: sourceState.ui.timelineStatusFilter || "all",
       timelineCategoryFilter: sourceState.ui.timelineCategoryFilter || "all",
+      timelineMonthFilter: sourceState.ui.timelineMonthFilter || "all",
       timelineSelectionMode: Boolean(sourceState.ui.timelineSelectionMode),
       selectedTimelineEventIds: Array.isArray(sourceState.ui.selectedTimelineEventIds) ? sourceState.ui.selectedTimelineEventIds : [],
       history: sourceState.ui.history || []
@@ -2424,6 +2452,7 @@ function normalizeState(rawState) {
       timelineSearch: rawState.ui?.timelineSearch || "",
       timelineStatusFilter: rawState.ui?.timelineStatusFilter || "all",
       timelineCategoryFilter: rawState.ui?.timelineCategoryFilter || "all",
+      timelineMonthFilter: rawState.ui?.timelineMonthFilter || "all",
       timelineSelectionMode: Boolean(rawState.ui?.timelineSelectionMode),
       selectedTimelineEventIds: Array.isArray(rawState.ui?.selectedTimelineEventIds) ? rawState.ui.selectedTimelineEventIds : [],
       undoNotice: null,
