@@ -221,6 +221,7 @@ const elements = {
   settingsValue: document.querySelector("#settings-value"),
   closeSettingsModal: document.querySelector("#close-settings-modal"),
   signOutButton: document.querySelector("#sign-out-button"),
+  accountEmail: document.querySelector("#account-email"),
   syncBadge: document.querySelector("#sync-badge"),
   updateBanner: document.querySelector("#update-banner"),
   updateRefreshButton: document.querySelector("#update-refresh-button"),
@@ -399,16 +400,26 @@ async function bootstrap() {
 
   authUser = data.session?.user || null;
   updateAuthUI();
+  // Track the user ID that bootstrap already loaded, so onAuthStateChange
+  // doesn't fire a duplicate loadRemoteState for the same session.
+  let bootstrapLoadedUserId = null;
   if (authUser) {
+    bootstrapLoadedUserId = authUser.id;
     await loadRemoteState();
   }
 
   supabaseClient.auth.onAuthStateChange(async (_event, session) => {
-    authUser = session?.user || null;
+    const incomingUser = session?.user || null;
+    const alreadyLoaded = bootstrapLoadedUserId && incomingUser?.id === bootstrapLoadedUserId;
+    bootstrapLoadedUserId = null; // only skip the first duplicate
+    authUser = incomingUser;
     updateAuthUI();
     if (authUser) {
-      await loadRemoteState();
+      if (!alreadyLoaded) {
+        await loadRemoteState();
+      }
     } else {
+      lastRemoteUpdatedAt = null;
       state = loadLocalCache();
       render();
     }
@@ -474,8 +485,13 @@ async function handleAuthSubmit(event) {
 
 async function handleSignOut() {
   if (!supabaseClient) return;
-  await supabaseClient.auth.signOut();
+  try {
+    await supabaseClient.auth.signOut();
+  } catch (err) {
+    console.warn("Sign out error (continuing anyway):", err);
+  }
   authUser = null;
+  lastRemoteUpdatedAt = null;
   updateAuthUI();
 }
 
@@ -486,6 +502,10 @@ function updateAuthUI() {
   elements.appShell.classList.toggle("is-auth-blocked", !signedIn);
   document.body.classList.toggle("auth-required", !signedIn);
   elements.signOutButton.hidden = !signedIn;
+  if (elements.accountEmail) {
+    elements.accountEmail.textContent = signedIn ? (authUser?.email || "") : "";
+    elements.accountEmail.hidden = !signedIn;
+  }
   if (elements.openEntryModal) {
     elements.openEntryModal.disabled = !signedIn;
   }
