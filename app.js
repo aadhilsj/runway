@@ -1419,7 +1419,7 @@ function openTemplateModal(templateId = null) {
     elements.templateType.value = "single";
     elements.templateDate.value = addDaysISO(localISODate(new Date()), 14);
     elements.templateStartMonth.value = currentMonthKey();
-    elements.templateEndMonth.value = currentMonthKey();
+    elements.templateEndMonth.value = addMonthsISO(`${currentMonthKey()}-01`, 3).slice(0, 7);
   } else {
     const template = state.templates.find((entry) => entry.id === templateId);
     if (!template) return;
@@ -1457,42 +1457,8 @@ function updateTemplateTypeUI() {
 function handleTemplateSubmit(event) {
   if (!elements.templateType) return;
   event?.preventDefault?.();
-  const isRecurring = elements.templateType.value === "recurring";
-  const label = elements.templateLabel.value.trim();
-  if (!label) return;
-
-  const payload = {
-    id: elements.templateId.value || crypto.randomUUID(),
-    type: isRecurring ? "recurring" : "single",
-    label,
-    description: isRecurring
-      ? (elements.templateDescriptionRecurring?.value || "").trim()
-      : elements.templateDescription.value.trim()
-  };
-
-  if (isRecurring) {
-    const pendingDraft = readTemplateItemDraft();
-    if (pendingDraft) {
-      const existingIndex = templateDraftItems.findIndex((entry) => entry.id === pendingDraft.id);
-      if (existingIndex >= 0) {
-        templateDraftItems[existingIndex] = pendingDraft;
-      } else {
-        templateDraftItems.push(pendingDraft);
-      }
-    }
-    if (!templateDraftItems.length || !elements.templateStartMonth.value || !elements.templateEndMonth.value) return;
-    if (elements.templateStartMonth.value > elements.templateEndMonth.value) return;
-    payload.startMonth = elements.templateStartMonth.value;
-    payload.endMonth = elements.templateEndMonth.value;
-    payload.items = templateDraftItems.map((item) => ({ ...item }));
-  } else {
-    const amount = Number(elements.templateAmount.value);
-    const date = elements.templateDate.value;
-    if (Number.isNaN(amount) || !date) return;
-    payload.amount = amount;
-    payload.date = date;
-    payload.category = elements.templateCategory.value || "Misc";
-  }
+  const payload = buildTemplatePayload();
+  if (!payload) return;
 
   const existingIndex = state.templates.findIndex((entry) => entry.id === payload.id);
   if (existingIndex >= 0) {
@@ -1506,6 +1472,53 @@ function handleTemplateSubmit(event) {
   persist();
   elements.templateModal.close();
   render();
+}
+
+function buildTemplatePayload() {
+  const isRecurring = elements.templateType.value === "recurring";
+  const label = elements.templateLabel.value.trim();
+  if (!label) return null;
+
+  const payload = {
+    id: elements.templateId.value || crypto.randomUUID(),
+    type: isRecurring ? "recurring" : "single",
+    label,
+    description: isRecurring
+      ? (elements.templateDescriptionRecurring?.value || "").trim()
+      : elements.templateDescription.value.trim()
+  };
+
+  if (isRecurring) {
+    const pendingDraft = readTemplateItemDraft();
+    const items = mergeTemplateDraftItems(pendingDraft);
+    if (!items.length || !elements.templateStartMonth.value || !elements.templateEndMonth.value) return null;
+    if (elements.templateStartMonth.value > elements.templateEndMonth.value) return null;
+    templateDraftItems = items;
+    payload.startMonth = elements.templateStartMonth.value;
+    payload.endMonth = elements.templateEndMonth.value;
+    payload.items = items.map((item) => ({ ...item }));
+    return payload;
+  }
+
+  const amount = Number(elements.templateAmount.value);
+  const date = elements.templateDate.value;
+  if (Number.isNaN(amount) || !date) return null;
+  payload.amount = amount;
+  payload.date = date;
+  payload.category = elements.templateCategory.value || "Misc";
+  return payload;
+}
+
+function mergeTemplateDraftItems(pendingDraft) {
+  if (!pendingDraft) return [...templateDraftItems];
+  const items = [...templateDraftItems];
+  const existingIndex = items.findIndex((entry) => entry.id === pendingDraft.id);
+  if (existingIndex >= 0) {
+    items[existingIndex] = pendingDraft;
+  } else {
+    items.push(pendingDraft);
+  }
+  return items;
 }
 
 function handleDeleteTemplate() {
