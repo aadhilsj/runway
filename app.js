@@ -634,7 +634,7 @@ function applyMobileLayout() {
     { element: elements.sidebarStack, tabs: ["plans", "more"] },
     { element: elements.budgetsShell, tabs: ["more"] },
     { element: elements.plansShell, tabs: ["plans"] },
-    { element: elements.templatesShell, tabs: ["plans", "more"] },
+    { element: elements.templatesShell, tabs: ["more"] },
     { element: elements.bucketHistoryShell, tabs: ["more"] },
     { element: elements.historyShell, tabs: ["more"] },
     { element: elements.accountShell, tabs: ["more"] }
@@ -654,11 +654,6 @@ function applyMobileLayout() {
 
   if (elements.plansPanel && isMobile) {
     elements.plansPanel.open = activeTab === "plans";
-  }
-
-  if (elements.templatesShell && isMobile) {
-    const templatesPanel = elements.templatesShell.querySelector(".collapsible-panel");
-    if (templatesPanel) templatesPanel.open = activeTab === "plans";
   }
 
   elements.mobileNavButtons.forEach((button) => {
@@ -980,9 +975,11 @@ function renderTemplates() {
       if (!template) return;
       if (template.type === "recurring") {
         const events = materializeRecurringTemplate(template);
+        registerUndo("added", `Applied "${template.label}" — ${events.length} event${events.length === 1 ? "" : "s"} added.`);
         state.events.push(...events);
         logHistory("added", `Applied ${template.label} template.`);
       } else {
+        registerUndo("added", `Added "${template.label}" from template.`);
         state.events.push({
           id: crypto.randomUUID(),
           label: template.label,
@@ -1732,6 +1729,8 @@ function renderTemplateItems() {
       const item = templateDraftItems.find((entry) => entry.id === button.dataset.itemId);
       if (!item) return;
       fillTemplateItemDraft(item);
+      const modalCard = elements.templateModal.querySelector(".modal-card");
+      if (modalCard) modalCard.scrollTo({ top: 0, behavior: "smooth" });
     });
   });
   elements.templateItemsList.querySelectorAll("button[data-action='remove-template-item']").forEach((button) => {
