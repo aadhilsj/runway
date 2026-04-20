@@ -33,6 +33,9 @@ const defaultState = {
     currentBalance: 18240,
     warningThreshold: 2500
   },
+  meta: {
+    lastModifiedAt: null
+  },
   ui: {
     selectedDate: localISODate(new Date()),
     mobileTab: "forecast",
@@ -71,6 +74,7 @@ let supabaseClient = null;
 let authUser = null;
 let lastRemoteUpdatedAt = null;
 let authPendingEmail = null;
+let latestSaveRequestVersion = null;
 
 const elements = {
   appShell: document.querySelector("#app-shell"),
@@ -1524,8 +1528,13 @@ function loadLocalCache() {
   return normalizeState(structuredClone(defaultState));
 }
 
-function persist() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(serializeState(state)));
+function persist(options = {}) {
+  const { markDirty = true } = options;
+  ensureStateMeta(state);
+  if (markDirty) {
+    state.meta.lastModifiedAt = new Date().toISOString();
+  }
+  writeLocalCache(state);
   if (authUser && supabaseClient) {
     elements.syncBadge.textContent = "Saving";
     void saveRemoteState();
@@ -1536,6 +1545,7 @@ async function loadRemoteState() {
   if (!authUser || !supabaseClient) return;
 
   elements.syncBadge.textContent = "Loading latest data";
+  const localState = loadLocalCache();
   const { data, error } = await supabaseClient
     .from(SUPABASE_TABLE)
     .select("state, updated_at")
@@ -1549,16 +1559,37 @@ async function loadRemoteState() {
   }
 
   if (!data) {
-    state = normalizeState(structuredClone(defaultState));
-    persist();
+    state = localState;
+    render();
+    persist({ markDirty: !state.meta.lastModifiedAt });
+    render();
+    return;
+  }
+
+  const remoteState = normalizeState(data.state);
+  const remoteUpdatedAt = data.updated_at || remoteState.meta.lastModifiedAt || null;
+  const localUpdatedAt = localState.meta.lastModifiedAt || null;
+  const remoteIsNewer = isTimestampAfter(remoteUpdatedAt, localUpdatedAt);
+  const localIsNewer = isTimestampAfter(localUpdatedAt, remoteUpdatedAt);
+
+  if (remoteIsNewer) {
+    lastRemoteUpdatedAt = remoteUpdatedAt;
+    state = remoteState;
+    writeLocalCache(state);
     elements.syncBadge.textContent = "Synced";
     render();
     return;
   }
 
-  lastRemoteUpdatedAt = data.updated_at || null;
-  state = normalizeState(data.state);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(serializeState(state)));
+  state = localState;
+  render();
+  if (localIsNewer || !remoteUpdatedAt) {
+    elements.syncBadge.textContent = "Saving";
+    void saveRemoteState();
+    return;
+  }
+
+  lastRemoteUpdatedAt = remoteUpdatedAt;
   elements.syncBadge.textContent = "Synced";
   render();
 }
@@ -1573,19 +1604,25 @@ async function refreshRemoteState() {
 
   if (error || !data?.updated_at) return;
   if (lastRemoteUpdatedAt && data.updated_at <= lastRemoteUpdatedAt) return;
+  if (isTimestampAfter(state.meta.lastModifiedAt, data.updated_at)) return;
   lastRemoteUpdatedAt = data.updated_at;
   state = normalizeState(data.state);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(serializeState(state)));
+  writeLocalCache(state);
   render();
 }
 
 async function saveRemoteState() {
   if (!authUser || !supabaseClient) return;
 
+  ensureStateMeta(state);
+  const serializedState = serializeState(state);
+  const requestVersion = serializedState.meta.lastModifiedAt || new Date().toISOString();
+  latestSaveRequestVersion = requestVersion;
+
   const payload = {
     user_id: authUser.id,
-    state: serializeState(state),
-    updated_at: new Date().toISOString()
+    state: serializedState,
+    updated_at: requestVersion
   };
 
   const { error } = await supabaseClient.from(SUPABASE_TABLE).upsert(payload);
@@ -1596,12 +1633,19 @@ async function saveRemoteState() {
   }
 
   lastRemoteUpdatedAt = payload.updated_at;
-  elements.syncBadge.textContent = "Synced";
+  if (state.meta.lastModifiedAt === requestVersion && latestSaveRequestVersion === requestVersion) {
+    elements.syncBadge.textContent = "Synced";
+    return;
+  }
+
+  elements.syncBadge.textContent = "Saving";
 }
 
 function serializeState(sourceState) {
+  ensureStateMeta(sourceState);
   return {
     account: sourceState.account,
+    meta: sourceState.meta,
     ui: {
       selectedDate: sourceState.ui.selectedDate,
       history: sourceState.ui.history || []
@@ -1663,6 +1707,9 @@ function normalizeState(rawState) {
       currentBalance: rawState.account?.currentBalance ?? defaultState.account.currentBalance,
       warningThreshold: rawState.account?.warningThreshold ?? defaultState.account.warningThreshold
     },
+    meta: {
+      lastModifiedAt: rawState.meta?.lastModifiedAt || null
+    },
     ui: {
       selectedDate: rawState.ui?.selectedDate || localISODate(new Date()),
       undoNotice: null,
@@ -1695,6 +1742,27 @@ function normalizeState(rawState) {
       notes: event.notes || ""
     }))
   };
+}
+
+function ensureStateMeta(sourceState) {
+  if (!sourceState.meta || typeof sourceState.meta !== "object") {
+    sourceState.meta = { lastModifiedAt: null };
+    return;
+  }
+
+  if (!("lastModifiedAt" in sourceState.meta)) {
+    sourceState.meta.lastModifiedAt = null;
+  }
+}
+
+function writeLocalCache(sourceState) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(serializeState(sourceState)));
+}
+
+function isTimestampAfter(left, right) {
+  if (!left) return false;
+  if (!right) return true;
+  return left > right;
 }
 
 function seedEvents(targetState) {
