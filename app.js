@@ -245,21 +245,27 @@ function attachEventListeners() {
     persist();
     render();
   });
-  elements.timelineSearch.addEventListener("input", () => {
-    state.ui.timelineSearch = elements.timelineSearch.value;
-    persist();
-    render();
-  });
-  elements.timelineStatusFilter.addEventListener("change", () => {
-    state.ui.timelineStatusFilter = elements.timelineStatusFilter.value;
-    persist();
-    render();
-  });
-  elements.timelineCategoryFilter.addEventListener("change", () => {
-    state.ui.timelineCategoryFilter = elements.timelineCategoryFilter.value;
-    persist();
-    render();
-  });
+  if (elements.timelineSearch) {
+    elements.timelineSearch.addEventListener("input", () => {
+      state.ui.timelineSearch = elements.timelineSearch.value;
+      persist();
+      render();
+    });
+  }
+  if (elements.timelineStatusFilter) {
+    elements.timelineStatusFilter.addEventListener("change", () => {
+      state.ui.timelineStatusFilter = elements.timelineStatusFilter.value;
+      persist();
+      render();
+    });
+  }
+  if (elements.timelineCategoryFilter) {
+    elements.timelineCategoryFilter.addEventListener("change", () => {
+      state.ui.timelineCategoryFilter = elements.timelineCategoryFilter.value;
+      persist();
+      render();
+    });
+  }
   elements.addBucketButton.addEventListener("click", handleAddBucket);
   elements.newBucketName.addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
@@ -269,18 +275,34 @@ function attachEventListeners() {
   });
 
   elements.newScenarioButton.addEventListener("click", () => openPlanModal());
-  elements.newTemplateButton.addEventListener("click", () => openTemplateModal());
+  if (elements.newTemplateButton) {
+    elements.newTemplateButton.addEventListener("click", () => openTemplateModal());
+  }
   elements.closeScenarioModal.addEventListener("click", () => elements.scenarioModal.close());
   elements.scenarioForm.addEventListener("submit", handleScenarioSubmit);
   elements.addScenarioEventButton.addEventListener("click", handleAddPlanEvent);
-  elements.clearScenarioEventButton.addEventListener("click", clearPlanEventDraft);
+  if (elements.clearScenarioEventButton) {
+    elements.clearScenarioEventButton.addEventListener("click", clearPlanEventDraft);
+  }
   elements.deleteScenarioButton.addEventListener("click", handleDeleteScenario);
-  elements.closeTemplateModal.addEventListener("click", () => elements.templateModal.close());
-  elements.templateForm.addEventListener("submit", handleTemplateSubmit);
-  elements.templateType.addEventListener("change", updateTemplateTypeUI);
-  elements.addTemplateItemButton.addEventListener("click", handleAddTemplateItem);
-  elements.clearTemplateItemButton.addEventListener("click", clearTemplateItemDraft);
-  elements.deleteTemplateButton.addEventListener("click", handleDeleteTemplate);
+  if (elements.closeTemplateModal && elements.templateModal) {
+    elements.closeTemplateModal.addEventListener("click", () => elements.templateModal.close());
+  }
+  if (elements.templateForm) {
+    elements.templateForm.addEventListener("submit", handleTemplateSubmit);
+  }
+  if (elements.templateType) {
+    elements.templateType.addEventListener("change", updateTemplateTypeUI);
+  }
+  if (elements.addTemplateItemButton) {
+    elements.addTemplateItemButton.addEventListener("click", handleAddTemplateItem);
+  }
+  if (elements.clearTemplateItemButton) {
+    elements.clearTemplateItemButton.addEventListener("click", clearTemplateItemDraft);
+  }
+  if (elements.deleteTemplateButton) {
+    elements.deleteTemplateButton.addEventListener("click", handleDeleteTemplate);
+  }
 
   elements.editBalanceButton.addEventListener("click", () => openSettingsModal("balance"));
   elements.editThresholdButton.addEventListener("click", () => openSettingsModal("threshold"));
@@ -298,7 +320,7 @@ function attachEventListeners() {
   });
   window.addEventListener("resize", handleViewportChange);
 
-  [elements.entryModal, elements.scenarioModal, elements.settingsModal, elements.templateModal].forEach((modal) => {
+  [elements.entryModal, elements.scenarioModal, elements.settingsModal, elements.templateModal].filter(Boolean).forEach((modal) => {
     modal.addEventListener("click", (event) => {
       if (event.target === modal) modal.close();
     });
@@ -508,7 +530,9 @@ function render() {
   renderBucketHistory();
   syncScenarioOptions();
   syncCategoryOptions();
-  syncTimelineCategoryOptions();
+  if (elements.timelineCategoryFilter && elements.timelineSearch && elements.timelineStatusFilter) {
+    syncTimelineCategoryOptions();
+  }
   applyMobileLayout();
 }
 
@@ -626,7 +650,9 @@ function renderWarning(lowestPoint) {
 }
 
 function renderTimeline(timeline) {
-  const filteredTimeline = filterTimeline(timeline);
+  const filteredTimeline = elements.timelineSearch && elements.timelineStatusFilter && elements.timelineCategoryFilter
+    ? filterTimeline(timeline)
+    : timeline;
   if (!filteredTimeline.length) {
     elements.timelineList.innerHTML = `<div class="empty-state">No included future events yet. Add salary, rent, groceries, or include a plan to start the forecast.</div>`;
     return;
@@ -782,6 +808,7 @@ function renderScenarios() {
 }
 
 function renderTemplates() {
+  if (!elements.templateList) return;
   if (!state.templates.length) {
     elements.templateList.innerHTML = `<div class="empty-state">Create a template for one-off events or build a recurring monthly bundle to stamp across a range of months.</div>`;
     return;
@@ -1310,6 +1337,7 @@ function handleDeleteScenario() {
 }
 
 function readPlanEventDraft() {
+  if (!elements.scenarioEventLabel || !elements.scenarioEventAmount || !elements.scenarioEventDate) return null;
   const label = elements.scenarioEventLabel.value.trim();
   const amount = Number(elements.scenarioEventAmount.value);
   const date = elements.scenarioEventDate.value;
@@ -1332,6 +1360,7 @@ function readPlanEventDraft() {
 }
 
 function fillPlanEventDraft(entry) {
+  if (!elements.scenarioEventId) return;
   planDraftEventId = entry.id;
   elements.scenarioEventId.value = entry.id;
   elements.scenarioEventLabel.value = entry.label;
@@ -1343,6 +1372,7 @@ function fillPlanEventDraft(entry) {
 }
 
 function clearPlanEventDraft(options = {}) {
+  if (!elements.scenarioEventId) return;
   const { preserveDate = false } = options;
   planDraftEventId = null;
   elements.scenarioEventId.value = "";
@@ -1357,6 +1387,7 @@ function clearPlanEventDraft(options = {}) {
 }
 
 function openTemplateModal(templateId = null) {
+  if (!elements.templateModal || !elements.templateForm) return;
   elements.templateForm.reset();
   templateDraftItems = [];
   syncTemplateCategoryOptions();
@@ -1393,12 +1424,14 @@ function openTemplateModal(templateId = null) {
 }
 
 function updateTemplateTypeUI() {
+  if (!elements.templateType || !elements.singleTemplateFields || !elements.recurringTemplateFields) return;
   const isRecurring = elements.templateType.value === "recurring";
   elements.singleTemplateFields.hidden = isRecurring;
   elements.recurringTemplateFields.hidden = !isRecurring;
 }
 
 function handleTemplateSubmit(event) {
+  if (!elements.templateType) return;
   event.preventDefault();
   const isRecurring = elements.templateType.value === "recurring";
   const label = elements.templateLabel.value.trim();
@@ -1441,6 +1474,7 @@ function handleTemplateSubmit(event) {
 }
 
 function handleDeleteTemplate() {
+  if (!elements.templateId) return;
   const templateId = elements.templateId.value;
   if (!templateId) return;
   const target = state.templates.find((entry) => entry.id === templateId);
@@ -1452,6 +1486,7 @@ function handleDeleteTemplate() {
 }
 
 function handleAddTemplateItem() {
+  if (!elements.templateItemsList) return;
   const payload = readTemplateItemDraft();
   if (!payload) return;
   const existingIndex = templateDraftItems.findIndex((entry) => entry.id === payload.id);
@@ -1465,6 +1500,7 @@ function handleAddTemplateItem() {
 }
 
 function readTemplateItemDraft() {
+  if (!elements.templateItemLabel || !elements.templateItemAmount || !elements.templateItemDay) return null;
   const label = elements.templateItemLabel.value.trim();
   const amount = Number(elements.templateItemAmount.value);
   const dayOfMonth = Number(elements.templateItemDay.value);
@@ -1482,6 +1518,7 @@ function readTemplateItemDraft() {
 }
 
 function renderTemplateItems() {
+  if (!elements.templateItemsList) return;
   if (!templateDraftItems.length) {
     elements.templateItemsList.innerHTML = `<div class="empty-state">Add each monthly item here. They will repeat once per month across the selected month range.</div>`;
     return;
@@ -1522,6 +1559,7 @@ function renderTemplateItems() {
 }
 
 function fillTemplateItemDraft(item) {
+  if (!elements.templateItemId) return;
   elements.templateItemId.value = item.id;
   elements.templateItemLabel.value = item.label;
   elements.templateItemAmount.value = item.amount;
@@ -1532,6 +1570,7 @@ function fillTemplateItemDraft(item) {
 }
 
 function clearTemplateItemDraft() {
+  if (!elements.templateItemId) return;
   elements.templateItemId.value = "";
   elements.templateItemLabel.value = "";
   elements.templateItemAmount.value = "";
@@ -1542,12 +1581,14 @@ function clearTemplateItemDraft() {
 }
 
 function syncTemplateCategoryOptions() {
+  if (!elements.templateCategory || !elements.templateItemCategory) return;
   const options = CATEGORY_OPTIONS.map((category) => `<option value="${category}">${category}</option>`).join("");
   elements.templateCategory.innerHTML = options;
   elements.templateItemCategory.innerHTML = options;
 }
 
 function syncTimelineCategoryOptions() {
+  if (!elements.timelineCategoryFilter || !elements.timelineSearch || !elements.timelineStatusFilter) return;
   const currentValue = state.ui.timelineCategoryFilter || "all";
   const options = ["all", ...new Set([...CATEGORY_OPTIONS, ...getBucketNames(state)])];
   elements.timelineCategoryFilter.innerHTML = options.map((category) => `
