@@ -406,7 +406,16 @@ h3 {
 
 .timeline-filter-row select {
   width: auto;
-  min-width: 160px;
+  min-width: 0;
+  flex: 0 0 auto;
+}
+
+.compact-select {
+  width: fit-content;
+  min-width: 150px;
+  max-width: 220px;
+  padding-right: 42px;
+  background-position: right 14px center;
 }
 
 .quick-add-inline {
@@ -955,6 +964,11 @@ textarea {
   border-top: 1px solid var(--line);
 }
 
+.modal-actions-spread .primary-button,
+.modal-actions-spread .ghost-button {
+  min-width: 118px;
+}
+
 .modal-header {
   grid-template-columns: 1fr auto;
   align-items: start;
@@ -983,6 +997,17 @@ textarea {
 .plan-builder-actions {
   margin-bottom: 18px;
   align-items: center;
+}
+
+.plan-builder-actions .primary-button {
+  box-shadow: 0 10px 24px rgba(181, 92, 51, 0.18);
+}
+
+#save-scenario-button,
+#save-template-button {
+  color: var(--accent-strong);
+  border-color: rgba(181, 92, 51, 0.22);
+  background: rgba(255, 255, 255, 0.72);
 }
 
 .checkbox-field {
