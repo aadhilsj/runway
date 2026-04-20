@@ -1160,14 +1160,38 @@ textarea {
   .toolbar,
   .quick-add-inline,
   .modal-actions,
-  .timeline-filter-row,
   .plan-builder-actions {
     flex-direction: column;
   }
 
-  .timeline-bulk-bar {
+  .timeline-filter-row {
     flex-direction: column;
-    align-items: stretch;
+    gap: 8px;
+  }
+
+  .timeline-filter-selects {
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+  }
+
+  .timeline-filter-selects .compact-select {
+    flex: 1 1 0;
+    width: auto !important;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  #timeline-search {
+    min-height: 40px;
+    resize: none;
+  }
+
+  .timeline-bulk-bar {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
   }
 
   .summary-panel {
@@ -1545,9 +1569,10 @@ textarea {
 
   .modal-card {
     width: min(100vw - 36px, 420px);
-    max-height: min(82vh, 720px);
-    overflow: auto;
-    padding: 14px;
+    max-height: min(88dvh, 780px);
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 18px 16px;
     border-radius: 20px;
   }
 
@@ -1621,6 +1646,32 @@ textarea {
 
   .plan-builder h2 {
     font-size: 1.05rem;
+  }
+
+  /* Fix type select overflow in template modal */
+  #template-type {
+    width: 100% !important;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Bundle items section breathing room */
+  #recurring-template-fields .plan-builder {
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--line);
+  }
+
+  #recurring-template-fields .compact-heading {
+    margin-bottom: 12px;
+  }
+
+  /* Ensure field-grid in template modal stacks cleanly */
+  #template-modal .field-grid {
+    grid-template-columns: 1fr;
   }
 
   #scenario-event-notes,
