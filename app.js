@@ -43,6 +43,8 @@ const defaultState = {
     timelineSearch: "",
     timelineStatusFilter: "all",
     timelineCategoryFilter: "all",
+    timelineSelectionMode: false,
+    selectedTimelineEventIds: [],
     undoNotice: null,
     history: []
   },
@@ -126,6 +128,12 @@ const elements = {
   selectedDateCaption: document.querySelector("#selected-date-caption"),
   timelinePanel: document.querySelector("#timeline-panel"),
   timelineList: document.querySelector("#timeline-list"),
+  timelineBulkBar: document.querySelector("#timeline-bulk-bar"),
+  timelineSelectToggle: document.querySelector("#timeline-select-toggle"),
+  timelineSelectAll: document.querySelector("#timeline-select-all"),
+  timelineClearSelection: document.querySelector("#timeline-clear-selection"),
+  timelineSelectionCount: document.querySelector("#timeline-selection-count"),
+  timelineDeleteSelected: document.querySelector("#timeline-delete-selected"),
   sidebarStack: document.querySelector("#sidebar-stack"),
   budgetsShell: document.querySelector("#budgets-shell"),
   plansShell: document.querySelector("#plans-shell"),
@@ -250,6 +258,7 @@ function attachEventListeners() {
   if (elements.timelineSearch) {
     elements.timelineSearch.addEventListener("input", () => {
       state.ui.timelineSearch = elements.timelineSearch.value;
+      pruneTimelineSelection();
       persist();
       render();
     });
@@ -257,6 +266,7 @@ function attachEventListeners() {
   if (elements.timelineStatusFilter) {
     elements.timelineStatusFilter.addEventListener("change", () => {
       state.ui.timelineStatusFilter = elements.timelineStatusFilter.value;
+      pruneTimelineSelection();
       persist();
       render();
     });
@@ -264,9 +274,22 @@ function attachEventListeners() {
   if (elements.timelineCategoryFilter) {
     elements.timelineCategoryFilter.addEventListener("change", () => {
       state.ui.timelineCategoryFilter = elements.timelineCategoryFilter.value;
+      pruneTimelineSelection();
       persist();
       render();
     });
+  }
+  if (elements.timelineSelectToggle) {
+    elements.timelineSelectToggle.addEventListener("click", handleTimelineSelectionToggle);
+  }
+  if (elements.timelineSelectAll) {
+    elements.timelineSelectAll.addEventListener("click", handleTimelineSelectAllVisible);
+  }
+  if (elements.timelineClearSelection) {
+    elements.timelineClearSelection.addEventListener("click", clearTimelineSelection);
+  }
+  if (elements.timelineDeleteSelected) {
+    elements.timelineDeleteSelected.addEventListener("click", handleTimelineDeleteSelected);
   }
   elements.addBucketButton.addEventListener("click", handleAddBucket);
   elements.newBucketName.addEventListener("keydown", (event) => {
@@ -672,6 +695,7 @@ function renderTimeline(timeline) {
   const filteredTimeline = elements.timelineSearch && elements.timelineStatusFilter && elements.timelineCategoryFilter
     ? filterTimeline(timeline)
     : timeline;
+  renderTimelineBulkBar(filteredTimeline);
   if (!filteredTimeline.length) {
     elements.timelineList.innerHTML = `<div class="empty-state">No included future events yet. Add salary, rent, groceries, or include a plan to start the forecast.</div>`;
     return;
@@ -693,49 +717,77 @@ function renderTimeline(timeline) {
   elements.timelineList.querySelectorAll("button[data-action]").forEach((button) => {
     button.addEventListener("click", handleTimelineAction);
   });
+  elements.timelineList.querySelectorAll("input[data-action='toggle-select-event']").forEach((input) => {
+    input.addEventListener("change", handleTimelineSelectionChange);
+  });
 }
 
 function renderTimelineItem(item) {
-    const event = item.event;
-    const isBucketEvent = event.id.startsWith("bucket-");
-    const displayAmount = effectiveAmount(event);
-    const amountClass = displayAmount >= 0 ? "income" : "expense";
-    const scenario = event.scenarioId ? state.scenarios.find((entry) => entry.id === event.scenarioId) : null;
-    const chips = [
-      event.isSettled ? `<span class="chip">Settled</span>` : "",
-      scenario ? `<span class="chip active">${escapeHTML(scenario.name)}</span>` : "",
-      item.runningBalance < state.account.warningThreshold ? `<span class="chip warning">Below floor</span>` : "",
-      event.category ? `<span class="chip">${escapeHTML(event.category)}</span>` : ""
-    ].filter(Boolean).join("");
+  const event = item.event;
+  const isBucketEvent = event.id.startsWith("bucket-");
+  const displayAmount = effectiveAmount(event);
+  const amountClass = displayAmount >= 0 ? "income" : "expense";
+  const scenario = event.scenarioId ? state.scenarios.find((entry) => entry.id === event.scenarioId) : null;
+  const isSelectionMode = Boolean(state.ui.timelineSelectionMode);
+  const isSelected = (state.ui.selectedTimelineEventIds || []).includes(event.id);
+  const chips = [
+    event.isSettled ? `<span class="chip">Settled</span>` : "",
+    scenario ? `<span class="chip active">${escapeHTML(scenario.name)}</span>` : "",
+    item.runningBalance < state.account.warningThreshold ? `<span class="chip warning">Below floor</span>` : "",
+    event.category ? `<span class="chip">${escapeHTML(event.category)}</span>` : ""
+  ].filter(Boolean).join("");
 
-    return `
-      <section class="timeline-item">
-        <div class="timeline-top">
-          <div class="timeline-main">
-            <p class="timeline-title">${escapeHTML(event.label)}</p>
-            <p class="timeline-meta">${formatDate(event.date)}${event.notes ? ` • ${escapeHTML(event.notes)}` : ""}</p>
-          </div>
+  return `
+    <section class="timeline-item ${isSelectionMode ? "is-selection-mode" : ""} ${isSelected ? "is-selected" : ""}">
+      <div class="timeline-top">
+        ${isSelectionMode && !isBucketEvent ? `
+          <label class="timeline-select-control">
+            <input type="checkbox" data-action="toggle-select-event" data-event-id="${event.id}" ${isSelected ? "checked" : ""}>
+            <span>Select</span>
+          </label>
+        ` : ""}
+        <div class="timeline-main">
+          <p class="timeline-title">${escapeHTML(event.label)}</p>
+          <p class="timeline-meta">${formatDate(event.date)}${event.notes ? ` • ${escapeHTML(event.notes)}` : ""}</p>
         </div>
-        <div class="timeline-bottom">
-          <div class="timeline-value-row">
-            <p class="timeline-amount ${amountClass}">${formatCurrency(displayAmount)}</p>
-            ${isBucketEvent ? "" : `
-            <div class="button-row timeline-actions">
-              <button class="ghost-button small" data-action="toggle-settled" data-event-id="${event.id}">
-                ${event.isSettled ? "Mark upcoming" : "Mark settled"}
-              </button>
-              <button class="ghost-button small" data-action="edit-event" data-event-id="${event.id}">Edit</button>
-            </div>
-            `}
+      </div>
+      <div class="timeline-bottom">
+        <div class="timeline-value-row">
+          <p class="timeline-amount ${amountClass}">${formatCurrency(displayAmount)}</p>
+          ${isBucketEvent || isSelectionMode ? "" : `
+          <div class="button-row timeline-actions">
+            <button class="ghost-button small" data-action="toggle-settled" data-event-id="${event.id}">
+              ${event.isSettled ? "Mark upcoming" : "Mark settled"}
+            </button>
+            <button class="ghost-button small" data-action="edit-event" data-event-id="${event.id}">Edit</button>
           </div>
-          <div class="chip-row">
-            ${chips}
-            ${event.actualAmount !== null && event.actualAmount !== undefined ? `<span class="chip">Actual: ${formatCurrency(event.actualAmount)}</span>` : ""}
-            <span class="chip">After event: ${formatCurrency(item.runningBalance)}</span>
-          </div>
+          `}
         </div>
-      </section>
-    `;
+        <div class="chip-row">
+          ${chips}
+          ${event.actualAmount !== null && event.actualAmount !== undefined ? `<span class="chip">Actual: ${formatCurrency(event.actualAmount)}</span>` : ""}
+          <span class="chip">After event: ${formatCurrency(item.runningBalance)}</span>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function renderTimelineBulkBar(filteredTimeline) {
+  if (!elements.timelineBulkBar) return;
+  const visibleSelectableIds = filteredTimeline
+    .map((entry) => entry.event)
+    .filter((event) => !event.id.startsWith("bucket-"))
+    .map((event) => event.id);
+  const selectedCount = (state.ui.selectedTimelineEventIds || []).length;
+  elements.timelineBulkBar.hidden = !visibleSelectableIds.length;
+  elements.timelineSelectToggle.textContent = state.ui.timelineSelectionMode ? "Done" : "Select";
+  elements.timelineSelectToggle.setAttribute("aria-pressed", state.ui.timelineSelectionMode ? "true" : "false");
+  elements.timelineSelectAll.hidden = !state.ui.timelineSelectionMode;
+  elements.timelineClearSelection.hidden = !state.ui.timelineSelectionMode || !selectedCount;
+  elements.timelineSelectionCount.hidden = !state.ui.timelineSelectionMode;
+  elements.timelineDeleteSelected.hidden = !state.ui.timelineSelectionMode || !selectedCount;
+  elements.timelineSelectionCount.textContent = `${selectedCount} selected`;
 }
 
 function filterTimeline(timeline) {
@@ -758,6 +810,73 @@ function filterTimeline(timeline) {
       .toLowerCase();
     return haystack.includes(query);
   });
+}
+
+function handleTimelineSelectionToggle() {
+  state.ui.timelineSelectionMode = !state.ui.timelineSelectionMode;
+  if (!state.ui.timelineSelectionMode) {
+    state.ui.selectedTimelineEventIds = [];
+  } else {
+    pruneTimelineSelection();
+  }
+  persist();
+  render();
+}
+
+function handleTimelineSelectionChange(event) {
+  const eventId = event.currentTarget.dataset.eventId;
+  const next = new Set(state.ui.selectedTimelineEventIds || []);
+  if (event.currentTarget.checked) {
+    next.add(eventId);
+  } else {
+    next.delete(eventId);
+  }
+  state.ui.selectedTimelineEventIds = [...next];
+  persist();
+  render();
+}
+
+function handleTimelineSelectAllVisible() {
+  const visibleIds = getVisibleSelectableTimelineIds();
+  state.ui.selectedTimelineEventIds = visibleIds;
+  persist();
+  render();
+}
+
+function clearTimelineSelection() {
+  state.ui.selectedTimelineEventIds = [];
+  persist();
+  render();
+}
+
+function handleTimelineDeleteSelected() {
+  const selectedIds = state.ui.selectedTimelineEventIds || [];
+  if (!selectedIds.length) return;
+  const count = selectedIds.length;
+  if (!window.confirm(`Delete ${count} selected timeline event${count === 1 ? "" : "s"}?`)) return;
+  registerUndo("deleted", `Deleted ${count} selected timeline events`);
+  state.events = state.events.filter((entry) => !selectedIds.includes(entry.id));
+  state.ui.selectedTimelineEventIds = [];
+  state.ui.timelineSelectionMode = false;
+  logHistory("deleted", `Deleted ${count} selected timeline events.`);
+  persist();
+  render();
+}
+
+function pruneTimelineSelection() {
+  const visibleIds = new Set(getVisibleSelectableTimelineIds());
+  state.ui.selectedTimelineEventIds = (state.ui.selectedTimelineEventIds || []).filter((id) => visibleIds.has(id));
+}
+
+function getVisibleSelectableTimelineIds() {
+  const forecast = computeForecast(state);
+  const filteredTimeline = elements.timelineSearch && elements.timelineStatusFilter && elements.timelineCategoryFilter
+    ? filterTimeline(forecast.timeline)
+    : forecast.timeline;
+  return filteredTimeline
+    .map((entry) => entry.event)
+    .filter((event) => !event.id.startsWith("bucket-"))
+    .map((event) => event.id);
 }
 
 function groupTimelineByMonth(timeline) {
@@ -2230,6 +2349,8 @@ function serializeState(sourceState) {
       timelineSearch: sourceState.ui.timelineSearch || "",
       timelineStatusFilter: sourceState.ui.timelineStatusFilter || "all",
       timelineCategoryFilter: sourceState.ui.timelineCategoryFilter || "all",
+      timelineSelectionMode: Boolean(sourceState.ui.timelineSelectionMode),
+      selectedTimelineEventIds: Array.isArray(sourceState.ui.selectedTimelineEventIds) ? sourceState.ui.selectedTimelineEventIds : [],
       history: sourceState.ui.history || []
     },
     bucketTemplates: sourceState.bucketTemplates,
@@ -2299,6 +2420,8 @@ function normalizeState(rawState) {
       timelineSearch: rawState.ui?.timelineSearch || "",
       timelineStatusFilter: rawState.ui?.timelineStatusFilter || "all",
       timelineCategoryFilter: rawState.ui?.timelineCategoryFilter || "all",
+      timelineSelectionMode: Boolean(rawState.ui?.timelineSelectionMode),
+      selectedTimelineEventIds: Array.isArray(rawState.ui?.selectedTimelineEventIds) ? rawState.ui.selectedTimelineEventIds : [],
       undoNotice: null,
       history: Array.isArray(rawState.ui?.history) ? rawState.ui.history : []
     },
