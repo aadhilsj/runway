@@ -40,6 +40,9 @@ const defaultState = {
     selectedDate: localISODate(new Date()),
     mobileTab: "forecast",
     clarityExpanded: false,
+    timelineSearch: "",
+    timelineStatusFilter: "all",
+    timelineCategoryFilter: "all",
     undoNotice: null,
     history: []
   },
@@ -54,10 +57,10 @@ const defaultState = {
     }
   ],
   templates: [
-    { id: crypto.randomUUID(), label: "Salary", amount: 22000, daysFromNow: 14, category: "Income" },
-    { id: crypto.randomUUID(), label: "Rent", amount: -9500, daysFromNow: 12, category: "Housing" },
-    { id: crypto.randomUUID(), label: "Groceries", amount: -850, daysFromNow: 2, category: "Groceries" },
-    { id: crypto.randomUUID(), label: "Phone bill", amount: -399, daysFromNow: 8, category: "Bills" }
+    { id: crypto.randomUUID(), type: "single", label: "Salary", description: "", amount: 22000, daysFromNow: 14, category: "Income" },
+    { id: crypto.randomUUID(), type: "single", label: "Rent", description: "", amount: -9500, daysFromNow: 12, category: "Housing" },
+    { id: crypto.randomUUID(), type: "single", label: "Groceries", description: "", amount: -850, daysFromNow: 2, category: "Groceries" },
+    { id: crypto.randomUUID(), type: "single", label: "Phone bill", description: "", amount: -399, daysFromNow: 8, category: "Bills" }
   ],
   events: []
 };
@@ -75,6 +78,8 @@ let authUser = null;
 let lastRemoteUpdatedAt = null;
 let authPendingEmail = null;
 let latestSaveRequestVersion = null;
+let planDraftEventId = null;
+let templateDraftItems = [];
 
 const elements = {
   appShell: document.querySelector("#app-shell"),
@@ -129,7 +134,11 @@ const elements = {
   historyShell: document.querySelector("#history-shell"),
   scenarioList: document.querySelector("#scenario-list"),
   templateList: document.querySelector("#template-list"),
+  newTemplateButton: document.querySelector("#new-template-button"),
   historyList: document.querySelector("#history-list"),
+  timelineSearch: document.querySelector("#timeline-search"),
+  timelineStatusFilter: document.querySelector("#timeline-status-filter"),
+  timelineCategoryFilter: document.querySelector("#timeline-category-filter"),
   openEntryModal: document.querySelector("#open-entry-modal"),
   mobileFab: document.querySelector("#mobile-fab"),
   closeEntryModal: document.querySelector("#close-entry-modal"),
@@ -160,10 +169,37 @@ const elements = {
   scenarioEventDate: document.querySelector("#scenario-event-date"),
   scenarioEventCategory: document.querySelector("#scenario-event-category"),
   scenarioEventNotes: document.querySelector("#scenario-event-notes"),
+  scenarioEventId: document.querySelector("#scenario-event-id"),
   addScenarioEventButton: document.querySelector("#add-scenario-event-button"),
+  clearScenarioEventButton: document.querySelector("#clear-scenario-event-button"),
   scenarioEventsList: document.querySelector("#scenario-events-list"),
   deleteScenarioButton: document.querySelector("#delete-scenario-button"),
   scenarioModalTitle: document.querySelector("#scenario-modal-title"),
+  templateModal: document.querySelector("#template-modal"),
+  templateForm: document.querySelector("#template-form"),
+  closeTemplateModal: document.querySelector("#close-template-modal"),
+  templateModalTitle: document.querySelector("#template-modal-title"),
+  templateId: document.querySelector("#template-id"),
+  templateType: document.querySelector("#template-type"),
+  templateLabel: document.querySelector("#template-label"),
+  templateDescription: document.querySelector("#template-description"),
+  singleTemplateFields: document.querySelector("#single-template-fields"),
+  recurringTemplateFields: document.querySelector("#recurring-template-fields"),
+  templateAmount: document.querySelector("#template-amount"),
+  templateCategory: document.querySelector("#template-category"),
+  templateDaysFromNow: document.querySelector("#template-days-from-now"),
+  templateStartMonth: document.querySelector("#template-start-month"),
+  templateEndMonth: document.querySelector("#template-end-month"),
+  templateItemId: document.querySelector("#template-item-id"),
+  templateItemLabel: document.querySelector("#template-item-label"),
+  templateItemAmount: document.querySelector("#template-item-amount"),
+  templateItemDay: document.querySelector("#template-item-day"),
+  templateItemCategory: document.querySelector("#template-item-category"),
+  templateItemNotes: document.querySelector("#template-item-notes"),
+  addTemplateItemButton: document.querySelector("#add-template-item-button"),
+  clearTemplateItemButton: document.querySelector("#clear-template-item-button"),
+  templateItemsList: document.querySelector("#template-items-list"),
+  deleteTemplateButton: document.querySelector("#delete-template-button"),
   editBalanceButton: document.querySelector("#edit-balance-button"),
   editThresholdButton: document.querySelector("#edit-threshold-button"),
   settingsModal: document.querySelector("#settings-modal"),
@@ -209,6 +245,21 @@ function attachEventListeners() {
     persist();
     render();
   });
+  elements.timelineSearch.addEventListener("input", () => {
+    state.ui.timelineSearch = elements.timelineSearch.value;
+    persist();
+    render();
+  });
+  elements.timelineStatusFilter.addEventListener("change", () => {
+    state.ui.timelineStatusFilter = elements.timelineStatusFilter.value;
+    persist();
+    render();
+  });
+  elements.timelineCategoryFilter.addEventListener("change", () => {
+    state.ui.timelineCategoryFilter = elements.timelineCategoryFilter.value;
+    persist();
+    render();
+  });
   elements.addBucketButton.addEventListener("click", handleAddBucket);
   elements.newBucketName.addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
@@ -218,10 +269,18 @@ function attachEventListeners() {
   });
 
   elements.newScenarioButton.addEventListener("click", () => openPlanModal());
+  elements.newTemplateButton.addEventListener("click", () => openTemplateModal());
   elements.closeScenarioModal.addEventListener("click", () => elements.scenarioModal.close());
   elements.scenarioForm.addEventListener("submit", handleScenarioSubmit);
   elements.addScenarioEventButton.addEventListener("click", handleAddPlanEvent);
+  elements.clearScenarioEventButton.addEventListener("click", clearPlanEventDraft);
   elements.deleteScenarioButton.addEventListener("click", handleDeleteScenario);
+  elements.closeTemplateModal.addEventListener("click", () => elements.templateModal.close());
+  elements.templateForm.addEventListener("submit", handleTemplateSubmit);
+  elements.templateType.addEventListener("change", updateTemplateTypeUI);
+  elements.addTemplateItemButton.addEventListener("click", handleAddTemplateItem);
+  elements.clearTemplateItemButton.addEventListener("click", clearTemplateItemDraft);
+  elements.deleteTemplateButton.addEventListener("click", handleDeleteTemplate);
 
   elements.editBalanceButton.addEventListener("click", () => openSettingsModal("balance"));
   elements.editThresholdButton.addEventListener("click", () => openSettingsModal("threshold"));
@@ -239,7 +298,7 @@ function attachEventListeners() {
   });
   window.addEventListener("resize", handleViewportChange);
 
-  [elements.entryModal, elements.scenarioModal, elements.settingsModal].forEach((modal) => {
+  [elements.entryModal, elements.scenarioModal, elements.settingsModal, elements.templateModal].forEach((modal) => {
     modal.addEventListener("click", (event) => {
       if (event.target === modal) modal.close();
     });
@@ -449,6 +508,7 @@ function render() {
   renderBucketHistory();
   syncScenarioOptions();
   syncCategoryOptions();
+  syncTimelineCategoryOptions();
   applyMobileLayout();
 }
 
@@ -553,9 +613,12 @@ function renderUndoBanner() {
 
 function renderWarning(lowestPoint) {
   if (lowestPoint.balance < state.account.warningThreshold) {
-    const when = lowestPoint.event ? ` after ${lowestPoint.event.label} on ${formatDate(lowestPoint.event.date)}` : "";
+    const trigger = lowestPoint.event
+      ? `Triggered by ${lowestPoint.event.label} on ${formatDate(lowestPoint.event.date)}.`
+      : "";
+    const gap = state.account.warningThreshold - lowestPoint.balance;
     elements.warningBanner.hidden = false;
-    elements.warningBanner.textContent = `Projected balance drops to ${formatCurrency(lowestPoint.balance)}${when}.`;
+    elements.warningBanner.textContent = `Projected balance drops to ${formatCurrency(lowestPoint.balance)}. ${trigger} ${formatCurrency(gap)} below your warning floor.`;
   } else {
     elements.warningBanner.hidden = true;
     elements.warningBanner.textContent = "";
@@ -563,12 +626,31 @@ function renderWarning(lowestPoint) {
 }
 
 function renderTimeline(timeline) {
-  if (!timeline.length) {
+  const filteredTimeline = filterTimeline(timeline);
+  if (!filteredTimeline.length) {
     elements.timelineList.innerHTML = `<div class="empty-state">No included future events yet. Add salary, rent, groceries, or include a plan to start the forecast.</div>`;
     return;
   }
 
-  elements.timelineList.innerHTML = timeline.map((item) => {
+  const groupedMarkup = groupTimelineByMonth(filteredTimeline).map(({ monthKey, items }) => `
+    <section class="timeline-month-group">
+      <div class="timeline-month-separator">
+        <span>${formatMonthKey(monthKey)}</span>
+      </div>
+      <div class="timeline-month-items">
+        ${items.map(renderTimelineItem).join("")}
+      </div>
+    </section>
+  `).join("");
+
+  elements.timelineList.innerHTML = groupedMarkup;
+
+  elements.timelineList.querySelectorAll("button[data-action]").forEach((button) => {
+    button.addEventListener("click", handleTimelineAction);
+  });
+}
+
+function renderTimelineItem(item) {
     const event = item.event;
     const isBucketEvent = event.id.startsWith("bucket-");
     const displayAmount = effectiveAmount(event);
@@ -609,11 +691,47 @@ function renderTimeline(timeline) {
         </div>
       </section>
     `;
-  }).join("");
+}
 
-  elements.timelineList.querySelectorAll("button[data-action]").forEach((button) => {
-    button.addEventListener("click", handleTimelineAction);
+function filterTimeline(timeline) {
+  const query = (state.ui.timelineSearch || "").trim().toLowerCase();
+  const statusFilter = state.ui.timelineStatusFilter || "all";
+  const categoryFilter = state.ui.timelineCategoryFilter || "all";
+
+  return timeline.filter((entry) => {
+    const event = entry.event;
+    if (statusFilter === "plain" && event.scenarioId) return false;
+    if (statusFilter === "scenario" && !event.scenarioId) return false;
+    if (statusFilter === "bucket" && !event.id.startsWith("bucket-")) return false;
+    if (statusFilter !== "bucket" && statusFilter !== "all" && statusFilter !== "plain" && statusFilter !== "scenario") return true;
+    if (categoryFilter !== "all" && event.category !== categoryFilter) return false;
+    if (!query) return true;
+
+    const haystack = [event.label, event.notes, event.category, scenarioNameForEvent(event)]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+    return haystack.includes(query);
   });
+}
+
+function groupTimelineByMonth(timeline) {
+  const groups = [];
+  timeline.forEach((entry) => {
+    const monthKey = entry.event.date.slice(0, 7);
+    const current = groups[groups.length - 1];
+    if (!current || current.monthKey !== monthKey) {
+      groups.push({ monthKey, items: [entry] });
+      return;
+    }
+    current.items.push(entry);
+  });
+  return groups;
+}
+
+function scenarioNameForEvent(event) {
+  if (!event.scenarioId) return "";
+  return state.scenarios.find((entry) => entry.id === event.scenarioId)?.name || "";
 }
 
 function renderScenarios() {
@@ -664,17 +782,23 @@ function renderScenarios() {
 }
 
 function renderTemplates() {
+  if (!state.templates.length) {
+    elements.templateList.innerHTML = `<div class="empty-state">Create a template for one-off events or build a recurring monthly bundle to stamp across a range of months.</div>`;
+    return;
+  }
+
   elements.templateList.innerHTML = state.templates.map((template) => `
     <section class="template-card">
       <div class="template-top">
         <div>
           <p class="timeline-title">${escapeHTML(template.label)}</p>
-          <p class="template-copy">${escapeHTML(template.category)} • Creates an event ${template.daysFromNow} day${template.daysFromNow === 1 ? "" : "s"} from today.</p>
+          <p class="template-copy">${describeTemplate(template)}</p>
         </div>
-        <p class="timeline-amount ${template.amount >= 0 ? "income" : "expense"}">${formatCurrency(template.amount)}</p>
+        <p class="timeline-amount ${template.type === "recurring" ? "expense" : template.amount >= 0 ? "income" : "expense"}">${formatTemplateAmount(template)}</p>
       </div>
       <div class="button-row">
-        <button class="ghost-button small" data-action="use-template" data-template-id="${template.id}">Use template</button>
+        <button class="ghost-button small" data-action="use-template" data-template-id="${template.id}">${template.type === "recurring" ? "Apply bundle" : "Use template"}</button>
+        <button class="ghost-button small" data-action="edit-template" data-template-id="${template.id}">Edit</button>
       </div>
     </section>
   `).join("");
@@ -683,20 +807,32 @@ function renderTemplates() {
     button.addEventListener("click", () => {
       const template = state.templates.find((entry) => entry.id === button.dataset.templateId);
       if (!template) return;
-      state.events.push({
-        id: crypto.randomUUID(),
-        label: template.label,
-        amount: template.amount,
-        date: addDaysISO(localISODate(new Date()), template.daysFromNow),
-        scenarioId: null,
-        isSettled: false,
-        category: template.category,
-        actualAmount: null,
-        notes: "Created from template."
-      });
-      logHistory("added", `Added ${template.label} from template.`);
+      if (template.type === "recurring") {
+        const events = materializeRecurringTemplate(template);
+        state.events.push(...events);
+        logHistory("added", `Applied ${template.label} template.`);
+      } else {
+        state.events.push({
+          id: crypto.randomUUID(),
+          label: template.label,
+          amount: template.amount,
+          date: addDaysISO(localISODate(new Date()), template.daysFromNow),
+          scenarioId: null,
+          isSettled: false,
+          category: template.category,
+          actualAmount: null,
+          notes: template.description || "Created from template."
+        });
+        logHistory("added", `Added ${template.label} from template.`);
+      }
       persist();
       render();
+    });
+  });
+
+  elements.templateList.querySelectorAll("button[data-action='edit-template']").forEach((button) => {
+    button.addEventListener("click", () => {
+      openTemplateModal(button.dataset.templateId);
     });
   });
 }
@@ -1033,6 +1169,7 @@ function handleTimelineAction(event) {
 
 function openPlanModal(scenarioId = null) {
   elements.scenarioForm.reset();
+  clearPlanEventDraft();
   elements.scenarioEventDate.value = localISODate(new Date());
   syncCategoryOptionsForPlan();
 
@@ -1065,30 +1202,17 @@ function openPlanModal(scenarioId = null) {
 }
 
 function handleAddPlanEvent() {
-  const label = elements.scenarioEventLabel.value.trim();
-  const amount = Number(elements.scenarioEventAmount.value);
-  const date = elements.scenarioEventDate.value;
-  const category = elements.scenarioEventCategory.value || "Misc";
-  const notes = elements.scenarioEventNotes.value.trim();
+  const payload = readPlanEventDraft();
+  if (!payload) return;
 
-  if (!label || Number.isNaN(amount) || !date) return;
+  const existingIndex = planDraftEvents.findIndex((entry) => entry.id === payload.id);
+  if (existingIndex >= 0) {
+    planDraftEvents[existingIndex] = payload;
+  } else {
+    planDraftEvents.push(payload);
+  }
 
-  planDraftEvents.push({
-    id: crypto.randomUUID(),
-    label,
-    amount,
-    date,
-    scenarioId: activePlanId,
-    category,
-    isSettled: false,
-    actualAmount: null,
-    notes
-  });
-
-  elements.scenarioEventLabel.value = "";
-  elements.scenarioEventAmount.value = "";
-  elements.scenarioEventNotes.value = "";
-  elements.scenarioEventDate.value = date;
+  clearPlanEventDraft({ preserveDate: true });
   renderPlanEvents();
 }
 
@@ -1105,19 +1229,28 @@ function renderPlanEvents() {
         <div class="template-top">
           <div>
             <strong>${escapeHTML(event.label)}</strong>
-            <p class="history-copy">${formatDate(event.date)} • ${escapeHTML(event.category)}</p>
+            <p class="history-copy">${formatDate(event.date)} • ${escapeHTML(event.category)}${event.notes ? ` • ${escapeHTML(event.notes)}` : ""}</p>
           </div>
           <strong>${formatCurrency(event.amount)}</strong>
         </div>
         <div class="button-row">
+          <button class="ghost-button small" data-action="edit-plan-event" data-event-id="${event.id}">Edit</button>
           <button class="ghost-button small" data-action="remove-plan-event" data-event-id="${event.id}">Remove</button>
         </div>
       </div>
     `).join("");
 
+  elements.scenarioEventsList.querySelectorAll("button[data-action='edit-plan-event']").forEach((button) => {
+    button.addEventListener("click", () => {
+      const entry = planDraftEvents.find((event) => event.id === button.dataset.eventId);
+      if (!entry) return;
+      fillPlanEventDraft(entry);
+    });
+  });
   elements.scenarioEventsList.querySelectorAll("button[data-action='remove-plan-event']").forEach((button) => {
     button.addEventListener("click", () => {
       planDraftEvents = planDraftEvents.filter((event) => event.id !== button.dataset.eventId);
+      if (planDraftEventId === button.dataset.eventId) clearPlanEventDraft({ preserveDate: true });
       renderPlanEvents();
     });
   });
@@ -1125,6 +1258,15 @@ function renderPlanEvents() {
 
 function handleScenarioSubmit(event) {
   event.preventDefault();
+  const pendingDraft = readPlanEventDraft();
+  if (pendingDraft) {
+    const existingIndex = planDraftEvents.findIndex((entry) => entry.id === pendingDraft.id);
+    if (existingIndex >= 0) {
+      planDraftEvents[existingIndex] = pendingDraft;
+    } else {
+      planDraftEvents.push(pendingDraft);
+    }
+  }
 
   const name = elements.scenarioName.value.trim();
   if (!name) return;
@@ -1152,6 +1294,7 @@ function handleScenarioSubmit(event) {
 
   persist();
   elements.scenarioModal.close();
+  clearPlanEventDraft();
   render();
 }
 
@@ -1164,6 +1307,308 @@ function handleDeleteScenario() {
   persist();
   elements.scenarioModal.close();
   render();
+}
+
+function readPlanEventDraft() {
+  const label = elements.scenarioEventLabel.value.trim();
+  const amount = Number(elements.scenarioEventAmount.value);
+  const date = elements.scenarioEventDate.value;
+  const category = elements.scenarioEventCategory.value || "Misc";
+  const notes = elements.scenarioEventNotes.value.trim();
+  if (!label && !elements.scenarioEventAmount.value.trim() && !notes) return null;
+  if (!label || Number.isNaN(amount) || !date) return null;
+
+  return {
+    id: elements.scenarioEventId.value || crypto.randomUUID(),
+    label,
+    amount,
+    date,
+    scenarioId: activePlanId,
+    category,
+    isSettled: false,
+    actualAmount: null,
+    notes
+  };
+}
+
+function fillPlanEventDraft(entry) {
+  planDraftEventId = entry.id;
+  elements.scenarioEventId.value = entry.id;
+  elements.scenarioEventLabel.value = entry.label;
+  elements.scenarioEventAmount.value = entry.amount;
+  elements.scenarioEventDate.value = entry.date;
+  elements.scenarioEventNotes.value = entry.notes || "";
+  syncCategoryOptionsForPlan(entry.category || "Misc");
+  elements.addScenarioEventButton.textContent = "Update item";
+}
+
+function clearPlanEventDraft(options = {}) {
+  const { preserveDate = false } = options;
+  planDraftEventId = null;
+  elements.scenarioEventId.value = "";
+  elements.scenarioEventLabel.value = "";
+  elements.scenarioEventAmount.value = "";
+  elements.scenarioEventNotes.value = "";
+  if (!preserveDate || !elements.scenarioEventDate.value) {
+    elements.scenarioEventDate.value = localISODate(new Date());
+  }
+  syncCategoryOptionsForPlan();
+  elements.addScenarioEventButton.textContent = "Add item to plan";
+}
+
+function openTemplateModal(templateId = null) {
+  elements.templateForm.reset();
+  templateDraftItems = [];
+  syncTemplateCategoryOptions();
+  clearTemplateItemDraft();
+
+  if (!templateId) {
+    elements.templateId.value = "";
+    elements.templateModalTitle.textContent = "Create template";
+    elements.deleteTemplateButton.hidden = true;
+    elements.templateType.value = "single";
+    elements.templateDaysFromNow.value = "14";
+    elements.templateStartMonth.value = currentMonthKey();
+    elements.templateEndMonth.value = currentMonthKey();
+  } else {
+    const template = state.templates.find((entry) => entry.id === templateId);
+    if (!template) return;
+    elements.templateId.value = template.id;
+    elements.templateModalTitle.textContent = "Edit template";
+    elements.deleteTemplateButton.hidden = false;
+    elements.templateType.value = template.type || "single";
+    elements.templateLabel.value = template.label;
+    elements.templateDescription.value = template.description || "";
+    elements.templateAmount.value = template.amount ?? "";
+    elements.templateDaysFromNow.value = template.daysFromNow ?? 0;
+    elements.templateCategory.value = template.category || "Misc";
+    elements.templateStartMonth.value = template.startMonth || currentMonthKey();
+    elements.templateEndMonth.value = template.endMonth || currentMonthKey();
+    templateDraftItems = (template.items || []).map((item) => ({ ...item }));
+  }
+
+  updateTemplateTypeUI();
+  renderTemplateItems();
+  elements.templateModal.showModal();
+}
+
+function updateTemplateTypeUI() {
+  const isRecurring = elements.templateType.value === "recurring";
+  elements.singleTemplateFields.hidden = isRecurring;
+  elements.recurringTemplateFields.hidden = !isRecurring;
+}
+
+function handleTemplateSubmit(event) {
+  event.preventDefault();
+  const isRecurring = elements.templateType.value === "recurring";
+  const label = elements.templateLabel.value.trim();
+  if (!label) return;
+
+  const payload = {
+    id: elements.templateId.value || crypto.randomUUID(),
+    type: isRecurring ? "recurring" : "single",
+    label,
+    description: elements.templateDescription.value.trim()
+  };
+
+  if (isRecurring) {
+    if (!templateDraftItems.length || !elements.templateStartMonth.value || !elements.templateEndMonth.value) return;
+    if (elements.templateStartMonth.value > elements.templateEndMonth.value) return;
+    payload.startMonth = elements.templateStartMonth.value;
+    payload.endMonth = elements.templateEndMonth.value;
+    payload.items = templateDraftItems.map((item) => ({ ...item }));
+  } else {
+    const amount = Number(elements.templateAmount.value);
+    const daysFromNow = Number(elements.templateDaysFromNow.value);
+    if (Number.isNaN(amount) || Number.isNaN(daysFromNow)) return;
+    payload.amount = amount;
+    payload.daysFromNow = daysFromNow;
+    payload.category = elements.templateCategory.value || "Misc";
+  }
+
+  const existingIndex = state.templates.findIndex((entry) => entry.id === payload.id);
+  if (existingIndex >= 0) {
+    state.templates[existingIndex] = payload;
+    logHistory("edited", `Updated ${payload.label} template.`);
+  } else {
+    state.templates.push(payload);
+    logHistory("added", `Added ${payload.label} template.`);
+  }
+
+  persist();
+  elements.templateModal.close();
+  render();
+}
+
+function handleDeleteTemplate() {
+  const templateId = elements.templateId.value;
+  if (!templateId) return;
+  const target = state.templates.find((entry) => entry.id === templateId);
+  state.templates = state.templates.filter((entry) => entry.id !== templateId);
+  if (target) logHistory("deleted", `Deleted ${target.label} template.`);
+  persist();
+  elements.templateModal.close();
+  render();
+}
+
+function handleAddTemplateItem() {
+  const payload = readTemplateItemDraft();
+  if (!payload) return;
+  const existingIndex = templateDraftItems.findIndex((entry) => entry.id === payload.id);
+  if (existingIndex >= 0) {
+    templateDraftItems[existingIndex] = payload;
+  } else {
+    templateDraftItems.push(payload);
+  }
+  clearTemplateItemDraft();
+  renderTemplateItems();
+}
+
+function readTemplateItemDraft() {
+  const label = elements.templateItemLabel.value.trim();
+  const amount = Number(elements.templateItemAmount.value);
+  const dayOfMonth = Number(elements.templateItemDay.value);
+  const notes = elements.templateItemNotes.value.trim();
+  if (!label && !elements.templateItemAmount.value.trim() && !notes) return null;
+  if (!label || Number.isNaN(amount) || Number.isNaN(dayOfMonth) || dayOfMonth < 1 || dayOfMonth > 31) return null;
+  return {
+    id: elements.templateItemId.value || crypto.randomUUID(),
+    label,
+    amount,
+    dayOfMonth,
+    category: elements.templateItemCategory.value || "Misc",
+    notes
+  };
+}
+
+function renderTemplateItems() {
+  if (!templateDraftItems.length) {
+    elements.templateItemsList.innerHTML = `<div class="empty-state">Add each monthly item here. They will repeat once per month across the selected month range.</div>`;
+    return;
+  }
+
+  elements.templateItemsList.innerHTML = templateDraftItems
+    .sort((left, right) => left.dayOfMonth - right.dayOfMonth)
+    .map((item) => `
+      <div class="history-item">
+        <div class="template-top">
+          <div>
+            <strong>${escapeHTML(item.label)}</strong>
+            <p class="history-copy">Day ${item.dayOfMonth} • ${escapeHTML(item.category)}${item.notes ? ` • ${escapeHTML(item.notes)}` : ""}</p>
+          </div>
+          <strong>${formatCurrency(item.amount)}</strong>
+        </div>
+        <div class="button-row">
+          <button class="ghost-button small" data-action="edit-template-item" data-item-id="${item.id}">Edit</button>
+          <button class="ghost-button small" data-action="remove-template-item" data-item-id="${item.id}">Remove</button>
+        </div>
+      </div>
+    `).join("");
+
+  elements.templateItemsList.querySelectorAll("button[data-action='edit-template-item']").forEach((button) => {
+    button.addEventListener("click", () => {
+      const item = templateDraftItems.find((entry) => entry.id === button.dataset.itemId);
+      if (!item) return;
+      fillTemplateItemDraft(item);
+    });
+  });
+  elements.templateItemsList.querySelectorAll("button[data-action='remove-template-item']").forEach((button) => {
+    button.addEventListener("click", () => {
+      templateDraftItems = templateDraftItems.filter((entry) => entry.id !== button.dataset.itemId);
+      if (elements.templateItemId.value === button.dataset.itemId) clearTemplateItemDraft();
+      renderTemplateItems();
+    });
+  });
+}
+
+function fillTemplateItemDraft(item) {
+  elements.templateItemId.value = item.id;
+  elements.templateItemLabel.value = item.label;
+  elements.templateItemAmount.value = item.amount;
+  elements.templateItemDay.value = item.dayOfMonth;
+  elements.templateItemCategory.value = item.category || "Misc";
+  elements.templateItemNotes.value = item.notes || "";
+  elements.addTemplateItemButton.textContent = "Update recurring item";
+}
+
+function clearTemplateItemDraft() {
+  elements.templateItemId.value = "";
+  elements.templateItemLabel.value = "";
+  elements.templateItemAmount.value = "";
+  elements.templateItemDay.value = "";
+  elements.templateItemNotes.value = "";
+  elements.templateItemCategory.value = "Misc";
+  elements.addTemplateItemButton.textContent = "Add recurring item";
+}
+
+function syncTemplateCategoryOptions() {
+  const options = CATEGORY_OPTIONS.map((category) => `<option value="${category}">${category}</option>`).join("");
+  elements.templateCategory.innerHTML = options;
+  elements.templateItemCategory.innerHTML = options;
+}
+
+function syncTimelineCategoryOptions() {
+  const currentValue = state.ui.timelineCategoryFilter || "all";
+  const options = ["all", ...new Set([...CATEGORY_OPTIONS, ...getBucketNames(state)])];
+  elements.timelineCategoryFilter.innerHTML = options.map((category) => `
+    <option value="${category}" ${currentValue === category ? "selected" : ""}>${category === "all" ? "All categories" : escapeHTML(category)}</option>
+  `).join("");
+  elements.timelineSearch.value = state.ui.timelineSearch || "";
+  elements.timelineStatusFilter.value = state.ui.timelineStatusFilter || "all";
+}
+
+function describeTemplate(template) {
+  if (template.type === "recurring") {
+    const count = template.items?.length || 0;
+    return `${count} recurring item${count === 1 ? "" : "s"} • ${formatMonthKey(template.startMonth)} to ${formatMonthKey(template.endMonth)}`;
+  }
+  return `${escapeHTML(template.category)} • Creates an event ${template.daysFromNow} day${template.daysFromNow === 1 ? "" : "s"} from today.`;
+}
+
+function formatTemplateAmount(template) {
+  if (template.type === "recurring") {
+    const total = (template.items || []).reduce((sum, item) => sum + item.amount, 0);
+    return formatCurrency(total);
+  }
+  return formatCurrency(template.amount);
+}
+
+function materializeRecurringTemplate(template) {
+  const months = monthRange(template.startMonth, template.endMonth);
+  return months.flatMap((monthKey) => (template.items || []).map((item) => ({
+    id: crypto.randomUUID(),
+    label: item.label,
+    amount: item.amount,
+    date: buildMonthDayISO(monthKey, item.dayOfMonth),
+    scenarioId: null,
+    category: item.category || "Misc",
+    isSettled: false,
+    actualAmount: null,
+    notes: item.notes || `Created from ${template.label} template.`
+  })));
+}
+
+function monthRange(startMonth, endMonth) {
+  const months = [];
+  let cursor = `${startMonth}-01`;
+  const end = `${endMonth}-01`;
+  while (cursor <= end) {
+    months.push(cursor.slice(0, 7));
+    cursor = addMonthsISO(cursor, 1);
+  }
+  return months;
+}
+
+function addMonthsISO(isoDate, amount) {
+  const date = fromISO(isoDate);
+  date.setMonth(date.getMonth() + amount);
+  return localISODate(date);
+}
+
+function buildMonthDayISO(monthKey, dayOfMonth) {
+  const [year, month] = monthKey.split("-").map(Number);
+  const lastDay = new Date(year, month, 0).getDate();
+  return buildISODate(year, month, Math.min(dayOfMonth, lastDay));
 }
 
 function openSettingsModal(kind, meta = {}) {
@@ -1648,6 +2093,11 @@ function serializeState(sourceState) {
     meta: sourceState.meta,
     ui: {
       selectedDate: sourceState.ui.selectedDate,
+      mobileTab: sourceState.ui.mobileTab || "forecast",
+      clarityExpanded: Boolean(sourceState.ui.clarityExpanded),
+      timelineSearch: sourceState.ui.timelineSearch || "",
+      timelineStatusFilter: sourceState.ui.timelineStatusFilter || "all",
+      timelineCategoryFilter: sourceState.ui.timelineCategoryFilter || "all",
       history: sourceState.ui.history || []
     },
     bucketTemplates: sourceState.bucketTemplates,
@@ -1712,6 +2162,11 @@ function normalizeState(rawState) {
     },
     ui: {
       selectedDate: rawState.ui?.selectedDate || localISODate(new Date()),
+      mobileTab: rawState.ui?.mobileTab || "forecast",
+      clarityExpanded: Boolean(rawState.ui?.clarityExpanded),
+      timelineSearch: rawState.ui?.timelineSearch || "",
+      timelineStatusFilter: rawState.ui?.timelineStatusFilter || "all",
+      timelineCategoryFilter: rawState.ui?.timelineCategoryFilter || "all",
       undoNotice: null,
       history: Array.isArray(rawState.ui?.history) ? rawState.ui.history : []
     },
@@ -1723,13 +2178,30 @@ function normalizeState(rawState) {
       description: scenario.description || "",
       isIncluded: Boolean(scenario.isIncluded)
     })),
-    templates: (rawState.templates || defaultState.templates).map((template) => ({
-      id: template.id || crypto.randomUUID(),
-      label: template.label || "Template",
-      amount: Number(template.amount) || 0,
-      daysFromNow: Number(template.daysFromNow) || 0,
-      category: template.category || inferCategory(template.label || "")
-    })),
+    templates: (rawState.templates || defaultState.templates).map((template) => {
+      const type = template.type === "recurring" ? "recurring" : "single";
+      return {
+        id: template.id || crypto.randomUUID(),
+        type,
+        label: template.label || "Template",
+        description: template.description || "",
+        amount: Number(template.amount) || 0,
+        daysFromNow: Number(template.daysFromNow) || 0,
+        category: template.category || inferCategory(template.label || ""),
+        startMonth: template.startMonth || currentMonthKey(),
+        endMonth: template.endMonth || currentMonthKey(),
+        items: Array.isArray(template.items)
+          ? template.items.map((item) => ({
+              id: item.id || crypto.randomUUID(),
+              label: item.label || "Recurring item",
+              amount: Number(item.amount) || 0,
+              dayOfMonth: Math.max(1, Math.min(31, Number(item.dayOfMonth) || 1)),
+              category: item.category || inferCategory(item.label || ""),
+              notes: item.notes || ""
+            }))
+          : []
+      };
+    }),
     events: (rawState.events || []).map((event) => ({
       id: event.id || crypto.randomUUID(),
       label: event.label || "Event",
