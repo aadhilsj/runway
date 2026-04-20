@@ -1718,8 +1718,8 @@ function renderTemplateItems() {
           <strong>${formatCurrency(item.amount)}</strong>
         </div>
         <div class="button-row">
-          <button class="ghost-button small" data-action="edit-template-item" data-item-id="${item.id}">Edit</button>
-          <button class="ghost-button small" data-action="remove-template-item" data-item-id="${item.id}">Remove</button>
+          <button type="button" class="ghost-button small" data-action="edit-template-item" data-item-id="${item.id}">Edit</button>
+          <button type="button" class="ghost-button small" data-action="remove-template-item" data-item-id="${item.id}">Remove</button>
         </div>
       </div>
     `).join("");
