@@ -145,6 +145,17 @@
           <input id="quick-add-input" type="text" placeholder="Quick add idea: Rent 1450 1 May">
           <button class="primary-button small" id="quick-add-button">Add</button>
         </div>
+        <div class="timeline-bulk-bar" id="timeline-bulk-bar" hidden>
+          <div class="button-row">
+            <button class="ghost-button small" type="button" id="timeline-select-toggle">Select</button>
+            <button class="ghost-button small" type="button" id="timeline-select-all" hidden>Select all visible</button>
+            <button class="ghost-button small" type="button" id="timeline-clear-selection" hidden>Clear</button>
+          </div>
+          <div class="button-row">
+            <span class="timeline-selection-count" id="timeline-selection-count" hidden>0 selected</span>
+            <button class="ghost-button small destructive-button" type="button" id="timeline-delete-selected" hidden>Delete selected</button>
+          </div>
+        </div>
         <div id="timeline-list" class="timeline-list"></div>
       </article>
 
