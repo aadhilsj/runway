@@ -96,6 +96,33 @@ body.auth-required {
   display: block;
 }
 
+.pull-refresh-indicator {
+  position: fixed;
+  top: 10px;
+  left: 50%;
+  transform: translate(-50%, -120%);
+  z-index: 25;
+  padding: 8px 12px;
+  border: 1px solid rgba(181, 92, 51, 0.16);
+  border-radius: 999px;
+  background: rgba(255, 248, 240, 0.94);
+  box-shadow: 0 12px 28px rgba(62, 39, 15, 0.12);
+  color: var(--muted);
+  font-size: 0.84rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  opacity: 0;
+  transition: transform 180ms ease, opacity 180ms ease;
+  pointer-events: none;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.pull-refresh-indicator.is-visible {
+  transform: translate(-50%, 0);
+  opacity: 1;
+}
+
 .update-banner {
   position: fixed;
   left: 50%;
