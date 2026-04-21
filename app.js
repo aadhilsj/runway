@@ -88,6 +88,7 @@ let planDraftEventId = null;
 let templateDraftItems = [];
 let manualRefreshInFlight = false;
 let pullRefreshState = null;
+let remotePollTimer = null;
 
 const elements = {
   appShell: document.querySelector("#app-shell"),
@@ -385,10 +386,14 @@ function attachEventListeners() {
   });
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "hidden") {
+      stopRemotePolling();
       writeLocalCache(state);
       return;
     }
-    if (authUser) void refreshRemoteState();
+    if (authUser) {
+      startRemotePolling();
+      void refreshRemoteState();
+    }
   });
   window.addEventListener("pagehide", () => {
     writeLocalCache(state);
@@ -429,6 +434,7 @@ async function bootstrap() {
   if (authUser) {
     bootstrapLoadedUserId = authUser.id;
     await loadRemoteState();
+    startRemotePolling();
   }
 
   supabaseClient.auth.onAuthStateChange(async (_event, session) => {
@@ -441,7 +447,9 @@ async function bootstrap() {
       if (!alreadyLoaded) {
         await loadRemoteState();
       }
+      startRemotePolling();
     } else {
+      stopRemotePolling();
       lastRemoteUpdatedAt = null;
       state = loadLocalCache();
       render();
@@ -514,6 +522,7 @@ async function handleSignOut() {
     console.warn("Sign out error (continuing anyway):", err);
   }
   authUser = null;
+  stopRemotePolling();
   lastRemoteUpdatedAt = null;
   updateAuthUI();
 }
@@ -676,6 +685,22 @@ async function forceRefreshData(options = {}) {
   } finally {
     manualRefreshInFlight = false;
     window.setTimeout(() => setPullRefreshState(""), 450);
+  }
+}
+
+function startRemotePolling() {
+  stopRemotePolling();
+  if (!authUser) return;
+  remotePollTimer = window.setInterval(() => {
+    if (document.visibilityState !== "visible") return;
+    void refreshRemoteState();
+  }, 10000);
+}
+
+function stopRemotePolling() {
+  if (remotePollTimer) {
+    window.clearInterval(remotePollTimer);
+    remotePollTimer = null;
   }
 }
 
