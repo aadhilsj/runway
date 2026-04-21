@@ -1,4 +1,5 @@
 const STORAGE_KEY = "runway-mvp-v2";
+const RECOVERY_STORAGE_KEY = "runway-mvp-v2-recovery";
 const SUPABASE_TABLE = "runway_state";
 const HISTORY_WINDOW_HOURS = 12;
 const UNDO_VISIBLE_MS = 3000;
@@ -85,6 +86,8 @@ let authPendingEmail = null;
 let latestSaveRequestVersion = null;
 let planDraftEventId = null;
 let templateDraftItems = [];
+let manualRefreshInFlight = false;
+let pullRefreshState = null;
 
 const elements = {
   appShell: document.querySelector("#app-shell"),
@@ -227,6 +230,7 @@ const elements = {
   syncBadge: document.querySelector("#sync-badge"),
   updateBanner: document.querySelector("#update-banner"),
   updateRefreshButton: document.querySelector("#update-refresh-button"),
+  pullRefreshIndicator: document.querySelector("#pull-refresh-indicator"),
   plansPanel: document.querySelector("#plans-panel"),
   mobileNav: document.querySelector("#mobile-nav"),
   mobileNavButtons: Array.from(document.querySelectorAll("[data-mobile-tab-target]"))
@@ -373,7 +377,21 @@ function attachEventListeners() {
   window.addEventListener("focus", () => {
     if (authUser) void refreshRemoteState();
   });
+  window.addEventListener("online", () => {
+    if (authUser) void forceRefreshData({ preserveBadge: true });
+  });
+  window.addEventListener("pageshow", () => {
+    if (authUser) void refreshRemoteState();
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") {
+      writeLocalCache(state);
+      return;
+    }
+    if (authUser) void refreshRemoteState();
+  });
   window.addEventListener("resize", handleViewportChange);
+  attachPullToRefresh();
 
   [elements.entryModal, elements.scenarioModal, elements.settingsModal, elements.templateModal].filter(Boolean).forEach((modal) => {
     modal.addEventListener("click", (event) => {
@@ -622,6 +640,96 @@ async function handleRefreshToUpdate() {
     return;
   }
   window.location.reload();
+}
+
+async function forceRefreshData(options = {}) {
+  const { preserveBadge = false } = options;
+  if (manualRefreshInFlight) return;
+  manualRefreshInFlight = true;
+  if (!preserveBadge) {
+    elements.syncBadge.textContent = authUser ? "Refreshing" : "Refreshing app";
+  }
+  setPullRefreshState("Refreshing");
+  try {
+    if (authUser && supabaseClient) {
+      ensureStateMeta(state);
+      if (state.meta.hasPendingRemoteSync) {
+        await saveRemoteState();
+      }
+      await refreshRemoteState({ force: true });
+    }
+    const registration = await navigator.serviceWorker?.getRegistration?.();
+    await registration?.update?.();
+  } catch (error) {
+    console.warn("Unable to force refresh data", error);
+    if (!preserveBadge && authUser) {
+      elements.syncBadge.textContent = "Refresh failed";
+    }
+  } finally {
+    manualRefreshInFlight = false;
+    window.setTimeout(() => setPullRefreshState(""), 450);
+  }
+}
+
+function attachPullToRefresh() {
+  const supportsTouch = "ontouchstart" in window || navigator.maxTouchPoints > 0;
+  if (!supportsTouch) return;
+
+  document.addEventListener("touchstart", handlePullRefreshStart, { passive: true });
+  document.addEventListener("touchmove", handlePullRefreshMove, { passive: false });
+  document.addEventListener("touchend", handlePullRefreshEnd, { passive: true });
+  document.addEventListener("touchcancel", resetPullRefresh);
+}
+
+function handlePullRefreshStart(event) {
+  if (!isMobileViewport() || window.scrollY > 0 || document.body.classList.contains("auth-required")) return;
+  const touch = event.touches?.[0];
+  if (!touch) return;
+  pullRefreshState = {
+    startY: touch.clientY,
+    distance: 0,
+    triggered: false
+  };
+}
+
+function handlePullRefreshMove(event) {
+  if (!pullRefreshState || manualRefreshInFlight) return;
+  const touch = event.touches?.[0];
+  if (!touch) return;
+  const deltaY = Math.max(0, touch.clientY - pullRefreshState.startY);
+  pullRefreshState.distance = deltaY;
+  if (deltaY <= 0) {
+    setPullRefreshState("");
+    return;
+  }
+  if (window.scrollY <= 0) {
+    event.preventDefault();
+  }
+  const ready = deltaY >= 72;
+  setPullRefreshState(ready ? "Release to refresh" : "Pull to refresh");
+}
+
+function handlePullRefreshEnd() {
+  if (!pullRefreshState) return;
+  const shouldRefresh = pullRefreshState.distance >= 72;
+  resetPullRefresh();
+  if (shouldRefresh) {
+    void forceRefreshData();
+  }
+}
+
+function resetPullRefresh() {
+  pullRefreshState = null;
+  if (!manualRefreshInFlight) {
+    setPullRefreshState("");
+  }
+}
+
+function setPullRefreshState(label) {
+  if (!elements.pullRefreshIndicator) return;
+  elements.pullRefreshIndicator.textContent = label || "";
+  elements.pullRefreshIndicator.classList.toggle("is-visible", Boolean(label));
+  elements.pullRefreshIndicator.setAttribute("aria-hidden", label ? "false" : "true");
 }
 
 function handleClarityToggle() {
@@ -2269,8 +2377,12 @@ function compareEvents(left, right) {
 
 function loadLocalCache() {
   try {
-    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    if (stored) return normalizeState(stored);
+    const primary = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    const recovery = JSON.parse(localStorage.getItem(RECOVERY_STORAGE_KEY));
+    const candidates = [primary, recovery].filter(Boolean).map(normalizeState);
+    if (candidates.length) {
+      return candidates.sort(compareStateRecency)[0];
+    }
   } catch (error) {
     console.warn("Unable to read local state", error);
   }
@@ -2349,7 +2461,8 @@ async function loadRemoteState() {
   render();
 }
 
-async function refreshRemoteState() {
+async function refreshRemoteState(options = {}) {
+  const { force = false } = options;
   if (!authUser || !supabaseClient) return;
   const { data, error } = await supabaseClient
     .from(SUPABASE_TABLE)
@@ -2358,9 +2471,9 @@ async function refreshRemoteState() {
     .maybeSingle();
 
   if (error || !data?.updated_at) return;
-  if (lastRemoteUpdatedAt && data.updated_at <= lastRemoteUpdatedAt) return;
+  if (!force && lastRemoteUpdatedAt && !isTimestampAfter(data.updated_at, lastRemoteUpdatedAt)) return;
   ensureStateMeta(state);
-  if (state.meta.hasPendingRemoteSync && isTimestampAfter(state.meta.lastModifiedAt, data.updated_at)) return;
+  if (!force && state.meta.hasPendingRemoteSync && isTimestampAfter(state.meta.lastModifiedAt, data.updated_at)) return;
   lastRemoteUpdatedAt = data.updated_at;
   state = normalizeState(data.state);
   state.meta.hasPendingRemoteSync = false;
@@ -2384,16 +2497,21 @@ async function saveRemoteState() {
     updated_at: requestVersion
   };
 
-  const { error } = await supabaseClient.from(SUPABASE_TABLE).upsert(payload);
+  const { data, error } = await supabaseClient
+    .from(SUPABASE_TABLE)
+    .upsert(payload, { onConflict: "user_id" })
+    .select("updated_at")
+    .single();
   if (error) {
     console.error("Unable to save remote state", error);
     elements.syncBadge.textContent = "Sync failed";
     return;
   }
 
-  lastRemoteUpdatedAt = payload.updated_at;
+  const persistedUpdatedAt = data?.updated_at || payload.updated_at;
+  lastRemoteUpdatedAt = persistedUpdatedAt;
   if (state.meta.lastModifiedAt === requestVersion) {
-    state.meta.lastSyncedAt = requestVersion;
+    state.meta.lastSyncedAt = persistedUpdatedAt;
     state.meta.hasPendingRemoteSync = false;
     writeLocalCache(state);
   }
@@ -2569,13 +2687,39 @@ function ensureStateMeta(sourceState) {
 }
 
 function writeLocalCache(sourceState) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(serializeState(sourceState)));
+  const serialized = JSON.stringify(serializeState(sourceState));
+  localStorage.setItem(STORAGE_KEY, serialized);
+  localStorage.setItem(RECOVERY_STORAGE_KEY, serialized);
 }
 
 function isTimestampAfter(left, right) {
   if (!left) return false;
   if (!right) return true;
-  return left > right;
+  const leftTime = new Date(left).getTime();
+  const rightTime = new Date(right).getTime();
+  if (!Number.isNaN(leftTime) && !Number.isNaN(rightTime)) {
+    return leftTime > rightTime;
+  }
+  return String(left) > String(right);
+}
+
+function compareStateRecency(left, right) {
+  const leftDirty = Boolean(left.meta?.hasPendingRemoteSync);
+  const rightDirty = Boolean(right.meta?.hasPendingRemoteSync);
+  if (leftDirty !== rightDirty) return leftDirty ? -1 : 1;
+  const leftModifiedAt = left.meta?.lastModifiedAt || null;
+  const rightModifiedAt = right.meta?.lastModifiedAt || null;
+  if (isTimestampAfter(leftModifiedAt, rightModifiedAt)) return -1;
+  if (isTimestampAfter(rightModifiedAt, leftModifiedAt)) return 1;
+  return scoreState(left) >= scoreState(right) ? -1 : 1;
+}
+
+function scoreState(sourceState) {
+  return (
+    (sourceState.events?.length || 0) * 100 +
+    (sourceState.templates?.length || 0) * 10 +
+    (sourceState.scenarios?.length || 0)
+  );
 }
 
 function seedEvents(targetState) {
