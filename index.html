@@ -11,16 +11,16 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="description" content="A forecast-first personal cash planner for seeing what your balance looks like after the decisions you are considering.">
   <script>
-    window.RUNWAY_BUILD = "v2026.04.21.5";
+    window.RUNWAY_BUILD = "v2026.04.21.6";
   </script>
-  <link rel="manifest" href="./manifest.webmanifest?v=2026.04.21.5">
+  <link rel="manifest" href="./manifest.webmanifest?v=2026.04.21.6">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="icon" href="./icon-192.png" sizes="192x192" type="image/png">
   <link rel="apple-touch-icon" href="./icon-180.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./styles.css?v=2026.04.21.5">
+  <link rel="stylesheet" href="./styles.css?v=2026.04.21.6">
 </head>
 <body>
   <div class="background"></div>
@@ -52,12 +52,12 @@
       <span>Undo</span>
     </button>
   </div>
-  <div class="pull-refresh-indicator" id="pull-refresh-indicator" aria-hidden="true"></div>
   <main class="app-shell" id="app-shell">
     <header class="hero" id="hero-section">
       <div>
         <div class="hero-meta-row">
           <span class="sync-status" id="sync-badge">Local cache</span>
+          <button class="ghost-button small sync-refresh-button" type="button" id="manual-refresh-button" aria-label="Refresh sync" title="Refresh sync">↻</button>
         </div>
         <p class="eyebrow">Forecast-first money planning</p>
         <h1>Runway</h1>
@@ -144,12 +144,6 @@
         <div class="timeline-filter-row">
           <input id="timeline-search" type="search" placeholder="Search label, notes, category">
           <div class="timeline-filter-selects">
-            <select id="timeline-status-filter" class="compact-select" aria-label="Filter by status">
-              <option value="all">All upcoming</option>
-              <option value="plain">Base events</option>
-              <option value="scenario">Plans only</option>
-              <option value="bucket">Buckets only</option>
-            </select>
             <select id="timeline-category-filter" class="compact-select" aria-label="Filter by category">
               <option value="all">All categories</option>
             </select>
@@ -262,7 +256,7 @@
             <button class="ghost-button small text-button" id="sign-out-button" type="button">Sign out</button>
           </div>
           <p class="account-email" id="account-email" hidden></p>
-          <p class="account-helper"><span id="account-build-version">v2026.04.18.2</span></p>
+          <p class="account-helper"><span id="account-build-version">v2026.04.21.6</span></p>
         </article>
       </aside>
     </section>
@@ -551,9 +545,9 @@
     </form>
   </dialog>
 
-  <script src="./config.js?v=2026.04.21.5"></script>
+  <script src="./config.js?v=2026.04.21.6"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="./app.js?v=2026.04.21.5"></script>
+  <script src="./app.js?v=2026.04.21.6"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
