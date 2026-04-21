@@ -87,8 +87,8 @@ let latestSaveRequestVersion = null;
 let planDraftEventId = null;
 let templateDraftItems = [];
 let manualRefreshInFlight = false;
-let pullRefreshState = null;
 let remotePollTimer = null;
+let modalScrollLockY = 0;
 
 const elements = {
   appShell: document.querySelector("#app-shell"),
@@ -152,7 +152,6 @@ const elements = {
   newTemplateButton: document.querySelector("#new-template-button"),
   historyList: document.querySelector("#history-list"),
   timelineSearch: document.querySelector("#timeline-search"),
-  timelineStatusFilter: document.querySelector("#timeline-status-filter"),
   timelineCategoryFilter: document.querySelector("#timeline-category-filter"),
   timelineMonthFilter: document.querySelector("#timeline-month-filter"),
   openEntryModal: document.querySelector("#open-entry-modal"),
@@ -229,9 +228,9 @@ const elements = {
   signOutButton: document.querySelector("#sign-out-button"),
   accountEmail: document.querySelector("#account-email"),
   syncBadge: document.querySelector("#sync-badge"),
+  manualRefreshButton: document.querySelector("#manual-refresh-button"),
   updateBanner: document.querySelector("#update-banner"),
   updateRefreshButton: document.querySelector("#update-refresh-button"),
-  pullRefreshIndicator: document.querySelector("#pull-refresh-indicator"),
   plansPanel: document.querySelector("#plans-panel"),
   mobileNav: document.querySelector("#mobile-nav"),
   mobileNavButtons: Array.from(document.querySelectorAll("[data-mobile-tab-target]"))
@@ -268,14 +267,6 @@ function attachEventListeners() {
   if (elements.timelineSearch) {
     elements.timelineSearch.addEventListener("input", () => {
       state.ui.timelineSearch = elements.timelineSearch.value;
-      pruneTimelineSelection();
-      persist({ markDirty: false, syncRemote: false });
-      render();
-    });
-  }
-  if (elements.timelineStatusFilter) {
-    elements.timelineStatusFilter.addEventListener("change", () => {
-      state.ui.timelineStatusFilter = elements.timelineStatusFilter.value;
       pruneTimelineSelection();
       persist({ markDirty: false, syncRemote: false });
       render();
@@ -345,8 +336,9 @@ function attachEventListeners() {
   }
   if (elements.templateStartMonth) {
     elements.templateStartMonth.addEventListener("change", () => {
-      if (elements.templateEndMonth.value < elements.templateStartMonth.value) {
-        elements.templateEndMonth.value = elements.templateStartMonth.value;
+      const defaultEndMonth = addMonthsISO(`${elements.templateStartMonth.value}-01`, 3).slice(0, 7);
+      if (!elements.templateEndMonth.value || elements.templateEndMonth.value < elements.templateStartMonth.value) {
+        elements.templateEndMonth.value = defaultEndMonth;
       }
       syncTemplateDefaultDates();
     });
@@ -371,6 +363,11 @@ function attachEventListeners() {
   elements.settingsForm.addEventListener("submit", handleSettingsSubmit);
   elements.signOutButton.addEventListener("click", handleSignOut);
   elements.updateRefreshButton.addEventListener("click", handleRefreshToUpdate);
+  if (elements.manualRefreshButton) {
+    elements.manualRefreshButton.addEventListener("click", () => {
+      void forceRefreshData();
+    });
+  }
   elements.mobileNavButtons.forEach((button) => {
     button.addEventListener("click", () => setMobileTab(button.dataset.mobileTabTarget));
   });
@@ -399,11 +396,14 @@ function attachEventListeners() {
     writeLocalCache(state);
   });
   window.addEventListener("resize", handleViewportChange);
-  attachPullToRefresh();
 
   [elements.entryModal, elements.scenarioModal, elements.settingsModal, elements.templateModal].filter(Boolean).forEach((modal) => {
     modal.addEventListener("click", (event) => {
       if (event.target === modal) modal.close();
+    });
+    modal.addEventListener("close", syncModalOpenState);
+    modal.addEventListener("cancel", () => {
+      window.setTimeout(syncModalOpenState, 0);
     });
   });
 }
@@ -634,7 +634,7 @@ function render() {
   renderBucketHistory();
   syncScenarioOptions();
   syncCategoryOptions();
-  if (elements.timelineCategoryFilter && elements.timelineSearch && elements.timelineStatusFilter) {
+  if (elements.timelineCategoryFilter && elements.timelineSearch) {
     syncTimelineCategoryOptions();
   }
   applyMobileLayout();
@@ -661,7 +661,6 @@ async function forceRefreshData(options = {}) {
   if (!preserveBadge) {
     elements.syncBadge.textContent = authUser ? "Refreshing" : "Refreshing app";
   }
-  setPullRefreshState("Refreshing");
   try {
     if (authUser && supabaseClient) {
       ensureStateMeta(state);
@@ -684,7 +683,6 @@ async function forceRefreshData(options = {}) {
     }
   } finally {
     manualRefreshInFlight = false;
-    window.setTimeout(() => setPullRefreshState(""), 450);
   }
 }
 
@@ -704,65 +702,24 @@ function stopRemotePolling() {
   }
 }
 
-function attachPullToRefresh() {
-  const supportsTouch = "ontouchstart" in window || navigator.maxTouchPoints > 0;
-  if (!supportsTouch) return;
-
-  document.addEventListener("touchstart", handlePullRefreshStart, { passive: true });
-  document.addEventListener("touchmove", handlePullRefreshMove, { passive: false });
-  document.addEventListener("touchend", handlePullRefreshEnd, { passive: true });
-  document.addEventListener("touchcancel", resetPullRefresh);
-}
-
-function handlePullRefreshStart(event) {
-  if (!isMobileViewport() || window.scrollY > 0 || document.body.classList.contains("auth-required")) return;
-  const touch = event.touches?.[0];
-  if (!touch) return;
-  pullRefreshState = {
-    startY: touch.clientY,
-    distance: 0,
-    triggered: false
-  };
-}
-
-function handlePullRefreshMove(event) {
-  if (!pullRefreshState || manualRefreshInFlight) return;
-  const touch = event.touches?.[0];
-  if (!touch) return;
-  const deltaY = Math.max(0, touch.clientY - pullRefreshState.startY);
-  pullRefreshState.distance = deltaY;
-  if (deltaY <= 0) {
-    setPullRefreshState("");
+function syncModalOpenState() {
+  const hasOpenModal = [elements.entryModal, elements.scenarioModal, elements.settingsModal, elements.templateModal]
+    .filter(Boolean)
+    .some((modal) => modal.open);
+  if (hasOpenModal) {
+    if (!document.body.classList.contains("modal-open")) {
+      modalScrollLockY = window.scrollY || window.pageYOffset || 0;
+      document.body.style.top = `-${modalScrollLockY}px`;
+    }
+    document.body.classList.add("modal-open");
     return;
   }
-  if (window.scrollY <= 0) {
-    event.preventDefault();
-  }
-  const ready = deltaY >= 72;
-  setPullRefreshState(ready ? "Release to refresh" : "Pull to refresh");
-}
 
-function handlePullRefreshEnd() {
-  if (!pullRefreshState) return;
-  const shouldRefresh = pullRefreshState.distance >= 72;
-  resetPullRefresh();
-  if (shouldRefresh) {
-    void forceRefreshData();
+  if (document.body.classList.contains("modal-open")) {
+    document.body.classList.remove("modal-open");
+    document.body.style.top = "";
+    window.scrollTo(0, modalScrollLockY);
   }
-}
-
-function resetPullRefresh() {
-  pullRefreshState = null;
-  if (!manualRefreshInFlight) {
-    setPullRefreshState("");
-  }
-}
-
-function setPullRefreshState(label) {
-  if (!elements.pullRefreshIndicator) return;
-  elements.pullRefreshIndicator.textContent = label || "";
-  elements.pullRefreshIndicator.classList.toggle("is-visible", Boolean(label));
-  elements.pullRefreshIndicator.setAttribute("aria-hidden", label ? "false" : "true");
 }
 
 function handleClarityToggle() {
@@ -865,7 +822,7 @@ function renderWarning(lowestPoint) {
 }
 
 function renderTimeline(timeline) {
-  const filteredTimeline = elements.timelineSearch && elements.timelineStatusFilter && elements.timelineCategoryFilter
+  const filteredTimeline = elements.timelineSearch && elements.timelineCategoryFilter
     ? filterTimeline(timeline)
     : timeline;
   renderTimelineBulkBar(filteredTimeline);
@@ -953,11 +910,13 @@ function renderTimelineBulkBar(filteredTimeline) {
     .filter((event) => !event.id.startsWith("bucket-"))
     .map((event) => event.id);
   const selectedCount = (state.ui.selectedTimelineEventIds || []).length;
-  elements.timelineBulkBar.hidden = !visibleSelectableIds.length;
+  const hasSelectableEvents = state.events.some((event) => !event.id.startsWith("bucket-"));
+  elements.timelineBulkBar.hidden = !hasSelectableEvents;
   elements.timelineBulkBar.classList.toggle("is-active", Boolean(state.ui.timelineSelectionMode));
   elements.timelineSelectToggle.textContent = state.ui.timelineSelectionMode ? "×" : "Select";
   elements.timelineSelectToggle.setAttribute("aria-pressed", state.ui.timelineSelectionMode ? "true" : "false");
-  elements.timelineSelectAll.hidden = !state.ui.timelineSelectionMode;
+  elements.timelineSelectToggle.disabled = !hasSelectableEvents;
+  elements.timelineSelectAll.hidden = !state.ui.timelineSelectionMode || !visibleSelectableIds.length;
   elements.timelineClearSelection.hidden = !state.ui.timelineSelectionMode || !selectedCount;
   elements.timelineSelectionCount.hidden = !state.ui.timelineSelectionMode;
   elements.timelineDeleteSelected.hidden = !state.ui.timelineSelectionMode || !selectedCount;
@@ -966,16 +925,11 @@ function renderTimelineBulkBar(filteredTimeline) {
 
 function filterTimeline(timeline) {
   const query = (state.ui.timelineSearch || "").trim().toLowerCase();
-  const statusFilter = state.ui.timelineStatusFilter || "all";
   const categoryFilter = state.ui.timelineCategoryFilter || "all";
   const monthFilter = state.ui.timelineMonthFilter || "all";
 
   return timeline.filter((entry) => {
     const event = entry.event;
-    if (statusFilter === "plain" && event.scenarioId) return false;
-    if (statusFilter === "scenario" && !event.scenarioId) return false;
-    if (statusFilter === "bucket" && !event.id.startsWith("bucket-")) return false;
-    if (statusFilter !== "bucket" && statusFilter !== "all" && statusFilter !== "plain" && statusFilter !== "scenario") return true;
     if (categoryFilter !== "all" && event.category !== categoryFilter) return false;
     if (monthFilter !== "all" && event.date.slice(0, 7) !== monthFilter) return false;
     if (!query) return true;
@@ -1046,7 +1000,7 @@ function pruneTimelineSelection() {
 
 function getVisibleSelectableTimelineIds() {
   const forecast = computeForecast(state);
-  const filteredTimeline = elements.timelineSearch && elements.timelineStatusFilter && elements.timelineCategoryFilter
+  const filteredTimeline = elements.timelineSearch && elements.timelineCategoryFilter
     ? filterTimeline(forecast.timeline)
     : forecast.timeline;
   return filteredTimeline
@@ -1423,6 +1377,7 @@ function openEntryModal(entry = null) {
   syncScenarioOptions(entry?.scenarioId || "");
   syncCategoryOptions(entry?.category || inferCategory(entry?.label || ""));
   elements.entryModal.showModal();
+  syncModalOpenState();
   requestAnimationFrame(() => {
     elements.entryLabel.focus({ preventScroll: true });
     elements.entryLabel.blur();
@@ -1538,6 +1493,7 @@ function openPlanModal(scenarioId = null) {
 
   renderPlanEvents();
   elements.scenarioModal.showModal();
+  syncModalOpenState();
   requestAnimationFrame(() => {
     elements.scenarioName.focus({ preventScroll: true });
     elements.scenarioName.blur();
@@ -1577,8 +1533,8 @@ function renderPlanEvents() {
           <strong>${formatCurrency(event.amount)}</strong>
         </div>
         <div class="button-row">
-          <button class="ghost-button small" data-action="edit-plan-event" data-event-id="${event.id}">Edit</button>
-          <button class="ghost-button small" data-action="remove-plan-event" data-event-id="${event.id}">Remove</button>
+          <button type="button" class="ghost-button small" data-action="edit-plan-event" data-event-id="${event.id}">Edit</button>
+          <button type="button" class="ghost-button small" data-action="remove-plan-event" data-event-id="${event.id}">Remove</button>
         </div>
       </div>
     `).join("");
@@ -1741,6 +1697,7 @@ function openTemplateModal(templateId = null) {
   updateTemplateTypeUI();
   renderTemplateItems();
   elements.templateModal.showModal();
+  syncModalOpenState();
 }
 
 function updateTemplateTypeUI() {
@@ -1963,7 +1920,7 @@ function syncTemplateDefaultDates() {
     elements.templateStartMonth.value = currentMonthKey();
   }
   if (elements.templateEndMonth && !elements.templateEndMonth.value) {
-    elements.templateEndMonth.value = elements.templateStartMonth.value || currentMonthKey();
+    elements.templateEndMonth.value = addMonthsISO(`${elements.templateStartMonth.value || currentMonthKey()}-01`, 3).slice(0, 7);
   }
   if (elements.templateItemDate && !elements.templateItemDate.value) {
     elements.templateItemDate.value = `${elements.templateStartMonth.value || currentMonthKey()}-01`;
@@ -1971,14 +1928,13 @@ function syncTemplateDefaultDates() {
 }
 
 function syncTimelineCategoryOptions() {
-  if (!elements.timelineCategoryFilter || !elements.timelineSearch || !elements.timelineStatusFilter) return;
+  if (!elements.timelineCategoryFilter || !elements.timelineSearch) return;
   const currentValue = state.ui.timelineCategoryFilter || "all";
   const options = ["all", ...new Set([...CATEGORY_OPTIONS, ...getBucketNames(state)])];
   elements.timelineCategoryFilter.innerHTML = options.map((category) => `
     <option value="${category}" ${currentValue === category ? "selected" : ""}>${category === "all" ? "All categories" : escapeHTML(category)}</option>
   `).join("");
   elements.timelineSearch.value = state.ui.timelineSearch || "";
-  elements.timelineStatusFilter.value = state.ui.timelineStatusFilter || "all";
 
   if (elements.timelineMonthFilter) {
     const currentMonth = state.ui.timelineMonthFilter || "all";
@@ -2073,6 +2029,7 @@ function openSettingsModal(kind, meta = {}) {
   }
 
   elements.settingsModal.showModal();
+  syncModalOpenState();
   requestAnimationFrame(() => {
     elements.settingsValue.focus({ preventScroll: true });
     elements.settingsValue.blur();
