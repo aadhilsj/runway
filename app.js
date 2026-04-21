@@ -390,6 +390,9 @@ function attachEventListeners() {
     }
     if (authUser) void refreshRemoteState();
   });
+  window.addEventListener("pagehide", () => {
+    writeLocalCache(state);
+  });
   window.addEventListener("resize", handleViewportChange);
   attachPullToRefresh();
 
@@ -653,10 +656,15 @@ async function forceRefreshData(options = {}) {
   try {
     if (authUser && supabaseClient) {
       ensureStateMeta(state);
+      let canPullRemote = !state.meta.hasPendingRemoteSync;
       if (state.meta.hasPendingRemoteSync) {
-        await saveRemoteState();
+        canPullRemote = await saveRemoteState();
       }
-      await refreshRemoteState({ force: true });
+      if (canPullRemote) {
+        await refreshRemoteState({ force: true });
+      } else if (!preserveBadge) {
+        elements.syncBadge.textContent = "Keeping local changes";
+      }
     }
     const registration = await navigator.serviceWorker?.getRegistration?.();
     await registration?.update?.();
@@ -2441,11 +2449,10 @@ async function loadRemoteState() {
   const remoteUpdatedAt = data.updated_at || remoteState.meta.lastModifiedAt || null;
   const localUpdatedAt = localState.meta.lastModifiedAt || null;
   const localHasPendingRemoteSync = Boolean(localState.meta.hasPendingRemoteSync);
-  const localHasUnsyncedChanges = localHasPendingRemoteSync && isTimestampAfter(localUpdatedAt, remoteUpdatedAt);
 
   lastRemoteUpdatedAt = remoteUpdatedAt;
 
-  if (localHasUnsyncedChanges || !remoteUpdatedAt) {
+  if (localHasPendingRemoteSync || !remoteUpdatedAt) {
     state = localState;
     render();
     elements.syncBadge.textContent = "Saving";
@@ -2473,7 +2480,7 @@ async function refreshRemoteState(options = {}) {
   if (error || !data?.updated_at) return;
   if (!force && lastRemoteUpdatedAt && !isTimestampAfter(data.updated_at, lastRemoteUpdatedAt)) return;
   ensureStateMeta(state);
-  if (!force && state.meta.hasPendingRemoteSync && isTimestampAfter(state.meta.lastModifiedAt, data.updated_at)) return;
+  if (state.meta.hasPendingRemoteSync) return;
   lastRemoteUpdatedAt = data.updated_at;
   state = normalizeState(data.state);
   state.meta.hasPendingRemoteSync = false;
@@ -2484,7 +2491,7 @@ async function refreshRemoteState(options = {}) {
 }
 
 async function saveRemoteState() {
-  if (!authUser || !supabaseClient) return;
+  if (!authUser || !supabaseClient) return false;
 
   ensureStateMeta(state);
   const serializedState = serializeState(state);
@@ -2505,7 +2512,7 @@ async function saveRemoteState() {
   if (error) {
     console.error("Unable to save remote state", error);
     elements.syncBadge.textContent = "Sync failed";
-    return;
+    return false;
   }
 
   const persistedUpdatedAt = data?.updated_at || payload.updated_at;
@@ -2517,10 +2524,11 @@ async function saveRemoteState() {
   }
   if (state.meta.lastModifiedAt === requestVersion && latestSaveRequestVersion === requestVersion) {
     elements.syncBadge.textContent = "Synced";
-    return;
+    return true;
   }
 
   elements.syncBadge.textContent = "Saving";
+  return true;
 }
 
 function serializeState(sourceState) {
