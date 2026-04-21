@@ -11,16 +11,16 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="description" content="A forecast-first personal cash planner for seeing what your balance looks like after the decisions you are considering.">
   <script>
-    window.RUNWAY_BUILD = "v2026.04.21.4";
+    window.RUNWAY_BUILD = "v2026.04.21.5";
   </script>
-  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="manifest" href="./manifest.webmanifest?v=2026.04.21.5">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="icon" href="./icon-192.png" sizes="192x192" type="image/png">
   <link rel="apple-touch-icon" href="./icon-180.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" href="./styles.css?v=2026.04.21.5">
 </head>
 <body>
   <div class="background"></div>
@@ -551,38 +551,20 @@
     </form>
   </dialog>
 
-  <script src="./config.js"></script>
+  <script src="./config.js?v=2026.04.21.5"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="./app.js"></script>
+  <script src="./app.js?v=2026.04.21.5"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-        navigator.serviceWorker.register("./sw.js").then((registration) => {
-          function showUpdateBanner() {
-            window.dispatchEvent(new CustomEvent("runway-update-ready"));
-          }
-
-          if (registration.waiting) {
-            showUpdateBanner();
-          }
-
-          registration.addEventListener("updatefound", () => {
-            const newWorker = registration.installing;
-            if (!newWorker) return;
-            newWorker.addEventListener("statechange", () => {
-              if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
-                showUpdateBanner();
-              }
-            });
-          });
-        }).catch(() => {});
-
-        let hasRefreshedForUpdate = false;
-        navigator.serviceWorker.addEventListener("controllerchange", () => {
-          if (hasRefreshedForUpdate) return;
-          hasRefreshedForUpdate = true;
-          window.location.reload();
-        });
+        navigator.serviceWorker.getRegistrations()
+          .then((registrations) => Promise.all(registrations.map((registration) => registration.unregister())))
+          .then(async () => {
+            if (!("caches" in window)) return;
+            const keys = await caches.keys();
+            await Promise.all(keys.filter((key) => key.startsWith("runway-pwa-")).map((key) => caches.delete(key)));
+          })
+          .catch(() => {});
       });
     }
   </script>
