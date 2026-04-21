@@ -2449,10 +2449,11 @@ async function loadRemoteState() {
   const remoteUpdatedAt = data.updated_at || remoteState.meta.lastModifiedAt || null;
   const localUpdatedAt = localState.meta.lastModifiedAt || null;
   const localHasPendingRemoteSync = Boolean(localState.meta.hasPendingRemoteSync);
+  const localHasUnsyncedChanges = localHasPendingRemoteSync && isTimestampAfter(localUpdatedAt, remoteUpdatedAt);
 
   lastRemoteUpdatedAt = remoteUpdatedAt;
 
-  if (localHasPendingRemoteSync || !remoteUpdatedAt) {
+  if (localHasUnsyncedChanges || !remoteUpdatedAt) {
     state = localState;
     render();
     elements.syncBadge.textContent = "Saving";
@@ -2480,7 +2481,7 @@ async function refreshRemoteState(options = {}) {
   if (error || !data?.updated_at) return;
   if (!force && lastRemoteUpdatedAt && !isTimestampAfter(data.updated_at, lastRemoteUpdatedAt)) return;
   ensureStateMeta(state);
-  if (state.meta.hasPendingRemoteSync) return;
+  if (state.meta.hasPendingRemoteSync && isTimestampAfter(state.meta.lastModifiedAt, data.updated_at)) return;
   lastRemoteUpdatedAt = data.updated_at;
   state = normalizeState(data.state);
   state.meta.hasPendingRemoteSync = false;
@@ -2497,10 +2498,19 @@ async function saveRemoteState() {
   const serializedState = serializeState(state);
   const requestVersion = serializedState.meta.lastModifiedAt || new Date().toISOString();
   latestSaveRequestVersion = requestVersion;
+  const remoteState = {
+    ...serializedState,
+    meta: {
+      ...serializedState.meta,
+      lastModifiedAt: requestVersion,
+      lastSyncedAt: requestVersion,
+      hasPendingRemoteSync: false
+    }
+  };
 
   const payload = {
     user_id: authUser.id,
-    state: serializedState,
+    state: remoteState,
     updated_at: requestVersion
   };
 
@@ -2712,13 +2722,13 @@ function isTimestampAfter(left, right) {
 }
 
 function compareStateRecency(left, right) {
-  const leftDirty = Boolean(left.meta?.hasPendingRemoteSync);
-  const rightDirty = Boolean(right.meta?.hasPendingRemoteSync);
-  if (leftDirty !== rightDirty) return leftDirty ? -1 : 1;
   const leftModifiedAt = left.meta?.lastModifiedAt || null;
   const rightModifiedAt = right.meta?.lastModifiedAt || null;
   if (isTimestampAfter(leftModifiedAt, rightModifiedAt)) return -1;
   if (isTimestampAfter(rightModifiedAt, leftModifiedAt)) return 1;
+  const leftDirty = Boolean(left.meta?.hasPendingRemoteSync);
+  const rightDirty = Boolean(right.meta?.hasPendingRemoteSync);
+  if (leftDirty !== rightDirty) return leftDirty ? -1 : 1;
   return scoreState(left) >= scoreState(right) ? -1 : 1;
 }
 
