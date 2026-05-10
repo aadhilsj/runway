@@ -471,20 +471,23 @@ async function handleAuthSubmit(event) {
 
   if (!authPendingEmail) {
     elements.authSubmit.disabled = true;
-    elements.authMessage.textContent = "Sending verification code...";
+    elements.authMessage.textContent = "Sending sign-in email...";
     const { error } = await supabaseClient.auth.signInWithOtp({
-      email
+      email,
+      options: {
+        emailRedirectTo: window.location.href
+      }
     });
 
     elements.authSubmit.disabled = false;
     if (error) {
-      elements.authMessage.textContent = `Unable to send code: ${error.message}`;
+      elements.authMessage.textContent = `Unable to send sign-in email: ${error.message}`;
       return;
     }
 
     authPendingEmail = email;
     updateAuthStepUI();
-    elements.authMessage.textContent = `Code sent to ${email}. Enter it below to sign in.`;
+    elements.authMessage.textContent = `Sign-in email sent to ${email}. Use the email link, or enter the code below if the email includes one.`;
     return;
   }
 
@@ -556,12 +559,12 @@ function updateAuthUI() {
 function updateAuthStepUI() {
   const isCodeStep = Boolean(authPendingEmail);
   elements.authCopy.textContent = isCodeStep
-    ? "Enter the one-time code from your email to finish signing in inside this app."
-    : "Use a one-time code so the same data stays synced across desktop and mobile.";
+    ? "Use the email link to sign in directly, or enter the one-time code here if your email includes one."
+    : "Use an email link or one-time code so the same data stays synced across desktop and mobile.";
   elements.authEmail.disabled = isCodeStep;
   elements.authCodeField.hidden = !isCodeStep;
   elements.authSecondaryActions.hidden = !isCodeStep;
-  elements.authSubmit.textContent = isCodeStep ? "Verify code" : "Send code";
+  elements.authSubmit.textContent = isCodeStep ? "Verify code" : "Send sign-in email";
   elements.authSubmit.disabled = false;
   if (isCodeStep) {
     elements.authCode.value = elements.authCode.value.replace(/\s+/g, "").toUpperCase();
