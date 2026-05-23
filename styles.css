@@ -735,6 +735,45 @@ h3 {
   flex-wrap: wrap;
 }
 
+.bucket-delete-button {
+  min-width: 36px;
+  padding-inline: 0;
+  justify-content: center;
+  color: var(--expense);
+}
+
+.scenario-toggle-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease, color 160ms ease, border-color 160ms ease;
+}
+
+.scenario-toggle-button:hover {
+  transform: translateY(-1px);
+}
+
+.scenario-toggle-button.is-included {
+  color: #fff8f0;
+  border-color: rgba(45, 141, 104, 0.4);
+  background: linear-gradient(135deg, rgba(45, 141, 104, 0.96), rgba(38, 116, 86, 0.96));
+  box-shadow: 0 10px 24px rgba(45, 141, 104, 0.22);
+}
+
+.scenario-toggle-button.is-excluded {
+  color: var(--muted);
+  border-color: rgba(120, 104, 88, 0.22);
+  background: rgba(255, 255, 255, 0.68);
+  box-shadow: none;
+}
+
 .bucket-toggle {
   display: inline-flex;
   align-items: center;
