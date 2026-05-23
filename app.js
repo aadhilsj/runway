@@ -1050,7 +1050,12 @@ function renderScenarios() {
             <p class="timeline-title">${escapeHTML(scenario.name)}</p>
             <p class="scenario-copy">${escapeHTML(scenario.description || "Optional scenario")}</p>
           </div>
-          <button class="primary-button small" data-action="toggle-scenario" data-scenario-id="${scenario.id}">
+          <button
+            class="small scenario-toggle-button ${scenario.isIncluded ? "is-included" : "is-excluded"}"
+            data-action="toggle-scenario"
+            data-scenario-id="${scenario.id}"
+            type="button"
+          >
             ${scenario.isIncluded ? "Included" : "Excluded"}
           </button>
         </div>
@@ -1168,6 +1173,7 @@ function renderBuckets() {
             <p class="template-copy">Budget for ${formatMonthKey(monthKey)}</p>
           </div>
           <div class="bucket-header-actions">
+            <button class="ghost-button small bucket-delete-button" data-action="delete-bucket" data-category="${escapeAttribute(category)}" type="button" aria-label="Delete ${escapeAttribute(category)} bucket" title="Delete bucket">🗑</button>
             <label class="bucket-toggle">
               <input type="checkbox" data-action="toggle-bucket-active" data-category="${escapeAttribute(category)}" ${bucket.isActive ? "checked" : ""}>
               <span>${bucket.isActive ? "On" : "Off"}</span>
@@ -1224,6 +1230,23 @@ function renderBuckets() {
     button.addEventListener("click", () => {
       const category = button.dataset.category;
       openSettingsModal("bucket-budget", { category, monthKey });
+    });
+  });
+
+  elements.bucketList.querySelectorAll("[data-action='delete-bucket']").forEach((button) => {
+    button.addEventListener("click", () => {
+      const category = button.dataset.category;
+      if (!category) return;
+      if (!window.confirm(`Delete the ${category} bucket from the app entirely? This will remove its history from all months.`)) return;
+      state.bucketTemplates = state.bucketTemplates.filter((bucket) => bucket.name !== category);
+      Object.values(state.buckets).forEach((monthBuckets) => {
+        if (monthBuckets && typeof monthBuckets === "object") {
+          delete monthBuckets[category];
+        }
+      });
+      logHistory("deleted", `Deleted ${category} bucket from the app.`);
+      persist();
+      render();
     });
   });
 
