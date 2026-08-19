@@ -6,9 +6,10 @@ import { forecastRepository } from "~/data/repositories/forecast-repository";
 import { recurringRepository } from "~/data/repositories/recurring-repository";
 import { asMinorUnits, formatMinorUnits, parseDisplayAmountToMinor } from "~/domain/money";
 import { buildForecastScreenModel } from "~/read-models/forecast";
+import { userFacingError } from "~/user-facing-error";
 
 const horizons = [6, 12, 18, 24];
-function message(error: unknown): string { return error instanceof Error ? error.message : "Forecast could not be loaded."; }
+function message(error: unknown): string { return userFacingError(error, "Forecast could not be loaded."); }
 function money(value: number, currency: string): string { return formatMinorUnits(asMinorUnits(value), currency); }
 function dateLabel(value: string): string { return new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(`${value}T00:00:00Z`)); }
 

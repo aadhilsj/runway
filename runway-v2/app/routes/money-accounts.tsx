@@ -6,12 +6,13 @@ import { accountsRepository } from "~/data/repositories/accounts-repository";
 import { balancesRepository } from "~/data/repositories/balances-repository";
 import { snapshotsRepository } from "~/data/repositories/snapshots-repository";
 import { asMinorUnits, formatMinorUnits, parseDisplayAmountToMinor } from "~/domain/money";
+import { userFacingError } from "~/user-facing-error";
 
 type Account = Awaited<ReturnType<typeof accountsRepository.listAccountsWithBalances>>[number];
 type CreatableSubtype = Exclude<Account["subtype"], "system">;
 
 function message(error: unknown): string {
-  return error instanceof Error ? error.message : "The request could not be completed.";
+  return userFacingError(error, "The request could not be completed.");
 }
 
 function newKey(prefix: string): string {

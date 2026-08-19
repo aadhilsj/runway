@@ -15,6 +15,7 @@ describe("application shell", () => {
     render(<RouterProvider router={router} />);
     expect(screen.getByRole("navigation", { name: "Primary navigation" })).toBeVisible();
     expect(screen.getByRole("link", { name: "Overview" })).toHaveAttribute("aria-current", "page");
+    expect(screen.queryByRole("link", { name: "Cash flow" })).not.toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: "Overview content" })).toBeVisible();
   });
 });

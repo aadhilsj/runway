@@ -5,12 +5,13 @@ import { accountsRepository } from "~/data/repositories/accounts-repository";
 import { categoriesRepository } from "~/data/repositories/categories-repository";
 import { transactionsRepository } from "~/data/repositories/transactions-repository";
 import { asMinorUnits, formatMinorUnits, parseDisplayAmountToMinor } from "~/domain/money";
+import { userFacingError } from "~/user-facing-error";
 
 type TransactionKind = "income" | "expense" | "transfer" | "debt_payment";
 type Transaction = Awaited<ReturnType<typeof transactionsRepository.listTransactions>>[number];
 type Account = Awaited<ReturnType<typeof accountsRepository.listAccountsWithBalances>>[number];
 
-function message(error: unknown): string { return error instanceof Error ? error.message : "The transaction could not be posted."; }
+function message(error: unknown): string { return userFacingError(error, "The transaction could not be posted."); }
 function newKey(prefix: string): string { return `${prefix}:${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`}`; }
 function defaultLocalDateTime(): string { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); }
 

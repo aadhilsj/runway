@@ -19,6 +19,7 @@ import {
   parseDisplayAmountToMinor,
 } from "~/domain/money";
 import { buildInvestmentsReadModel } from "~/read-models/investments";
+import { userFacingError } from "~/user-facing-error";
 function money(value: number, currency: string) {
   return formatMinorUnits(asMinorUnits(Math.trunc(value)), currency);
 }
@@ -28,9 +29,7 @@ function localNow() {
   return d.toISOString().slice(0, 16);
 }
 function errorMessage(value: unknown) {
-  return value instanceof Error
-    ? value.message
-    : "The valuation could not be saved.";
+  return userFacingError(value, "The valuation could not be saved.");
 }
 export default function InvestmentsRoute() {
   const qc = useQueryClient(),

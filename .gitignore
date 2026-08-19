@@ -23,6 +23,7 @@ runway-v2/.react-router/
 runway-v2/coverage/
 runway-v2/playwright-report/
 runway-v2/test-results/
+runway-v2/.vercel/
 runway-v2/.env
 runway-v2/.env.*
 !runway-v2/.env.example
