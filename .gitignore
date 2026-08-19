@@ -1,0 +1,27 @@
+.DS_Store
+
+# Historical recovery material may contain private financial data.
+recovery-backup/
+
+# Phase 0 production exports and their local decryption keys stay off Git.
+.runway-private-backups/
+migration/fixtures/legacy/raw/
+
+# Local environment and credentials.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Runway 2 development outputs.
+runway-v2/node_modules/
+runway-v2/build/
+runway-v2/.react-router/
+runway-v2/coverage/
+runway-v2/playwright-report/
+runway-v2/test-results/
+runway-v2/.env
+runway-v2/.env.*
+!runway-v2/.env.example
+
