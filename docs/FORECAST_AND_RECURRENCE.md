@@ -33,3 +33,5 @@ Matching an occurrence never edits the future rule. Unmatching a one-off restore
 ## Scenarios and confidence
 
 Base records are immutable forecast inputs. Selected scenario items are overlaid in memory. Multiple compatible scenarios combine; conflicting modifications of the same base source are reported and excluded instead of applying an arbitrary winner. Confidence is explicit (`committed`, `expected`, or `tentative`) and is never probability-weighted.
+
+Phase 7 presents scenarios as Plans and expands overlays to typed assumptions across recurring rules, Funds, Goals, Payday Plan inputs, operating floor, and safety window. Effective dates split derived recurrence in memory without editing canonical rules. Comparison continues to use this forecast engine; there is no scenario-specific forecast formula. See [Plans and scenario comparison](./PLANS_AND_COMPARISON.md).

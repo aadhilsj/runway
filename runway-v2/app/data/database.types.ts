@@ -545,6 +545,7 @@ export type Database = {
       forecast_items: {
         Row: {
           amount_minor: number
+          applied_scenario_change_id: string | null
           category_id: string | null
           confidence: Database["public"]["Enums"]["runway_planned_confidence"]
           created_at: string
@@ -568,6 +569,7 @@ export type Database = {
         }
         Insert: {
           amount_minor: number
+          applied_scenario_change_id?: string | null
           category_id?: string | null
           confidence?: Database["public"]["Enums"]["runway_planned_confidence"]
           created_at?: string
@@ -591,6 +593,7 @@ export type Database = {
         }
         Update: {
           amount_minor?: number
+          applied_scenario_change_id?: string | null
           category_id?: string | null
           confidence?: Database["public"]["Enums"]["runway_planned_confidence"]
           created_at?: string
@@ -613,6 +616,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "forecast_items_applied_change_owner_fkey"
+            columns: ["applied_scenario_change_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "scenario_changes"
+            referencedColumns: ["id", "user_id"]
+          },
           {
             foreignKeyName: "forecast_items_category_owner_fkey"
             columns: ["category_id", "user_id"]
@@ -1197,6 +1207,7 @@ export type Database = {
         Row: {
           active: boolean
           amount_minor: number
+          applied_scenario_change_id: string | null
           archived_at: string | null
           category_id: string | null
           confidence: Database["public"]["Enums"]["runway_planned_confidence"]
@@ -1223,6 +1234,7 @@ export type Database = {
         Insert: {
           active?: boolean
           amount_minor: number
+          applied_scenario_change_id?: string | null
           archived_at?: string | null
           category_id?: string | null
           confidence?: Database["public"]["Enums"]["runway_planned_confidence"]
@@ -1249,6 +1261,7 @@ export type Database = {
         Update: {
           active?: boolean
           amount_minor?: number
+          applied_scenario_change_id?: string | null
           archived_at?: string | null
           category_id?: string | null
           confidence?: Database["public"]["Enums"]["runway_planned_confidence"]
@@ -1273,6 +1286,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "recurring_rules_applied_change_owner_fkey"
+            columns: ["applied_scenario_change_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "scenario_changes"
+            referencedColumns: ["id", "user_id"]
+          },
           {
             foreignKeyName: "recurring_rules_category_owner_fkey"
             columns: ["category_id", "user_id"]
@@ -1349,37 +1369,291 @@ export type Database = {
         }
         Relationships: []
       }
-      scenarios: {
+      scenario_applications: {
         Row: {
-          archived_at: string | null
-          created_at: string
-          description: string | null
+          applied_at: string
+          change_count: number
+          confirmation_token: string
           id: string
-          legacy_source_id: string | null
-          migration_metadata: Json
-          name: string
+          scenario_id: string
+          summary: Json
+          user_id: string
+        }
+        Insert: {
+          applied_at?: string
+          change_count: number
+          confirmation_token: string
+          id?: string
+          scenario_id: string
+          summary: Json
+          user_id: string
+        }
+        Update: {
+          applied_at?: string
+          change_count?: number
+          confirmation_token?: string
+          id?: string
+          scenario_id?: string
+          summary?: Json
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scenario_applications_scenario_owner_fkey"
+            columns: ["scenario_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "scenarios"
+            referencedColumns: ["id", "user_id"]
+          },
+        ]
+      }
+      scenario_changes: {
+        Row: {
+          amount_minor: number | null
+          boolean_value: boolean | null
+          category_id: string | null
+          change_type: string
+          confidence:
+            | Database["public"]["Enums"]["runway_planned_confidence"]
+            | null
+          created_at: string
+          day_of_month: number | null
+          day_of_week: number | null
+          destination_account_id: string | null
+          effective_on: string | null
+          effective_until: string | null
+          frequency:
+            | Database["public"]["Enums"]["runway_recurrence_frequency"]
+            | null
+          fund_id: string | null
+          id: string
+          interval_count: number | null
+          label: string | null
+          payload_json: Json
+          scenario_id: string
+          sort_order: number
+          source_account_id: string | null
+          target_allocation_item_id: string | null
+          target_field: string | null
+          target_forecast_item_id: string | null
+          target_goal_id: string | null
+          target_recurring_rule_id: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
-          archived_at?: string | null
+          amount_minor?: number | null
+          boolean_value?: boolean | null
+          category_id?: string | null
+          change_type: string
+          confidence?:
+            | Database["public"]["Enums"]["runway_planned_confidence"]
+            | null
           created_at?: string
-          description?: string | null
+          day_of_month?: number | null
+          day_of_week?: number | null
+          destination_account_id?: string | null
+          effective_on?: string | null
+          effective_until?: string | null
+          frequency?:
+            | Database["public"]["Enums"]["runway_recurrence_frequency"]
+            | null
+          fund_id?: string | null
           id?: string
-          legacy_source_id?: string | null
-          migration_metadata?: Json
-          name: string
+          interval_count?: number | null
+          label?: string | null
+          payload_json?: Json
+          scenario_id: string
+          sort_order?: number
+          source_account_id?: string | null
+          target_allocation_item_id?: string | null
+          target_field?: string | null
+          target_forecast_item_id?: string | null
+          target_goal_id?: string | null
+          target_recurring_rule_id?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          amount_minor?: number | null
+          boolean_value?: boolean | null
+          category_id?: string | null
+          change_type?: string
+          confidence?:
+            | Database["public"]["Enums"]["runway_planned_confidence"]
+            | null
+          created_at?: string
+          day_of_month?: number | null
+          day_of_week?: number | null
+          destination_account_id?: string | null
+          effective_on?: string | null
+          effective_until?: string | null
+          frequency?:
+            | Database["public"]["Enums"]["runway_recurrence_frequency"]
+            | null
+          fund_id?: string | null
+          id?: string
+          interval_count?: number | null
+          label?: string | null
+          payload_json?: Json
+          scenario_id?: string
+          sort_order?: number
+          source_account_id?: string | null
+          target_allocation_item_id?: string | null
+          target_field?: string | null
+          target_forecast_item_id?: string | null
+          target_goal_id?: string | null
+          target_recurring_rule_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scenario_changes_allocation_owner_fkey"
+            columns: ["target_allocation_item_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "allocation_plan_items"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "scenario_changes_category_owner_fkey"
+            columns: ["category_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "scenario_changes_destination_owner_fkey"
+            columns: ["destination_account_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "account_balances"
+            referencedColumns: ["account_id", "user_id"]
+          },
+          {
+            foreignKeyName: "scenario_changes_destination_owner_fkey"
+            columns: ["destination_account_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "scenario_changes_destination_owner_fkey"
+            columns: ["destination_account_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "fund_backing_summary"
+            referencedColumns: ["account_id", "user_id"]
+          },
+          {
+            foreignKeyName: "scenario_changes_forecast_owner_fkey"
+            columns: ["target_forecast_item_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "forecast_items"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "scenario_changes_fund_owner_fkey"
+            columns: ["fund_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "fund_balances"
+            referencedColumns: ["fund_id", "user_id"]
+          },
+          {
+            foreignKeyName: "scenario_changes_fund_owner_fkey"
+            columns: ["fund_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "funds"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "scenario_changes_goal_owner_fkey"
+            columns: ["target_goal_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "goals"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "scenario_changes_rule_owner_fkey"
+            columns: ["target_recurring_rule_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "recurring_rules"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "scenario_changes_scenario_owner_fkey"
+            columns: ["scenario_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "scenarios"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "scenario_changes_source_owner_fkey"
+            columns: ["source_account_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "account_balances"
+            referencedColumns: ["account_id", "user_id"]
+          },
+          {
+            foreignKeyName: "scenario_changes_source_owner_fkey"
+            columns: ["source_account_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "scenario_changes_source_owner_fkey"
+            columns: ["source_account_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "fund_backing_summary"
+            referencedColumns: ["account_id", "user_id"]
+          },
+        ]
+      }
+      scenarios: {
+        Row: {
+          applied_at: string | null
+          archived_at: string | null
+          comparison_enabled: boolean
+          created_at: string
+          description: string | null
+          end_on: string | null
+          id: string
+          legacy_source_id: string | null
+          migration_metadata: Json
+          name: string
+          start_on: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          applied_at?: string | null
           archived_at?: string | null
+          comparison_enabled?: boolean
           created_at?: string
           description?: string | null
+          end_on?: string | null
+          id?: string
+          legacy_source_id?: string | null
+          migration_metadata?: Json
+          name: string
+          start_on?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          applied_at?: string | null
+          archived_at?: string | null
+          comparison_enabled?: boolean
+          created_at?: string
+          description?: string | null
+          end_on?: string | null
           id?: string
           legacy_source_id?: string | null
           migration_metadata?: Json
           name?: string
+          start_on?: string | null
+          status?: string
           updated_at?: string
           user_id?: string
         }
@@ -1638,6 +1912,10 @@ export type Database = {
         }
         Returns: string
       }
+      apply_plan_to_base: {
+        Args: { p_confirmation_token: string; p_scenario_id: string }
+        Returns: Json
+      }
       create_account: {
         Args: {
           p_class: Database["public"]["Enums"]["runway_account_class"]
@@ -1764,6 +2042,10 @@ export type Database = {
           p_source_account_id: string
         }
         Returns: string
+      }
+      preview_plan_application: {
+        Args: { p_scenario_id: string }
+        Returns: Json
       }
       reconcile_account: {
         Args: {

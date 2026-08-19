@@ -19,6 +19,8 @@ No route reads `public.runway_state`. Accounts and Transactions read the normali
 
 Phase 6 adds a virtual allocation layer without introducing a second accounting truth. `fund_movements` derive purpose balances backed by owned asset accounts; they do not enter account balances or net worth. Budget actuals derive only from posted categorized ledger entries. Payday recommendations are pure projections, while confirmed Fund allocations cross an idempotent RPC boundary. See [Funds, payday planning, and budgets](./FUNDS_PAYDAY_BUDGETS.md).
 
+Phase 7 adds Plans as typed, non-destructive overlays on Base Plan. The pure scenario engine composes changes, detects overlapping-target conflicts, and feeds derived input to the existing forecast and allocation engines. Comparisons are never persisted. Promotion requires a fresh preview token and an atomic, idempotent RPC that applies assumptions—not calculated outcomes—and cannot post actual transactions. See [Plans and scenario comparison](./PLANS_AND_COMPARISON.md).
+
 ## Phase 2 ledger boundary
 
 The normalized model uses user-facing typed transactions over a lightweight double-entry ledger:

@@ -36,6 +36,8 @@ export async function installFixtureBackend(page: Page) {
   const snapshots: Array<Record<string, unknown>> = [];
   const recurringRules: Array<Record<string, unknown>> = [];
   const forecastItems: Array<Record<string, unknown>> = [{ id: "forecast-scenario", user_id: USER_ID, kind: "expense", expected_date: "2026-10-15", amount_minor: 250000, source_account_id: OPERATING_ID, destination_account_id: null, category_id: CATEGORY_ID, label: "Invented scenario cost", notes: null, confidence: "expected", status: "expected", scenario_id: "scenario-fixture", default_sort_order: null }];
+  const scenarios: Array<Record<string, unknown>> = [{ id: "scenario-fixture", user_id: USER_ID, name: "Invented plan", description: "Fixture", status: "active", comparison_enabled: false, legacy_source_id: "legacy-fixture", migration_metadata: {}, start_on: null, end_on: null, archived_at: null, applied_at: null, created_at: now, updated_at: now }];
+  const scenarioChanges: Array<Record<string, unknown>> = [];
   let sequence = 0;
   const newId = () => `aaaaaaaa-aaaa-4aaa-8aaa-${String(++sequence).padStart(12, "0")}`;
   const netWorth = () => [...balances.values()].reduce((sum, value) => sum + value, 0);
@@ -62,7 +64,7 @@ export async function installFixtureBackend(page: Page) {
     const url = new URL(request.url());
     if (url.pathname.startsWith("/auth/v1/")) return json(route, user);
     if (url.pathname === "/rest/v1/accounts" && request.method() === "GET") return json(route, accounts);
-    if (url.pathname === "/rest/v1/profiles" && request.method() === "GET") return json(route, [{ user_id: USER_ID, base_currency: "NOK", timezone: "Europe/Oslo", operating_floor_minor: 900000, forecast_horizon_months: 12 }]);
+    if (url.pathname === "/rest/v1/profiles" && request.method() === "GET") return json(route, [{ user_id: USER_ID, base_currency: "NOK", timezone: "Europe/Oslo", operating_floor_minor: 900000, forecast_horizon_months: 12, safety_window_days: 30, schema_version: 7 }]);
     if (url.pathname === "/rest/v1/profiles" && request.method() === "PATCH") return json(route, []);
     if (url.pathname === "/rest/v1/account_balances") return json(route, accounts.map((row) => ({ user_id: USER_ID, account_id: row.id, currency: "NOK", ledger_balance_minor: balances.get(row.id) ?? 0, display_balance_minor: balances.get(row.id) ?? 0 })));
     if (url.pathname === "/rest/v1/current_net_worth") return json(route, [{ user_id: USER_ID, currency: "NOK", net_worth_minor: netWorth() }]);
@@ -71,11 +73,18 @@ export async function installFixtureBackend(page: Page) {
     if (url.pathname === "/rest/v1/forecast_items" && request.method() === "GET") return json(route, forecastItems);
     if (url.pathname === "/rest/v1/funds" && request.method() === "GET") return json(route, []);
     if (url.pathname === "/rest/v1/fund_balances" && request.method() === "GET") return json(route, []);
+    if (["/rest/v1/goals","/rest/v1/fund_movements","/rest/v1/allocation_plans","/rest/v1/allocation_plan_items","/rest/v1/fund_backing_summary","/rest/v1/scenario_applications"].includes(url.pathname)) return json(route, []);
     if (url.pathname === "/rest/v1/recurring_rules" && request.method() === "GET") return json(route, recurringRules);
     if (url.pathname === "/rest/v1/recurring_rules" && request.method() === "POST") { recurringRules.push({ id: newId(), active: true, archived_at: null, confidence: "expected", scenario_id: null, default_sort_order: null, ...request.postDataJSON() }); return json(route, [], 201); }
     if (url.pathname === "/rest/v1/recurring_rules" && request.method() === "PATCH") { const id = url.searchParams.get("id")?.replace("eq.", ""); const rule = recurringRules.find((row) => row.id === id); if (rule) Object.assign(rule, request.postDataJSON()); return json(route, []); }
     if (url.pathname === "/rest/v1/recurring_occurrences") return json(route, []);
-    if (url.pathname === "/rest/v1/scenarios") return json(route, [{ id: "scenario-fixture", user_id: USER_ID, name: "Invented plan", description: "Fixture", archived_at: null }]);
+    if (url.pathname === "/rest/v1/scenarios" && request.method() === "GET") return json(route, scenarios);
+    if (url.pathname === "/rest/v1/scenarios" && request.method() === "POST") { const row={id:newId(),legacy_source_id:null,migration_metadata:{},comparison_enabled:false,start_on:null,end_on:null,archived_at:null,applied_at:null,created_at:now,updated_at:now,...request.postDataJSON()};scenarios.push(row);return json(route,row,201); }
+    if (url.pathname === "/rest/v1/scenarios" && request.method() === "PATCH") { const id=url.searchParams.get("id")?.replace("eq.","");const row=scenarios.find(item=>item.id===id);if(row)Object.assign(row,request.postDataJSON(),{updated_at:now});return json(route,[]); }
+    if (url.pathname === "/rest/v1/scenario_changes" && request.method() === "GET") return json(route,scenarioChanges);
+    if (url.pathname === "/rest/v1/scenario_changes" && request.method() === "POST") { const row={id:newId(),created_at:now,updated_at:now,...request.postDataJSON()};scenarioChanges.push(row);return json(route,row,201); }
+    if (url.pathname === "/rest/v1/scenario_changes" && request.method() === "PATCH") { const id=url.searchParams.get("id")?.replace("eq.","");const row=scenarioChanges.find(item=>item.id===id);if(row)Object.assign(row,request.postDataJSON(),{updated_at:now});return json(route,[]); }
+    if (url.pathname === "/rest/v1/scenario_changes" && request.method() === "DELETE") { const id=url.searchParams.get("id")?.replace("eq.","");const index=scenarioChanges.findIndex(item=>item.id===id);if(index>=0)scenarioChanges.splice(index,1);return json(route,[]); }
     if (url.pathname === "/rest/v1/transaction_entries") return json(route, []);
     if (url.pathname === "/rest/v1/account_balance_snapshots" && request.method() === "GET") return json(route, snapshots);
     if (url.pathname === "/rest/v1/account_balance_snapshots" && request.method() === "POST") {
@@ -101,6 +110,8 @@ export async function installFixtureBackend(page: Page) {
         const snapshot = { id: newId(), user_id: USER_ID, account_id: body.p_account_id, observed_at: body.p_observed_at, balance_minor: body.p_observed_balance_minor, notes: body.p_notes };
         snapshots.unshift(snapshot); return json(route, { snapshot_id: snapshot.id, ledger_balance_minor: current, observed_balance_minor: body.p_observed_balance_minor, difference_minor: difference });
       }
+      if (rpc === "preview_plan_application") { const plan=scenarios.find(item=>item.id===body.p_scenario_id)!;const changes=scenarioChanges.filter(item=>item.scenario_id===body.p_scenario_id);return json(route,{scenario_id:plan.id,name:plan.name,confirmation_token:"fixture-preview-token",change_count:changes.length,changes:changes.map(item=>({id:item.id,type:item.change_type,label:item.label,effective_on:item.effective_on,amount_minor:item.amount_minor})),requires_confirmation:true,actual_transactions_created:0}); }
+      if (rpc === "apply_plan_to_base") { const plan=scenarios.find(item=>item.id===body.p_scenario_id)!;Object.assign(plan,{status:"applied",archived_at:now,applied_at:now,comparison_enabled:false});return json(route,{scenario_id:plan.id,change_count:scenarioChanges.filter(item=>item.scenario_id===plan.id).length,actual_transactions_created:0,already_applied:false}); }
     }
     return json(route, { message: `Unhandled fixture request: ${request.method()} ${url.pathname}` }, 500);
   });
@@ -169,4 +180,40 @@ test("creates recurring plans and projects horizon and scenario changes", async 
   await expect(page.getByText("Invented recurring rent")).toBeVisible();
   await page.goto("/forecast"); await expect(page.getByText("Invented recurring salary").first()).toBeVisible(); await expect(page.getByText("Invented scenario cost")).toHaveCount(0);
   await page.getByRole("button", { name: "24 months" }).click(); await page.getByRole("checkbox", { name: "Invented plan" }).check(); await expect(page.getByText("Invented scenario cost")).toBeVisible(); await expect(page.getByLabel("Projected operating and liquid cash chart")).toBeVisible();
+});
+
+test("creates, compares, previews, cancels, and confirms a what-if Plan", async ({ page }) => {
+  await installFixtureBackend(page);
+  await page.goto("/plans");
+  await page.getByLabel("Name").fill("Brazil Trip");
+  await page.getByLabel(/Description/).fill("Invented E2E fixture");
+  await page.getByRole("button",{name:"Create Plan"}).click();
+  const card=page.locator("article").filter({hasText:"Brazil Trip"});
+  await expect(card).toBeVisible();
+  await card.getByRole("link",{name:/Edit/}).click();
+  await page.getByLabel("Label").fill("Trip cost");
+  await page.getByLabel("Amount").fill("17000");
+  await page.getByLabel(/Effective date/).fill("2026-10-01");
+  await page.getByLabel(/From account/).selectOption(OPERATING_ID);
+  await page.getByRole("button",{name:"Add assumption"}).click();
+  await expect(page.getByText("Trip cost").first()).toBeVisible();
+
+  await page.goto("/plans");
+  const updated=page.locator("article").filter({hasText:"Brazil Trip"});
+  const detailHref=await updated.getByRole("link",{name:/Edit/}).getAttribute("href") ?? "/plans";
+  await updated.getByRole("checkbox",{name:"Compare"}).click();
+  await expect(updated.getByRole("checkbox",{name:"Compare"})).toBeChecked();
+  await page.getByRole("link",{name:"Compare Plans"}).click();
+  await expect(page.getByRole("heading",{name:"Base versus what-if"})).toBeVisible();
+  await expect(page.getByLabel("Base and selected Plan operating cash chart")).toBeVisible();
+  await expect(page.getByText("Brazil Trip").first()).toBeVisible();
+
+  await page.goto(detailHref);
+  await page.getByRole("button",{name:"Preview Apply to Base"}).click();
+  await expect(page.getByText(/0 actual transactions/)).toBeVisible();
+  await page.getByRole("button",{name:"Cancel"}).click();
+  await expect(page.getByRole("button",{name:"Confirm Apply to Base"})).toHaveCount(0);
+  await page.getByRole("button",{name:"Preview Apply to Base"}).click();
+  await page.getByRole("button",{name:"Confirm Apply to Base"}).click();
+  await expect(page.getByText(/No actual transaction was created/)).toBeVisible();
 });
