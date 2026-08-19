@@ -17,6 +17,8 @@ The root creates one QueryClient, restores the Supabase session, then allows the
 
 No route reads `public.runway_state`. Accounts and Transactions read the normalized ledger; Forecast reads non-authoritative planning tables and ledger-derived actual balances. This keeps legacy state out of the runtime truth path after the approved Phase 4 application.
 
+Phase 6 adds a virtual allocation layer without introducing a second accounting truth. `fund_movements` derive purpose balances backed by owned asset accounts; they do not enter account balances or net worth. Budget actuals derive only from posted categorized ledger entries. Payday recommendations are pure projections, while confirmed Fund allocations cross an idempotent RPC boundary. See [Funds, payday planning, and budgets](./FUNDS_PAYDAY_BUDGETS.md).
+
 ## Phase 2 ledger boundary
 
 The normalized model uses user-facing typed transactions over a lightweight double-entry ledger:

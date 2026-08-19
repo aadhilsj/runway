@@ -8,7 +8,7 @@ export const forecastRepository = {
   async getWorkspace() {
     const client = requireSupabase();
     const userId = await requireAuthenticatedUserId(client);
-    const [profile, accounts, balances, items, rules, occurrences, scenarios, categories, transactions] = await Promise.all([
+    const [profile, accounts, balances, items, rules, occurrences, scenarios, categories, transactions, funds, fundBalances] = await Promise.all([
       client.from("profiles").select("*").eq("user_id", userId).single(),
       client.from("accounts").select("*").eq("user_id", userId).is("archived_at", null).order("created_at"),
       client.from("account_balances").select("*").eq("user_id", userId),
@@ -18,10 +18,13 @@ export const forecastRepository = {
       client.from("scenarios").select("*").eq("user_id", userId).is("archived_at", null).order("name"),
       client.from("categories").select("*").eq("user_id", userId).is("archived_at", null).order("sort_order"),
       client.from("transactions").select("id, description, occurred_at, kind, status").eq("user_id", userId).eq("status", "posted").order("occurred_at", { ascending: false }).limit(100),
+      client.from("funds").select("id,name").eq("user_id",userId).eq("active",true).order("sort_order"),
+      client.from("fund_balances").select("fund_id,balance_minor").eq("user_id",userId),
     ]);
-    for (const result of [profile, accounts, balances, items, rules, occurrences, scenarios, categories, transactions]) if (result.error) throw result.error;
+    for (const result of [profile, accounts, balances, items, rules, occurrences, scenarios, categories, transactions, funds, fundBalances]) if (result.error) throw result.error;
     return { profile: profile.data!, accounts: accounts.data!, balances: balances.data!, items: items.data!, rules: rules.data!,
-      occurrences: occurrences.data!, scenarios: scenarios.data!, categories: categories.data!, transactions: transactions.data! };
+      occurrences: occurrences.data!, scenarios: scenarios.data!, categories: categories.data!, transactions: transactions.data!,
+      funds: funds.data as Array<{id:string;name:string}>, fundBalances: fundBalances.data as Array<{fund_id:string;balance_minor:number}> };
   },
 
   async listExpectedItems() { const workspace = await this.getWorkspace(); return workspace.items.filter((item) => item.status === "expected"); },

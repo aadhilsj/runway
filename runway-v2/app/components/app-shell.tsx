@@ -43,6 +43,8 @@ export function AppShell() {
 
 function titleForPath(path: string): string {
   if (path === "/settings/recurring") return "Recurring rules";
+  if (path === "/funds/payday") return "Payday plan";
+  if (path.startsWith("/funds/")) return "Fund detail";
   const match = [...primary, ...planning, ["Settings", "/settings"] as const].find(([, href]) => path === href);
   return match?.[0] ?? "Runway";
 }

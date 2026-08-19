@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       account_balance_snapshots: {
@@ -62,6 +87,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "accounts"
             referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "account_snapshots_account_owner_fkey"
+            columns: ["account_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "fund_backing_summary"
+            referencedColumns: ["account_id", "user_id"]
           },
           {
             foreignKeyName: "account_snapshots_transaction_owner_fkey"
@@ -138,6 +170,331 @@ export type Database = {
         }
         Relationships: []
       }
+      allocation_plan_items: {
+        Row: {
+          activation_source_item_id: string | null
+          active: boolean
+          amount_minor: number
+          created_at: string
+          destination_account_id: string | null
+          destination_fund_id: string | null
+          destination_type: string
+          ends_on: string | null
+          id: string
+          label: string
+          mode: string
+          plan_id: string
+          priority: number
+          starts_on: string | null
+          stop_basis: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          activation_source_item_id?: string | null
+          active?: boolean
+          amount_minor: number
+          created_at?: string
+          destination_account_id?: string | null
+          destination_fund_id?: string | null
+          destination_type: string
+          ends_on?: string | null
+          id?: string
+          label: string
+          mode?: string
+          plan_id: string
+          priority: number
+          starts_on?: string | null
+          stop_basis?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          activation_source_item_id?: string | null
+          active?: boolean
+          amount_minor?: number
+          created_at?: string
+          destination_account_id?: string | null
+          destination_fund_id?: string | null
+          destination_type?: string
+          ends_on?: string | null
+          id?: string
+          label?: string
+          mode?: string
+          plan_id?: string
+          priority?: number
+          starts_on?: string | null
+          stop_basis?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "allocation_items_account_owner_fkey"
+            columns: ["destination_account_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "account_balances"
+            referencedColumns: ["account_id", "user_id"]
+          },
+          {
+            foreignKeyName: "allocation_items_account_owner_fkey"
+            columns: ["destination_account_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "allocation_items_account_owner_fkey"
+            columns: ["destination_account_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "fund_backing_summary"
+            referencedColumns: ["account_id", "user_id"]
+          },
+          {
+            foreignKeyName: "allocation_items_activation_owner_fkey"
+            columns: ["activation_source_item_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "allocation_plan_items"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "allocation_items_fund_owner_fkey"
+            columns: ["destination_fund_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "fund_balances"
+            referencedColumns: ["fund_id", "user_id"]
+          },
+          {
+            foreignKeyName: "allocation_items_fund_owner_fkey"
+            columns: ["destination_fund_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "funds"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "allocation_items_plan_owner_fkey"
+            columns: ["plan_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "allocation_plans"
+            referencedColumns: ["id", "user_id"]
+          },
+        ]
+      }
+      allocation_plans: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          is_default: boolean
+          name: string
+          source_account_id: string
+          trigger_kind: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          name: string
+          source_account_id: string
+          trigger_kind?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          name?: string
+          source_account_id?: string
+          trigger_kind?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "allocation_plans_source_owner_fkey"
+            columns: ["source_account_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "account_balances"
+            referencedColumns: ["account_id", "user_id"]
+          },
+          {
+            foreignKeyName: "allocation_plans_source_owner_fkey"
+            columns: ["source_account_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "allocation_plans_source_owner_fkey"
+            columns: ["source_account_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "fund_backing_summary"
+            referencedColumns: ["account_id", "user_id"]
+          },
+        ]
+      }
+      budget_group_categories: {
+        Row: {
+          category_id: string
+          created_at: string
+          group_id: string
+          user_id: string
+        }
+        Insert: {
+          category_id: string
+          created_at?: string
+          group_id: string
+          user_id: string
+        }
+        Update: {
+          category_id?: string
+          created_at?: string
+          group_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "budget_group_categories_category_owner_fkey"
+            columns: ["category_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "budget_group_categories_group_owner_fkey"
+            columns: ["group_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "budget_groups"
+            referencedColumns: ["id", "user_id"]
+          },
+        ]
+      }
+      budget_groups: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      budget_lines: {
+        Row: {
+          budget_period_id: string
+          budgeted_minor: number
+          category_id: string | null
+          created_at: string
+          group_id: string | null
+          id: string
+          notes: string | null
+          rollover: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          budget_period_id: string
+          budgeted_minor: number
+          category_id?: string | null
+          created_at?: string
+          group_id?: string | null
+          id?: string
+          notes?: string | null
+          rollover?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          budget_period_id?: string
+          budgeted_minor?: number
+          category_id?: string | null
+          created_at?: string
+          group_id?: string | null
+          id?: string
+          notes?: string | null
+          rollover?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "budget_lines_category_owner_fkey"
+            columns: ["category_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "budget_lines_group_owner_fkey"
+            columns: ["group_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "budget_groups"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "budget_lines_period_owner_fkey"
+            columns: ["budget_period_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "budget_periods"
+            referencedColumns: ["id", "user_id"]
+          },
+        ]
+      }
+      budget_periods: {
+        Row: {
+          created_at: string
+          currency: string
+          id: string
+          month_start: string
+          notes: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          currency: string
+          id?: string
+          month_start: string
+          notes?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          currency?: string
+          id?: string
+          month_start?: string
+          notes?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       categories: {
         Row: {
           archived_at: string | null
@@ -193,8 +550,8 @@ export type Database = {
           created_at: string
           default_sort_order: number | null
           destination_account_id: string | null
-          expected_date: string
           expected_amount_minor_snapshot: number | null
+          expected_date: string
           expected_date_snapshot: string | null
           id: string
           kind: Database["public"]["Enums"]["runway_planned_kind"]
@@ -216,8 +573,8 @@ export type Database = {
           created_at?: string
           default_sort_order?: number | null
           destination_account_id?: string | null
-          expected_date: string
           expected_amount_minor_snapshot?: number | null
+          expected_date: string
           expected_date_snapshot?: string | null
           id?: string
           kind: Database["public"]["Enums"]["runway_planned_kind"]
@@ -239,8 +596,8 @@ export type Database = {
           created_at?: string
           default_sort_order?: number | null
           destination_account_id?: string | null
-          expected_date?: string
           expected_amount_minor_snapshot?: number | null
+          expected_date?: string
           expected_date_snapshot?: string | null
           id?: string
           kind?: Database["public"]["Enums"]["runway_planned_kind"]
@@ -278,6 +635,20 @@ export type Database = {
             referencedColumns: ["id", "user_id"]
           },
           {
+            foreignKeyName: "forecast_items_destination_account_owner_fkey"
+            columns: ["destination_account_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "fund_backing_summary"
+            referencedColumns: ["account_id", "user_id"]
+          },
+          {
+            foreignKeyName: "forecast_items_matched_transaction_owner_fkey"
+            columns: ["matched_transaction_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
             foreignKeyName: "forecast_items_scenario_owner_fkey"
             columns: ["scenario_id", "user_id"]
             isOneToOne: false
@@ -296,6 +667,237 @@ export type Database = {
             columns: ["source_account_id", "user_id"]
             isOneToOne: false
             referencedRelation: "accounts"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "forecast_items_source_account_owner_fkey"
+            columns: ["source_account_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "fund_backing_summary"
+            referencedColumns: ["account_id", "user_id"]
+          },
+        ]
+      }
+      fund_movements: {
+        Row: {
+          amount_minor: number
+          created_at: string
+          description: string
+          fund_id: string
+          id: string
+          idempotency_key: string | null
+          kind: string
+          metadata: Json
+          occurred_at: string
+          payday_execution_item_id: string | null
+          related_fund_id: string | null
+          transaction_id: string | null
+          user_id: string
+        }
+        Insert: {
+          amount_minor: number
+          created_at?: string
+          description: string
+          fund_id: string
+          id?: string
+          idempotency_key?: string | null
+          kind: string
+          metadata?: Json
+          occurred_at?: string
+          payday_execution_item_id?: string | null
+          related_fund_id?: string | null
+          transaction_id?: string | null
+          user_id: string
+        }
+        Update: {
+          amount_minor?: number
+          created_at?: string
+          description?: string
+          fund_id?: string
+          id?: string
+          idempotency_key?: string | null
+          kind?: string
+          metadata?: Json
+          occurred_at?: string
+          payday_execution_item_id?: string | null
+          related_fund_id?: string | null
+          transaction_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fund_movements_fund_owner_fkey"
+            columns: ["fund_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "fund_balances"
+            referencedColumns: ["fund_id", "user_id"]
+          },
+          {
+            foreignKeyName: "fund_movements_fund_owner_fkey"
+            columns: ["fund_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "funds"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "fund_movements_payday_item_owner_fkey"
+            columns: ["payday_execution_item_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "payday_execution_items"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "fund_movements_related_owner_fkey"
+            columns: ["related_fund_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "fund_balances"
+            referencedColumns: ["fund_id", "user_id"]
+          },
+          {
+            foreignKeyName: "fund_movements_related_owner_fkey"
+            columns: ["related_fund_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "funds"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "fund_movements_transaction_owner_fkey"
+            columns: ["transaction_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id", "user_id"]
+          },
+        ]
+      }
+      funds: {
+        Row: {
+          active: boolean
+          backing_account_id: string
+          color: string | null
+          created_at: string
+          currency: string
+          icon: string | null
+          id: string
+          name: string
+          purpose_key: string | null
+          sort_order: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          active?: boolean
+          backing_account_id: string
+          color?: string | null
+          created_at?: string
+          currency: string
+          icon?: string | null
+          id?: string
+          name: string
+          purpose_key?: string | null
+          sort_order?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          active?: boolean
+          backing_account_id?: string
+          color?: string | null
+          created_at?: string
+          currency?: string
+          icon?: string | null
+          id?: string
+          name?: string
+          purpose_key?: string | null
+          sort_order?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "funds_backing_owner_fkey"
+            columns: ["backing_account_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "account_balances"
+            referencedColumns: ["account_id", "user_id"]
+          },
+          {
+            foreignKeyName: "funds_backing_owner_fkey"
+            columns: ["backing_account_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "funds_backing_owner_fkey"
+            columns: ["backing_account_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "fund_backing_summary"
+            referencedColumns: ["account_id", "user_id"]
+          },
+        ]
+      }
+      goals: {
+        Row: {
+          cap_minor: number | null
+          created_at: string
+          floor_minor: number | null
+          fund_id: string
+          id: string
+          is_primary: boolean
+          name: string
+          preferred_balance_minor: number | null
+          preferred_contribution_minor: number | null
+          status: string
+          target_date: string | null
+          target_minor: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cap_minor?: number | null
+          created_at?: string
+          floor_minor?: number | null
+          fund_id: string
+          id?: string
+          is_primary?: boolean
+          name: string
+          preferred_balance_minor?: number | null
+          preferred_contribution_minor?: number | null
+          status?: string
+          target_date?: string | null
+          target_minor?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cap_minor?: number | null
+          created_at?: string
+          floor_minor?: number | null
+          fund_id?: string
+          id?: string
+          is_primary?: boolean
+          name?: string
+          preferred_balance_minor?: number | null
+          preferred_contribution_minor?: number | null
+          status?: string
+          target_date?: string | null
+          target_minor?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "goals_fund_owner_fkey"
+            columns: ["fund_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "fund_balances"
+            referencedColumns: ["fund_id", "user_id"]
+          },
+          {
+            foreignKeyName: "goals_fund_owner_fkey"
+            columns: ["fund_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "funds"
             referencedColumns: ["id", "user_id"]
           },
         ]
@@ -384,6 +986,114 @@ export type Database = {
         }
         Relationships: []
       }
+      payday_execution_items: {
+        Row: {
+          approved_minor: number
+          created_at: string
+          executed_minor: number
+          execution_id: string
+          explanation: string | null
+          id: string
+          plan_item_id: string
+          recommended_minor: number
+          status: string
+          user_id: string
+        }
+        Insert: {
+          approved_minor: number
+          created_at?: string
+          executed_minor: number
+          execution_id: string
+          explanation?: string | null
+          id?: string
+          plan_item_id: string
+          recommended_minor: number
+          status: string
+          user_id: string
+        }
+        Update: {
+          approved_minor?: number
+          created_at?: string
+          executed_minor?: number
+          execution_id?: string
+          explanation?: string | null
+          id?: string
+          plan_item_id?: string
+          recommended_minor?: number
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payday_items_execution_owner_fkey"
+            columns: ["execution_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "payday_executions"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "payday_items_plan_item_owner_fkey"
+            columns: ["plan_item_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "allocation_plan_items"
+            referencedColumns: ["id", "user_id"]
+          },
+        ]
+      }
+      payday_executions: {
+        Row: {
+          executed_at: string
+          executed_total_minor: number
+          id: string
+          idempotency_key: string
+          plan_id: string
+          recommended_total_minor: number
+          snapshot: Json
+          status: string
+          trigger_transaction_id: string | null
+          user_id: string
+        }
+        Insert: {
+          executed_at?: string
+          executed_total_minor: number
+          id?: string
+          idempotency_key: string
+          plan_id: string
+          recommended_total_minor: number
+          snapshot: Json
+          status: string
+          trigger_transaction_id?: string | null
+          user_id: string
+        }
+        Update: {
+          executed_at?: string
+          executed_total_minor?: number
+          id?: string
+          idempotency_key?: string
+          plan_id?: string
+          recommended_total_minor?: number
+          snapshot?: Json
+          status?: string
+          trigger_transaction_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payday_executions_plan_owner_fkey"
+            columns: ["plan_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "allocation_plans"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "payday_executions_trigger_owner_fkey"
+            columns: ["trigger_transaction_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id", "user_id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           base_currency: string
@@ -423,24 +1133,6 @@ export type Database = {
         }
         Relationships: []
       }
-      runway_state: {
-        Row: {
-          state: Json
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          state?: Json
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          state?: Json
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
       recurring_occurrences: {
         Row: {
           created_at: string
@@ -471,16 +1163,35 @@ export type Database = {
           user_id: string
         }
         Update: {
+          created_at?: string
           expected_amount_minor_snapshot?: number | null
           expected_date_snapshot?: string | null
+          id?: string
           matched_transaction_id?: string | null
           occurrence_date?: string
           override_amount_minor?: number | null
           override_date?: string | null
+          recurring_rule_id?: string
           status?: Database["public"]["Enums"]["runway_occurrence_status"]
           updated_at?: string
+          user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "recurring_occurrences_rule_owner_fkey"
+            columns: ["recurring_rule_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "recurring_rules"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "recurring_occurrences_transaction_owner_fkey"
+            columns: ["matched_transaction_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id", "user_id"]
+          },
+        ]
       }
       recurring_rules: {
         Row: {
@@ -515,6 +1226,7 @@ export type Database = {
           archived_at?: string | null
           category_id?: string | null
           confidence?: Database["public"]["Enums"]["runway_planned_confidence"]
+          created_at?: string
           day_of_month?: number | null
           day_of_week?: number | null
           default_sort_order?: number | null
@@ -531,6 +1243,7 @@ export type Database = {
           scenario_id?: string | null
           source_account_id?: string | null
           start_on: string
+          updated_at?: string
           user_id: string
         }
         Update: {
@@ -539,20 +1252,100 @@ export type Database = {
           archived_at?: string | null
           category_id?: string | null
           confidence?: Database["public"]["Enums"]["runway_planned_confidence"]
+          created_at?: string
           day_of_month?: number | null
           day_of_week?: number | null
           default_sort_order?: number | null
           destination_account_id?: string | null
           end_on?: string | null
           frequency?: Database["public"]["Enums"]["runway_recurrence_frequency"]
+          id?: string
           interval_count?: number
           is_reliable_income?: boolean
           kind?: Database["public"]["Enums"]["runway_planned_kind"]
           label?: string
+          legacy_source_id?: string | null
           notes?: string | null
           scenario_id?: string | null
           source_account_id?: string | null
           start_on?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recurring_rules_category_owner_fkey"
+            columns: ["category_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "recurring_rules_destination_account_owner_fkey"
+            columns: ["destination_account_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "account_balances"
+            referencedColumns: ["account_id", "user_id"]
+          },
+          {
+            foreignKeyName: "recurring_rules_destination_account_owner_fkey"
+            columns: ["destination_account_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "recurring_rules_destination_account_owner_fkey"
+            columns: ["destination_account_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "fund_backing_summary"
+            referencedColumns: ["account_id", "user_id"]
+          },
+          {
+            foreignKeyName: "recurring_rules_scenario_owner_fkey"
+            columns: ["scenario_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "scenarios"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "recurring_rules_source_account_owner_fkey"
+            columns: ["source_account_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "account_balances"
+            referencedColumns: ["account_id", "user_id"]
+          },
+          {
+            foreignKeyName: "recurring_rules_source_account_owner_fkey"
+            columns: ["source_account_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "recurring_rules_source_account_owner_fkey"
+            columns: ["source_account_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "fund_backing_summary"
+            referencedColumns: ["account_id", "user_id"]
+          },
+        ]
+      }
+      runway_state: {
+        Row: {
+          state: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          state?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          state?: Json
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -637,6 +1430,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "accounts"
             referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "transaction_entries_account_owner_fkey"
+            columns: ["account_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "fund_backing_summary"
+            referencedColumns: ["account_id", "user_id"]
           },
           {
             foreignKeyName: "transaction_entries_category_owner_fkey"
@@ -738,6 +1538,40 @@ export type Database = {
         }
         Relationships: []
       }
+      budget_actuals: {
+        Row: {
+          actual_minor: number | null
+          category_id: string | null
+          month_start: string | null
+          user_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transaction_entries_category_owner_fkey"
+            columns: ["category_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id", "user_id"]
+          },
+        ]
+      }
+      budget_commitments: {
+        Row: {
+          category_id: string | null
+          committed_minor: number | null
+          month_start: string | null
+          user_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "forecast_items_category_owner_fkey"
+            columns: ["category_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id", "user_id"]
+          },
+        ]
+      }
       current_net_worth: {
         Row: {
           currency: string | null
@@ -748,15 +1582,61 @@ export type Database = {
         }
         Relationships: []
       }
+      fund_backing_summary: {
+        Row: {
+          account_balance_minor: number | null
+          account_id: string | null
+          account_name: string | null
+          allocated_minor: number | null
+          backing_valid: boolean | null
+          unallocated_minor: number | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
+      fund_balances: {
+        Row: {
+          backing_account_id: string | null
+          balance_minor: number | null
+          currency: string | null
+          fund_id: string | null
+          user_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "funds_backing_owner_fkey"
+            columns: ["backing_account_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "account_balances"
+            referencedColumns: ["account_id", "user_id"]
+          },
+          {
+            foreignKeyName: "funds_backing_owner_fkey"
+            columns: ["backing_account_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "funds_backing_owner_fkey"
+            columns: ["backing_account_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "fund_backing_summary"
+            referencedColumns: ["account_id", "user_id"]
+          },
+        ]
+      }
     }
     Functions: {
-      match_forecast_item: {
-        Args: { p_forecast_item_id: string; p_transaction_id: string }
-        Returns: undefined
-      }
-      match_recurring_occurrence: {
-        Args: { p_occurrence_date: string; p_recurring_rule_id: string; p_transaction_id: string }
-        Returns: undefined
+      allocate_to_fund: {
+        Args: {
+          p_amount_minor: number
+          p_description: string
+          p_fund_id: string
+          p_idempotency_key: string
+          p_occurred_at: string
+        }
+        Returns: string
       }
       create_account: {
         Args: {
@@ -774,6 +1654,27 @@ export type Database = {
           p_valuation_mode: Database["public"]["Enums"]["runway_valuation_mode"]
         }
         Returns: string
+      }
+      execute_payday_allocation: {
+        Args: {
+          p_idempotency_key: string
+          p_items: Json
+          p_plan_id: string
+          p_trigger_transaction_id: string
+        }
+        Returns: string
+      }
+      match_forecast_item: {
+        Args: { p_forecast_item_id: string; p_transaction_id: string }
+        Returns: undefined
+      }
+      match_recurring_occurrence: {
+        Args: {
+          p_occurrence_date: string
+          p_recurring_rule_id: string
+          p_transaction_id: string
+        }
+        Returns: undefined
       }
       post_debt_payment: {
         Args: {
@@ -799,6 +1700,20 @@ export type Database = {
           p_source_account_id: string
         }
         Returns: string
+      }
+      post_fund_spend: {
+        Args: {
+          p_amount_minor: number
+          p_category_id: string
+          p_description: string
+          p_fund_id: string
+          p_idempotency_key: string
+          p_merchant_or_source: string
+          p_notes: string
+          p_occurred_at: string
+          p_source_account_id: string
+        }
+        Returns: Json
       }
       post_income: {
         Args: {
@@ -861,6 +1776,16 @@ export type Database = {
         }
         Returns: Json
       }
+      release_from_fund: {
+        Args: {
+          p_amount_minor: number
+          p_description: string
+          p_fund_id: string
+          p_idempotency_key: string
+          p_occurred_at: string
+        }
+        Returns: string
+      }
       reverse_transaction: {
         Args: {
           p_idempotency_key: string
@@ -869,6 +1794,17 @@ export type Database = {
           p_transaction_id: string
         }
         Returns: string
+      }
+      transfer_between_funds: {
+        Args: {
+          p_amount_minor: number
+          p_description: string
+          p_destination_fund_id: string
+          p_idempotency_key: string
+          p_occurred_at: string
+          p_source_fund_id: string
+        }
+        Returns: Json
       }
       unmatch_forecast_item: {
         Args: { p_forecast_item_id: string }
@@ -896,17 +1832,21 @@ export type Database = {
         | "imported_actual"
         | "planned_as_actual"
         | "inferred"
-      runway_occurrence_status: "expected" | "skipped" | "overridden" | "matched"
-      runway_planned_confidence: "committed" | "expected" | "tentative"
-      runway_planned_kind: "income" | "expense" | "transfer"
-      runway_planned_status: "expected" | "skipped" | "canceled" | "matched"
-      runway_recurrence_frequency: "weekly" | "monthly" | "yearly"
       runway_liquidity_class:
         | "operating"
         | "liquid"
         | "invested"
         | "liability"
         | "non_liquid"
+      runway_occurrence_status:
+        | "expected"
+        | "skipped"
+        | "overridden"
+        | "matched"
+      runway_planned_confidence: "committed" | "expected" | "tentative"
+      runway_planned_kind: "income" | "expense" | "transfer"
+      runway_planned_status: "expected" | "skipped" | "canceled" | "matched"
+      runway_recurrence_frequency: "weekly" | "monthly" | "yearly"
       runway_snapshot_source: "manual" | "statement" | "migration"
       runway_system_account_key:
         | "income"
@@ -930,6 +1870,7 @@ export type Database = {
     }
   }
 }
+
 type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
 
 type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
@@ -1048,6 +1989,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       runway_account_class: [
@@ -1073,11 +2017,6 @@ export const Constants = {
         "planned_as_actual",
         "inferred",
       ],
-      runway_occurrence_status: ["expected", "skipped", "overridden", "matched"],
-      runway_planned_confidence: ["committed", "expected", "tentative"],
-      runway_planned_kind: ["income", "expense", "transfer"],
-      runway_planned_status: ["expected", "skipped", "canceled", "matched"],
-      runway_recurrence_frequency: ["weekly", "monthly", "yearly"],
       runway_liquidity_class: [
         "operating",
         "liquid",
@@ -1085,6 +2024,16 @@ export const Constants = {
         "liability",
         "non_liquid",
       ],
+      runway_occurrence_status: [
+        "expected",
+        "skipped",
+        "overridden",
+        "matched",
+      ],
+      runway_planned_confidence: ["committed", "expected", "tentative"],
+      runway_planned_kind: ["income", "expense", "transfer"],
+      runway_planned_status: ["expected", "skipped", "canceled", "matched"],
+      runway_recurrence_frequency: ["weekly", "monthly", "yearly"],
       runway_snapshot_source: ["manual", "statement", "migration"],
       runway_system_account_key: [
         "income",

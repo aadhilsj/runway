@@ -12,6 +12,8 @@ export default [
     route("money/cash-flow", "routes/money-cash-flow.tsx"),
     route("money/budgets", "routes/money-budgets.tsx"),
     route("funds", "routes/funds.tsx"),
+    route("funds/payday", "routes/funds-payday.tsx"),
+    route("funds/:fundId", "routes/fund-detail.tsx"),
     route("investments", "routes/investments.tsx"),
     route("plans", "routes/plans.tsx"),
     route("settings", "routes/settings.tsx"),

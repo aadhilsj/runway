@@ -48,6 +48,12 @@ The committed `migration/fixtures/legacy/sanitized-structure.json` is invented s
 
 Future migration code must copy and verify. It must not delete, truncate, overwrite, or repurpose `public.runway_state`. Any cleanup requires a later, separately approved retention decision after an observation period.
 
+## Phase 6 configuration initialization
+
+On 2026-08-19, migrations `20260819190000` and `20260819190500` added RLS-protected Funds, Goals, allocation-plan, payday-execution, and budget tables plus atomic command RPCs. They initialized five zero-balance Funds, five editable Goals, one recommended Payday plan, a zero-balance Investments account destination, and an editable October normal-living budget of NOK 16,038. The corrective migration completed the Groceries + Misc group mapping and removed its one overlapping derived category line. They created no Fund movements, payday executions, or ledger transactions.
+
+Post-apply verification found one unchanged opening transaction with two balanced entries and an unchanged NOK 11,956 real-asset balance. Both `runway_state` rows retained their exact preserved live-database checksums and timestamps. The second legacy user received no Fund, Goal, plan, account, budget, movement, or execution records.
+
 ## Rollback
 
 The legacy app and aggregate table remain deployed and unchanged. Runway 2 reads only normalized data, but it has not replaced or disabled the legacy deployment. A return to the legacy application therefore requires no reverse migration. The verified Runway 2 opening transaction must not be deleted or rewritten; any later accounting correction must use an explicit reconciliation adjustment or reversal.

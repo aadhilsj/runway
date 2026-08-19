@@ -32,11 +32,14 @@ export interface ScenarioOverlayInput {
   modifications?: Array<{ baseSourceId: string; date?: CalendarDate; amountMinor?: number; label?: string }>;
 }
 export interface ForecastPolicy { includedConfidences: PlannedConfidence[]; futurePostedTransactions: "exclude" }
+export interface ForecastFundInput { id: string; name: string; balanceMinor: number }
+export interface ProjectedFundActionInput { id: string; date: CalendarDate; fundId: string; amountMinor: number; label: string }
 export interface ForecastInput {
   asOfDate: CalendarDate; endDate: CalendarDate; timezone: string; baseCurrency: string; operatingFloorMinor: number;
   accounts: readonly ForecastAccountInput[]; forecastItems: readonly OneOffForecastInput[];
   recurringRules: readonly RecurringRuleInput[]; recurrenceExceptions: readonly RecurrenceExceptionInput[];
   selectedScenarioIds: readonly string[]; scenarioOverlays?: readonly ScenarioOverlayInput[]; policy?: ForecastPolicy;
+  funds?: readonly ForecastFundInput[]; projectedFundActions?: readonly ProjectedFundActionInput[];
 }
 export interface ProjectedEvent {
   id: string; logicalId: string; sourceType: "forecast_item" | "recurring_occurrence" | "scenario_item";
@@ -67,6 +70,9 @@ export interface ForecastResult {
   firstFloorBreach: ForecastResult["floorBreaches"][number] | null;
   totals: { incomeMinor: number; expenseMinor: number; transferMinor: number };
   scenario: { selectedIds: string[]; eventCount: number; conflicts: Array<{ sourceId: string; scenarioIds: string[] }> };
+  fundSeries: Array<{ date: CalendarDate; balancesMinor: Record<string, number> }>;
+  projectedFundActions: Array<ProjectedFundActionInput & { resultingBalanceMinor: number }>;
+  projectedFundGoalDates: Record<string, CalendarDate | null>;
 }
 
 const DAY_MS = 86_400_000;
@@ -178,12 +184,28 @@ export function forecast(input: ForecastInput): ForecastResult {
     else if (event.kind === "expense") row.expenseMinor += event.amountMinor; else { row.transfersInMinor += event.amountMinor; row.transfersOutMinor += event.amountMinor; }
     row.netExternalCashFlowMinor = row.incomeMinor - row.expenseMinor; }
   const ending = dailySeries.at(-1) ?? { date: input.endDate, ...baseline };
+  const fundBalances: Record<string, number> = Object.fromEntries((input.funds ?? []).map((fund) => [fund.id, fund.balanceMinor]));
+  const fundActionsByDate = new Map<string, ProjectedFundActionInput[]>();
+  for (const action of input.projectedFundActions ?? []) {
+    if (!fundBalances.hasOwnProperty(action.fundId)) throw new Error(`Fund action ${action.id} requires a known fund`);
+    if (action.date < input.asOfDate || action.date > input.endDate) continue;
+    const list = fundActionsByDate.get(action.date) ?? []; list.push(action); fundActionsByDate.set(action.date, list);
+  }
+  const appliedFundActions: ForecastResult["projectedFundActions"] = [];
+  const fundSeries = dailySeries.map((point) => {
+    for (const action of (fundActionsByDate.get(point.date) ?? []).sort((a, b) => a.id.localeCompare(b.id))) {
+      fundBalances[action.fundId] = (fundBalances[action.fundId] ?? 0) + action.amountMinor;
+      appliedFundActions.push({ ...action, resultingBalanceMinor: fundBalances[action.fundId]! });
+    }
+    return { date: point.date, balancesMinor: { ...fundBalances } };
+  });
   const lowestOperatingCash = dailySeries.reduce((low, point) => point.operatingCashMinor < low.balanceMinor ? { date: point.date, balanceMinor: point.operatingCashMinor } : low, { date: input.asOfDate, balanceMinor: baseline.operatingCashMinor });
   const lowestLiquidCash = dailySeries.reduce((low, point) => point.liquidCashMinor < low.balanceMinor ? { date: point.date, balanceMinor: point.liquidCashMinor } : low, { date: input.asOfDate, balanceMinor: baseline.liquidCashMinor });
   return { asOfDate: input.asOfDate, endDate: input.endDate, events: trace, overdueItems, dailySeries, monthly: [...byMonth.values()], endingAccountBalances: { ...balances },
     endingOperatingCashMinor: ending.operatingCashMinor, endingLiquidCashMinor: ending.liquidCashMinor, endingNetWorthMinor: ending.netWorthMinor,
     lowestOperatingCash, lowestLiquidCash, floorBreaches, firstFloorBreach: floorBreaches[0] ?? null, totals,
-    scenario: { selectedIds: [...selected].sort(), eventCount: trace.filter((event) => event.scenarioId).length, conflicts } };
+    scenario: { selectedIds: [...selected].sort(), eventCount: trace.filter((event) => event.scenarioId).length, conflicts },
+    fundSeries, projectedFundActions: appliedFundActions, projectedFundGoalDates: {} };
 }
 
 export function addMonthsClamped(value: CalendarDate, months: number): CalendarDate { const date = utcDate(value); const index = monthIndex(value) + months; return clampedMonthDate(Math.floor(index / 12), index % 12, date.getUTCDate()); }

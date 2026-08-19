@@ -143,6 +143,20 @@ button:disabled { opacity: .48; cursor: not-allowed; }
 .settings-card { max-width: 40rem; }
 .settings-card h2 { margin-bottom: var(--space-2); }
 .settings-card .primary-button { display: inline-block; margin-top: var(--space-3); text-decoration: none; }
+.fund-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); gap: var(--space-4); }
+.fund-card { border: 1px solid var(--color-line); background: var(--color-surface); border-radius: var(--radius-md); box-shadow: var(--shadow-soft); padding: var(--space-5); }
+.fund-card h2 { margin: var(--space-1) 0 0; }
+.fund-card a { color: var(--color-accent-strong); font-weight: 750; text-decoration: none; }
+.progress-track { height: .48rem; overflow: hidden; border-radius: 999px; background: var(--color-line); }
+.progress-track span { display: block; height: 100%; min-width: 0; border-radius: inherit; background: var(--color-positive); }
+.payday-list, .budget-list { display: grid; gap: var(--space-3); margin-bottom: var(--space-5); }
+.payday-row, .budget-row { border: 1px solid var(--color-line); background: var(--color-surface-strong); border-radius: var(--radius-sm); padding: var(--space-4); display: grid; grid-template-columns: minmax(0,1fr) minmax(10rem,.32fr); gap: var(--space-4); align-items: center; }
+.payday-row p { margin: var(--space-1) 0; color: var(--color-muted); font-size: .8rem; }
+.payday-row small, .budget-row small { color: var(--color-muted); }
+.payday-row label { display: grid; gap: var(--space-1); color: var(--color-muted); font-size: .72rem; font-weight: 700; }
+.payday-row input, .forecast-toolbar select { border: 1px solid var(--color-line); background: var(--color-surface); color: var(--color-ink); border-radius: var(--radius-sm); padding: .55rem; }
+.budget-row > div { display: grid; gap: var(--space-2); }
+.budget-row > span { color: var(--color-muted); font-size: .78rem; line-height: 1.65; text-align: right; }
 
 @media (max-width: 64rem) {
   .app-frame { grid-template-columns: 13.5rem minmax(0, 1fr); }
@@ -161,6 +175,8 @@ button:disabled { opacity: .48; cursor: not-allowed; }
   .content { padding: var(--space-6) var(--space-4); }
   .money-layout, .transactions-layout { grid-template-columns: 1fr; }
   .forecast-layout, .forecast-toolbar { grid-template-columns: 1fr; }
+  .payday-row, .budget-row { grid-template-columns: 1fr; }
+  .budget-row > span { text-align: left; }
   .actual-planned-strip { grid-template-columns: 1fr; }
   .forecast-row { grid-template-columns: 1fr auto; gap: var(--space-2); }
   .forecast-row time { grid-column: 1 / -1; }

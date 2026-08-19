@@ -69,6 +69,8 @@ export async function installFixtureBackend(page: Page) {
     if (url.pathname === "/rest/v1/categories") return json(route, [{ id: CATEGORY_ID, user_id: USER_ID, name: "Housing", kind: "expense", archived_at: null, sort_order: 10 }]);
     if (url.pathname === "/rest/v1/transactions") return json(route, transactions);
     if (url.pathname === "/rest/v1/forecast_items" && request.method() === "GET") return json(route, forecastItems);
+    if (url.pathname === "/rest/v1/funds" && request.method() === "GET") return json(route, []);
+    if (url.pathname === "/rest/v1/fund_balances" && request.method() === "GET") return json(route, []);
     if (url.pathname === "/rest/v1/recurring_rules" && request.method() === "GET") return json(route, recurringRules);
     if (url.pathname === "/rest/v1/recurring_rules" && request.method() === "POST") { recurringRules.push({ id: newId(), active: true, archived_at: null, confidence: "expected", scenario_id: null, default_sort_order: null, ...request.postDataJSON() }); return json(route, [], 201); }
     if (url.pathname === "/rest/v1/recurring_rules" && request.method() === "PATCH") { const id = url.searchParams.get("id")?.replace("eq.", ""); const rule = recurringRules.find((row) => row.id === id); if (rule) Object.assign(rule, request.postDataJSON()); return json(route, []); }

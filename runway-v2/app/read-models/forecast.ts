@@ -36,6 +36,9 @@ export function toForecastInput(workspace: ForecastWorkspace, horizonMonths: num
       matchedTransactionId: row.matched_transaction_id, expectedAmountMinorSnapshot: row.expected_amount_minor_snapshot,
       expectedDateSnapshot: row.expected_date_snapshot })),
     selectedScenarioIds,
+    funds: (workspace.funds ?? []).map((fund) => ({ id: fund.id, name: fund.name,
+      balanceMinor: Number((workspace.fundBalances ?? []).find((row) => row.fund_id === fund.id)?.balance_minor ?? 0) })),
+    projectedFundActions: [],
   };
 }
 
