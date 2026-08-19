@@ -2,6 +2,7 @@ import { analyzeBucketEntry, matchBucketEntry } from "./bucket-analysis.ts";
 import { mapLegacyCategory } from "./category-mapping.ts";
 import { checksumJson, checksumText, deterministicUuid } from "./deterministic.ts";
 import { analyzeLegacyEvent, type EventAnalysis } from "./event-mapping.ts";
+import { verifyExportChecksum } from "./integrity-reconciliation.ts";
 import { isRecord, optionalString, validIsoDate, validateLegacyState } from "./legacy-schema.ts";
 import { legacyAmountToMinor } from "./money.ts";
 import { normalizeLegacyId, normalizeText, normalizedComparableText } from "./normalization.ts";
@@ -78,7 +79,9 @@ export function executeDryRun(input: DryRunInput): DryRunReport {
     : checksumJson(input.row.state);
   const declaredExportChecksum = input.row.export_state_sha256;
   const sourceChecksum = declaredExportChecksum ?? input.row.state_sha256 ?? calculatedChecksum;
-  if (declaredExportChecksum && declaredExportChecksum !== calculatedChecksum) {
+  if (declaredExportChecksum && input.row.state_canonical_text) {
+    verifyExportChecksum(input.row.state_canonical_text, declaredExportChecksum, input.row.state);
+  } else if (declaredExportChecksum && declaredExportChecksum !== calculatedChecksum) {
     throw new Error("Immutable source checksum does not match the source payload");
   }
   if (input.expectedChecksum && input.expectedChecksum !== sourceChecksum) {

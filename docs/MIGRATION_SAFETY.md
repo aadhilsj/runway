@@ -26,6 +26,12 @@ The cutover also created 48 expected forecast items and three scenarios. These a
 
 The application is recorded as migration run `771e5470-36e2-5c1e-9257-65cf6c1287cb`, with verification status `passed`. The second legacy user has no profile, account, transaction, forecast, scenario, history, or application record. Both `runway_state` timestamps and checksums remained unchanged after application.
 
+## Phase 4.1 checksum reconciliation
+
+The Phase 4 report incorrectly presented `979c9c3ca494…` as the approved Phase 3 checksum. That value is not produced by the committed importer or any preserved checksum artifact; it first appeared in the Phase 4 application migration. The actual Phase 3 artifact checksum is `979c9c3c5b36…`, calculated over the preserved `state_canonical_text` bytes. The live/cutover value `5026fad05a2c…` is a different checksum scope: PostgreSQL `jsonb::text` bytes.
+
+The Phase 3 parsed state, immutable cutover backup, and live legacy JSON are semantically identical. Their source timestamp is also identical. Field-level reconciliation found zero forecast, scenario, template, opening-balance, floor, bucket, UI, history, or metadata changes. A private `checksum_reconciliations` audit record preserves the originally reported value, both verified representation-specific hashes, the semantic-equality result, and the no-remediation decision. It did not rewrite the immutable backup or any financial/planning record.
+
 ## Backups and verification
 
 The ignored `migration/fixtures/legacy/raw/` directory contains:

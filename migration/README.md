@@ -28,6 +28,8 @@ Node 22.18 or newer is required for native TypeScript execution. `migration/outp
 
 The same owner/checksum/importer/target combination produces the same run and item IDs. A rerun replaces that run's unapproved staging items instead of appending duplicates. Changing the importer version creates a new versioned run.
 
+Checksum scope must always be named. `export_state_sha256` covers the exact UTF-8 bytes of `state_canonical_text`; the live-state checksum covers PostgreSQL `jsonb::text` bytes. These representations can have different hashes while parsing to the same JSON value. Cutover verification therefore requires both exact representation checks and a semantic state comparison; a checksum from one scope must never be labeled as the checksum of another.
+
 ## Private database staging
 
 `runway_migration` is an unexposed schema. Browser roles have no schema, table, or function privileges, and its tables also have RLS enabled without browser policies. `legacy_state_backups` is immutable. Import items normally refer to the backup by source path, leaving `source_json` null to avoid duplicating raw financial JSON.
