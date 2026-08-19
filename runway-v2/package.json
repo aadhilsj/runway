@@ -8,6 +8,7 @@
     "start": "vite preview",
     "typecheck": "react-router typegen && tsc --noEmit",
     "test": "vitest run",
+    "test:db": "vitest run tests/database",
     "test:watch": "vitest",
     "test:e2e": "playwright test"
   },
@@ -17,7 +18,7 @@
     "@hookform/resolvers": "5.9.1",
     "@supabase/supabase-js": "2.112.3",
     "@tanstack/react-query": "5.101.4",
-    "isbot": "^5",
+    "isbot": "^5.2.1",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "react-hook-form": "7.85.0",
@@ -26,11 +27,13 @@
     "zod": "4.4.3"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.5.5",
     "@playwright/test": "1.62.1",
     "@react-router/dev": "8.3.0",
     "@testing-library/jest-dom": "7.0.1",
     "@testing-library/react": "16.3.2",
     "@testing-library/user-event": "14.6.5",
+    "@types/node": "26.2.0",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.4",
     "jsdom": "30.0.1",

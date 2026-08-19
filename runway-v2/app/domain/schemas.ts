@@ -1,6 +1,8 @@
 import { z } from "zod";
 
-export const transactionKindSchema = z.enum(["income", "expense", "transfer", "adjustment"]);
+export const transactionKindSchema = z.enum([
+  "income", "expense", "transfer", "refund", "reimbursement", "debt_payment", "opening_balance", "adjustment",
+]);
 export const allocationModeSchema = z.enum(["manual", "recommended", "automatic"]);
 export const allocationFrequencySchema = z.enum(["once", "weekly", "monthly", "on-payday"]);
 export const dateOnlySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD");

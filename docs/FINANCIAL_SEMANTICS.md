@@ -8,9 +8,15 @@ Cross-currency arithmetic is invalid unless an explicit exchange-rate operation 
 
 ## Ledger
 
-Accounts have an opening balance. Transactions describe user meaning; entries describe account impact. Income, expense, transfer, and adjustment are distinct kinds. Transfers must eventually produce balanced paired entries and must not count as income or expense.
+Transactions describe user meaning; entries describe account impact. Income, expense, transfer, refund, reimbursement, debt payment, opening balance, and adjustment are distinct kinds.
 
-Phase 1 includes only boundary types and small pure helpers. Balanced-entry, deletion, refund, reconciliation, and transfer invariants are Phase 2 specifications, not simulated behavior.
+Posted transactions must contain at least two non-zero entries whose integer minor-unit sum is zero. The database enforces this with a deferred constraint and controlled atomic posting functions. Draft and void transactions do not affect derived balances.
+
+Income debits the destination asset and credits a hidden income account. Expense credits the paying asset and debits a hidden expense account. An asset-to-asset transfer changes account location only: it is neither income nor spending. An investment contribution is therefore a transfer, not an expense.
+
+Principal paid from cash to a liability debits the liability and credits cash. Both cash and outstanding debt fall by the same amount, leaving net worth unchanged. Future interest or fees require separate expense entries.
+
+Opening asset/liability balances balance against hidden opening equity, never income. A posted correction is an equal-and-opposite reversal; the original remains auditable.
 
 ## Dates and time
 
@@ -19,3 +25,9 @@ Planned financial events use date-only `YYYY-MM-DD` values. User configuration o
 ## Forecasting and read models
 
 Forecasts are derived from normalized transactions, recurring rules, and explicitly active scenarios. Screens consume read models for overview, cash flow, funds, and charts. A chart is presentation, never a source of financial calculations.
+
+## Reconciliation, funds, and investments
+
+A balance snapshot is an observation. Reconciliation computes `observed - ledger`; any accepted difference must later become an explicit adjustment transaction rather than a balance overwrite.
+
+Future fund allocations are conceptual ownership labels and must remain net-worth neutral. A physical transfer and fund allocation will be separate facts, preventing double counting. Investment accounts already use subtype `investment`; contributions are neutral transfers. Holdings and market-value snapshots remain out of Phase 2.

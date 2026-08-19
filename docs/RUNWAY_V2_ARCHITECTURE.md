@@ -15,11 +15,26 @@ Runway 2 is an isolated React Router Framework Mode SPA in `runway-v2/`. The roo
 
 The root creates one QueryClient, restores the Supabase session, then allows the protected layout to render. `/` redirects to `/overview`; `/money` redirects to `/money/transactions`. Financial routes redirect unauthenticated users to `/sign-in` and preserve the intended destination.
 
-No route reads `public.runway_state` in Phase 1. This prevents accidental coupling to the blob while the normalized schema and migration remain unapproved.
+No route reads `public.runway_state`. This prevents accidental coupling to the blob while Phase 3 migration remains unapproved.
+
+## Phase 2 ledger boundary
+
+The normalized model uses user-facing typed transactions over a lightweight double-entry ledger:
+
+- `accounts` represents real asset/liability accounts and hidden income, expense, opening-equity, and adjustment accounts.
+- `transactions` stores intent, lifecycle, provenance, idempotency, and reversal relationships.
+- `transaction_entries` stores signed account impacts. Posted entries must sum to zero.
+- `account_balances` derives current balances from posted entries; there is no mutable current-balance column.
+- `current_net_worth` includes owned, non-system asset balances minus liability balances.
+- `account_balance_snapshots` records observations without rewriting ledger history.
+
+Positive entries are debits and negative entries are credits. Display balance equals raw ledger balance for asset/expense accounts and its negation for liability/income/equity accounts. This conversion lives in the domain layer and database read model, not UI components.
+
+Posted transactions remain `posted` forever. Corrections create an equal-and-opposite posted transaction linked through `reverses_transaction_id`. `void` is reserved for unposted drafts; it is not a substitute for reversal.
 
 ## State ownership
 
-- Supabase: authenticated durable remote data in Phase 2.
+- Supabase: authenticated durable normalized ledger data.
 - TanStack Query: remote cache and mutations.
 - URL search parameters: filters, ranges, and selected scenario IDs that should survive refresh/share.
 - Component state: menus, focus, disclosure, draft interaction.

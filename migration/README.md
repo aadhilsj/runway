@@ -5,7 +5,7 @@ Phase 0 defines safety concepts only. It does not create normalized tables or mu
 ## Versioning
 
 - `legacy-aggregate-v1`: the current JSON aggregate in `public.runway_state`.
-- `normalized-v1`: reserved for a future, explicitly reviewed Phase 2 schema.
+- `normalized-v1`: the Phase 2 ledger schema; it remains empty until an approved Phase 3 import.
 - Every future migration run receives an immutable run ID such as `20260819T120000Z_<short-id>`.
 - A run records source row identity, source checksum, target schema version, code version, start/end timestamps, outcome, and verification result.
 
@@ -19,4 +19,4 @@ Phase 0 defines safety concepts only. It does not create normalized tables or mu
 6. Make a completed run with the same source checksum a no-op.
 7. Keep cutover and rollback separate from data copying.
 
-No migration runner is implemented in Phase 1; these are contracts for Phase 2.
+Phase 2 establishes empty normalized tables and posting invariants. It does not implement the Phase 3 legacy importer. Future import runs must still follow the run-ID, checksum, transaction, idempotency, never-delete, and separate-cutover rules above.

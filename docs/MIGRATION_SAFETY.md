@@ -6,6 +6,10 @@ On 2026-08-19, `public.runway_state` in Supabase project `kmbepvzsbmucrvhbjgbj` 
 
 The active owner could not be identified from safe evidence. Both rows are therefore labeled only by deterministic export order, and both remain untouched.
 
+## Phase 2 schema status
+
+On 2026-08-19, three migration-history-backed changes created the empty normalized ledger schema, narrowed aggregate-view privileges, and added ownership-composite foreign-key indexes. All normalized tables contained zero rows after application. Both legacy row checksums still matched the Phase 0 backup. No legacy data was read into, copied to, or classified for the normalized schema, and the legacy deployment was not changed.
+
 ## Backups and verification
 
 The ignored `migration/fixtures/legacy/raw/` directory contains:
@@ -24,4 +28,4 @@ Future migration code must copy and verify. It must not delete, truncate, overwr
 
 ## Rollback
 
-Phase 0/1 rollback is simply continuing to serve the unchanged legacy app and aggregate table. A future normalized rollout must keep reads behind an explicit cutover control, permit an immediate return to the aggregate read path, and never depend on destructive reverse migration.
+The application still serves the unchanged legacy app and aggregate table; Runway 2 does not read the normalized tables in production yet. A future normalized rollout must keep reads behind an explicit cutover control, permit an immediate return to the aggregate read path, and never depend on destructive reverse migration.

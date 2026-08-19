@@ -16,7 +16,15 @@ export interface Account {
   active: boolean;
 }
 
-export type TransactionKind = "income" | "expense" | "transfer" | "adjustment";
+export type TransactionKind =
+  | "income"
+  | "expense"
+  | "transfer"
+  | "refund"
+  | "reimbursement"
+  | "debt_payment"
+  | "opening_balance"
+  | "adjustment";
 
 export interface Transaction {
   id: string;
