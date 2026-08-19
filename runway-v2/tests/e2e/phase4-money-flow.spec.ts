@@ -230,4 +230,8 @@ test("renders the Phase 8 cockpit and authoritative analytics without demo data"
   await expect(page.getByRole("heading",{name:"Analytics",level:1})).toBeVisible();
   await expect(page.getByRole("heading",{name:"Monthly cash flow"})).toBeVisible();
   await expect(page.getByText(/No pre-cutover values/)).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole("heading",{name:"Analytics",level:1})).toBeVisible();
+  await page.getByRole("button", { name: "Sign out" }).click();
+  await expect(page).toHaveURL(/\/sign-in$/);
 });
