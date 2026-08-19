@@ -7,7 +7,7 @@ const USER_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const USER_B = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const files = ["20260819060132_phase_2_ledger_core.sql","20260819060415_phase_2_view_privileges.sql","20260819060530_phase_2_fk_indexes.sql",
   "20260819063329_phase_3_migration_staging.sql","20260819063626_phase_3_staging_fk_indexes.sql","20260819114938_phase_4_actual_money_workflows.sql",
-  "20260819115028_phase_4_fk_indexes.sql","20260819160000_phase_5_forecast_recurrence.sql","20260819190000_phase_6_funds_payday_budgets.sql","20260819190500_phase_6_budget_group_scope_fix.sql"];
+  "20260819115028_phase_4_fk_indexes.sql","20260819160000_phase_5_forecast_recurrence.sql","20260819190000_phase_6_funds_payday_budgets.sql","20260819190500_phase_6_budget_group_scope_fix.sql","20260819200000_phase_6_1_budget_and_function_cleanup.sql"];
 let db: PGlite; let accountA: string; let accountB: string; let fundA: string; let fund2A: string; let categoryA: string; let planA: string; let itemA: string;
 async function asUser<T>(userId: string, action: () => Promise<T>): Promise<T> {
   await db.exec("set role authenticated"); await db.query("select set_config('request.jwt.claim.sub',$1,false)",[userId]);
