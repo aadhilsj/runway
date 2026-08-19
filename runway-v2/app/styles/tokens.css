@@ -1,0 +1,31 @@
+:root {
+  --font-display: "Fraunces Variable", Georgia, serif;
+  --font-sans: "Manrope Variable", system-ui, sans-serif;
+  --color-canvas: #f6efe3;
+  --color-surface: #fffaf2;
+  --color-surface-strong: #fffdf8;
+  --color-ink: #34251f;
+  --color-muted: #786860;
+  --color-line: #dfd1c2;
+  --color-accent: #bb5f43;
+  --color-accent-strong: #93442f;
+  --color-positive: #3e7356;
+  --color-negative: #a34338;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --space-8: 4.5rem;
+  --radius-sm: 0.625rem;
+  --radius-md: 1rem;
+  --radius-lg: 1.5rem;
+  --shadow-soft: 0 18px 55px rgb(70 43 31 / 0.08);
+  --shadow-raised: 0 12px 28px rgb(70 43 31 / 0.12);
+  --motion-fast: 140ms;
+  --motion-standard: 220ms;
+  --breakpoint-tablet: 52rem;
+  --breakpoint-desktop: 76rem;
+}

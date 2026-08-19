@@ -1,0 +1,30 @@
+{
+  "fixtureKind": "sanitized-legacy-structure",
+  "schemaVersion": "legacy-aggregate-v1",
+  "containsProductionData": false,
+  "row": {
+    "user_id": "00000000-0000-4000-8000-000000000001",
+    "updated_at": "2030-01-01T00:00:00.000Z",
+    "state": {
+      "ui": {
+        "history": [],
+        "mobileTab": "forecast",
+        "selectedDate": "2030-01-01"
+      },
+      "meta": {
+        "lastSyncedAt": "2030-01-01T00:00:00.000Z",
+        "lastModifiedAt": "2030-01-01T00:00:00.000Z",
+        "hasPendingRemoteSync": false
+      },
+      "events": [],
+      "scenarios": [],
+      "templates": [],
+      "account": {
+        "id": "sample-account",
+        "name": "Sample account",
+        "balance": 0
+      },
+      "buckets": []
+    }
+  }
+}
