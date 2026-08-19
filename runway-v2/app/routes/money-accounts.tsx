@@ -69,7 +69,7 @@ export default function AccountsRoute() {
         name: String(data.get("name")), class: liability ? "liability" : "asset", subtype,
         currency: "NOK", includeInNetWorth: true,
         liquidityClass: liability ? "liability" : subtype === "investment" ? "invested" : subtype === "checking" ? "operating" : "liquid",
-        valuationMode: "ledger",
+        valuationMode: subtype === "investment" ? "manual_market_value" : "ledger",
         openedOn: String(data.get("openedOn") || new Date().toISOString().slice(0, 10)),
         openingBalanceMinor,
         openingOccurredAt: openingBalanceMinor == null ? null : new Date(String(data.get("openingOccurredAt"))).toISOString(),

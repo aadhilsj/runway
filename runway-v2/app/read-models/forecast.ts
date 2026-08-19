@@ -12,6 +12,8 @@ export function calendarDateInTimezone(timezone: string, now = new Date()): stri
 export function toForecastInput(workspace: ForecastWorkspace, horizonMonths: number, selectedScenarioIds: string[], asOfDate?: string): ForecastInput {
   const profile = workspace.profile; const today = asOfDate ?? calendarDateInTimezone(profile.timezone);
   const balances = new Map(workspace.balances.map((row) => [row.account_id, Number(row.display_balance_minor ?? 0)]));
+  const latestValues = new Map<string,number>();
+  for (const row of workspace.portfolioSnapshots ?? []) latestValues.set(row.account_id, Number(row.value_minor));
   return {
     asOfDate: today,
     endDate: addMonthsClamped(today, horizonMonths),
@@ -21,7 +23,7 @@ export function toForecastInput(workspace: ForecastWorkspace, horizonMonths: num
     accounts: workspace.accounts.filter((account) => !account.is_system).map((account) => ({
       id: account.id, name: account.name, class: account.class as "asset" | "liability",
       subtype: account.subtype as "checking" | "savings" | "cash" | "investment" | "credit_card" | "loan",
-      liquidityClass: account.liquidity_class, balanceMinor: balances.get(account.id) ?? 0, includeInNetWorth: account.include_in_net_worth,
+      liquidityClass: account.liquidity_class, balanceMinor: account.subtype === "investment" ? latestValues.get(account.id) ?? balances.get(account.id) ?? 0 : balances.get(account.id) ?? 0, includeInNetWorth: account.include_in_net_worth,
     })),
     forecastItems: workspace.items.map((item) => ({ id: item.id, kind: item.kind, date: item.expected_date, amountMinor: Number(item.amount_minor),
       sourceAccountId: item.source_account_id, destinationAccountId: item.destination_account_id, categoryId: item.category_id,

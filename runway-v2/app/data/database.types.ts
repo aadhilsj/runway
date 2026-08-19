@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       account_balance_snapshots: {
@@ -1104,6 +1079,64 @@ export type Database = {
           },
         ]
       }
+      portfolio_value_snapshots: {
+        Row: {
+          account_id: string
+          created_at: string
+          id: string
+          notes: string | null
+          source: Database["public"]["Enums"]["runway_portfolio_value_source"]
+          updated_at: string
+          user_id: string
+          value_minor: number
+          valued_at: string
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          source?: Database["public"]["Enums"]["runway_portfolio_value_source"]
+          updated_at?: string
+          user_id: string
+          value_minor: number
+          valued_at: string
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          source?: Database["public"]["Enums"]["runway_portfolio_value_source"]
+          updated_at?: string
+          user_id?: string
+          value_minor?: number
+          valued_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portfolio_value_snapshots_account_id_user_id_fkey"
+            columns: ["account_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "account_balances"
+            referencedColumns: ["account_id", "user_id"]
+          },
+          {
+            foreignKeyName: "portfolio_value_snapshots_account_id_user_id_fkey"
+            columns: ["account_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "portfolio_value_snapshots_account_id_user_id_fkey"
+            columns: ["account_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "fund_backing_summary"
+            referencedColumns: ["account_id", "user_id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           base_currency: string
@@ -2128,6 +2161,7 @@ export type Database = {
       runway_planned_confidence: "committed" | "expected" | "tentative"
       runway_planned_kind: "income" | "expense" | "transfer"
       runway_planned_status: "expected" | "skipped" | "canceled" | "matched"
+      runway_portfolio_value_source: "manual" | "imported" | "broker"
       runway_recurrence_frequency: "weekly" | "monthly" | "yearly"
       runway_snapshot_source: "manual" | "statement" | "migration"
       runway_system_account_key:
@@ -2271,9 +2305,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       runway_account_class: [
@@ -2315,6 +2346,7 @@ export const Constants = {
       runway_planned_confidence: ["committed", "expected", "tentative"],
       runway_planned_kind: ["income", "expense", "transfer"],
       runway_planned_status: ["expected", "skipped", "canceled", "matched"],
+      runway_portfolio_value_source: ["manual", "imported", "broker"],
       runway_recurrence_frequency: ["weekly", "monthly", "yearly"],
       runway_snapshot_source: ["manual", "statement", "migration"],
       runway_system_account_key: [
