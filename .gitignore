@@ -27,3 +27,4 @@ runway-v2/.vercel/
 runway-v2/.env
 runway-v2/.env.*
 !runway-v2/.env.example
+.gstack/

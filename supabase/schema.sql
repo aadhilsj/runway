@@ -16,19 +16,8 @@ to authenticated
 using (auth.uid() = user_id);
 
 drop policy if exists "runway_state_insert_own" on public.runway_state;
-create policy "runway_state_insert_own"
-on public.runway_state
-for insert
-to authenticated
-with check (auth.uid() = user_id);
-
 drop policy if exists "runway_state_update_own" on public.runway_state;
-create policy "runway_state_update_own"
-on public.runway_state
-for update
-to authenticated
-using (auth.uid() = user_id)
-with check (auth.uid() = user_id);
 
 revoke all on public.runway_state from anon;
-grant select, insert, update on public.runway_state to authenticated;
+revoke all privileges on public.runway_state from authenticated;
+grant select on public.runway_state to authenticated;

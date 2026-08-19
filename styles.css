@@ -35,6 +35,23 @@ body {
   margin: 0;
   min-height: 100%;
 }
+.legacy-reference-banner {
+  position: sticky;
+  top: 0;
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 0.65rem 1rem;
+  border-bottom: 1px solid rgba(78, 52, 42, 0.18);
+  background: #3b2922;
+  color: #fff8ee;
+  font-size: 0.8rem;
+  text-align: center;
+}
+.legacy-reference-banner span { color: rgba(255, 248, 238, 0.72); }
+.legacy-reference-banner a { color: #fff8ee; font-weight: 700; }
 
 body {
   font-family: var(--font-sans);
