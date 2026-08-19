@@ -14,6 +14,7 @@ migration/output/
 !.env.example
 *.pem
 *.key
+supabase/.temp/
 
 # Runway 2 development outputs.
 runway-v2/node_modules/
