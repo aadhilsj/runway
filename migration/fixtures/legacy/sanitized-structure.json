@@ -4,27 +4,51 @@
   "containsProductionData": false,
   "row": {
     "user_id": "00000000-0000-4000-8000-000000000001",
-    "updated_at": "2030-01-01T00:00:00.000Z",
+    "updated_at": "2030-01-15T10:00:00.000Z",
     "state": {
+      "account": { "currentBalance": 1234.56, "warningThreshold": 250 },
+      "events": [
+        { "id": "sample-income", "label": "Invented income", "amount": 500, "actualAmount": null, "date": "2030-02-01", "category": "Income", "notes": "Invented fixture only", "scenarioId": null, "isSettled": false },
+        { "id": "sample-expense", "label": "Invented groceries", "amount": -75.25, "actualAmount": -74.5, "date": "2030-01-10", "category": "Groceries", "notes": "Quick entry: invented fixture", "scenarioId": null, "isSettled": true }
+      ],
+      "scenarios": [
+        { "id": "sample-plan", "name": "Invented plan", "description": "Sanitized fixture plan", "isIncluded": false }
+      ],
+      "templates": [
+        { "id": "sample-single-template", "type": "single", "label": "Invented preset", "description": "Sanitized fixture", "amount": -25, "date": "2030-02-10", "category": "Misc" },
+        { "id": "sample-recurring-template", "type": "recurring", "label": "Invented finite bundle", "description": "Sanitized fixture", "startMonth": "2030-02", "endMonth": "2030-04", "items": [
+          { "id": "sample-recurring-item", "label": "Invented rent", "amount": -300, "firstDate": "2030-02-05", "category": "Housing", "notes": "Invented fixture only" }
+        ] }
+      ],
+      "bucketTemplates": [
+        { "name": "Groceries", "defaultBudget": 200, "isEnabledByDefault": true }
+      ],
+      "buckets": {
+        "2030-01": {
+          "Groceries": {
+            "budgeted": 200,
+            "isActive": true,
+            "entries": [
+              { "id": "sample-bucket-entry", "amount": 74.5, "date": "2030-01-10", "note": "Invented groceries" }
+            ]
+          }
+        }
+      },
       "ui": {
-        "history": [],
+        "history": [
+          { "action": "updated", "at": "2030-01-15T09:00:00.000Z", "label": "Invented UI activity" }
+        ],
         "mobileTab": "forecast",
-        "selectedDate": "2030-01-01"
+        "selectedDate": "2030-03-01",
+        "selectedTimelineEventIds": [],
+        "timelineCategoryFilter": "all",
+        "timelineMonthFilter": "all",
+        "timelineSearch": "",
+        "timelineSelectionMode": false,
+        "timelineStatusFilter": "all",
+        "clarityExpanded": false
       },
-      "meta": {
-        "lastSyncedAt": "2030-01-01T00:00:00.000Z",
-        "lastModifiedAt": "2030-01-01T00:00:00.000Z",
-        "hasPendingRemoteSync": false
-      },
-      "events": [],
-      "scenarios": [],
-      "templates": [],
-      "account": {
-        "id": "sample-account",
-        "name": "Sample account",
-        "balance": 0
-      },
-      "buckets": []
+      "meta": { "lastSyncedAt": "2030-01-15T10:00:00.000Z", "lastModifiedAt": "2030-01-15T10:00:00.000Z", "hasPendingRemoteSync": false }
     }
   }
 }

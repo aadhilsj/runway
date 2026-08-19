@@ -6,6 +6,7 @@ recovery-backup/
 # Phase 0 production exports and their local decryption keys stay off Git.
 .runway-private-backups/
 migration/fixtures/legacy/raw/
+migration/output/
 
 # Local environment and credentials.
 .env
@@ -24,4 +25,3 @@ runway-v2/test-results/
 runway-v2/.env
 runway-v2/.env.*
 !runway-v2/.env.example
-
