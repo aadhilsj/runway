@@ -38,6 +38,7 @@ beforeAll(async () => {
   await db.exec(`
     create role anon nologin;
     create role authenticated nologin;
+    create role service_role nologin bypassrls;
     create schema auth;
     create table auth.users (id uuid primary key);
     create function auth.uid() returns uuid language sql stable
@@ -50,6 +51,10 @@ beforeAll(async () => {
   await db.exec(migration);
   await db.exec(await readFile(resolve(process.cwd(), "../supabase/migrations/20260819060415_phase_2_view_privileges.sql"), "utf8"));
   await db.exec(await readFile(resolve(process.cwd(), "../supabase/migrations/20260819060530_phase_2_fk_indexes.sql"), "utf8"));
+  await db.exec(await readFile(resolve(process.cwd(), "../supabase/migrations/20260819063329_phase_3_migration_staging.sql"), "utf8"));
+  await db.exec(await readFile(resolve(process.cwd(), "../supabase/migrations/20260819063626_phase_3_staging_fk_indexes.sql"), "utf8"));
+  await db.exec(await readFile(resolve(process.cwd(), "../supabase/migrations/20260819114938_phase_4_actual_money_workflows.sql"), "utf8"));
+  await db.exec(await readFile(resolve(process.cwd(), "../supabase/migrations/20260819115028_phase_4_fk_indexes.sql"), "utf8"));
   await db.query("insert into auth.users (id) values ($1), ($2)", [USER_A, USER_B]);
   currentA = await createAccount(USER_A, "User A current", "checking", "user-a-current");
   savingsA = await createAccount(USER_A, "User A savings", "savings", "user-a-savings");

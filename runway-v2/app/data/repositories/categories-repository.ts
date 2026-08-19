@@ -6,7 +6,8 @@ type CategoryKind = Database["public"]["Enums"]["runway_category_kind"];
 export const categoriesRepository = {
   async listCategories(kind?: CategoryKind) {
     const client = requireSupabase();
-    let query = client.from("categories").select("*").is("archived_at", null).order("sort_order").order("name");
+    const userId = await requireAuthenticatedUserId(client);
+    let query = client.from("categories").select("*").eq("user_id", userId).is("archived_at", null).order("sort_order").order("name");
     if (kind) query = query.eq("kind", kind);
     const { data, error } = await query;
     if (error) throw error;

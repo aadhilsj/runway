@@ -22,12 +22,45 @@ export const snapshotsRepository = {
   },
 
   async getLatestBalanceSnapshot(accountId: string) {
-    const { data, error } = await requireSupabase().from("account_balance_snapshots")
+    const client = requireSupabase();
+    const userId = await requireAuthenticatedUserId(client);
+    const { data, error } = await client.from("account_balance_snapshots")
       .select("*")
+      .eq("user_id", userId)
       .eq("account_id", accountId)
       .order("observed_at", { ascending: false })
       .limit(1)
       .maybeSingle();
+    if (error) throw error;
+    return data;
+  },
+
+  async listBalanceSnapshots(accountId: string) {
+    const client = requireSupabase();
+    const userId = await requireAuthenticatedUserId(client);
+    const { data, error } = await client.from("account_balance_snapshots")
+      .select("*").eq("user_id", userId).eq("account_id", accountId)
+      .order("observed_at", { ascending: false });
+    if (error) throw error;
+    return data;
+  },
+
+  async reconcileAccount(input: {
+    accountId: string;
+    observedBalanceMinor: number;
+    observedAt: string;
+    notes?: string | null;
+    createAdjustment: boolean;
+    idempotencyKey?: string | null;
+  }) {
+    const { data, error } = await requireSupabase().rpc("reconcile_account", {
+      p_account_id: input.accountId,
+      p_observed_balance_minor: input.observedBalanceMinor,
+      p_observed_at: input.observedAt,
+      p_notes: input.notes ?? "",
+      p_create_adjustment: input.createAdjustment,
+      p_idempotency_key: input.idempotencyKey ?? "",
+    });
     if (error) throw error;
     return data;
   },

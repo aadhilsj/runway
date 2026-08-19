@@ -1,6 +1,6 @@
 # Runway 2 architecture
 
-Runway 2 is an isolated React Router Framework Mode SPA in `runway-v2/`. The root legacy files remain the deployable application until a separately approved cutover.
+Runway 2 is an isolated React Router Framework Mode SPA in `runway-v2/`. Phase 4 established the active owner's normalized opening state while the root legacy application remains deployed and operational.
 
 ## Boundaries
 
@@ -15,7 +15,7 @@ Runway 2 is an isolated React Router Framework Mode SPA in `runway-v2/`. The roo
 
 The root creates one QueryClient, restores the Supabase session, then allows the protected layout to render. `/` redirects to `/overview`; `/money` redirects to `/money/transactions`. Financial routes redirect unauthenticated users to `/sign-in` and preserve the intended destination.
 
-No route reads `public.runway_state`. This prevents accidental coupling to the blob while Phase 3 migration remains unapproved.
+No route reads `public.runway_state`. Accounts and Transactions read the normalized ledger; Forecast reads non-authoritative `forecast_items`. This keeps legacy state out of the runtime truth path after the approved Phase 4 application.
 
 ## Phase 2 ledger boundary
 
@@ -31,6 +31,14 @@ The normalized model uses user-facing typed transactions over a lightweight doub
 Positive entries are debits and negative entries are credits. Display balance equals raw ledger balance for asset/expense accounts and its negation for liability/income/equity accounts. This conversion lives in the domain layer and database read model, not UI components.
 
 Posted transactions remain `posted` forever. Corrections create an equal-and-opposite posted transaction linked through `reverses_transaction_id`. `void` is reserved for unposted drafts; it is not a substitute for reversal.
+
+## Phase 4 actual/planned boundary
+
+- The opening balance is the sole authoritative imported ledger value. Legacy settled history is never replayed on top of it.
+- Income, expense, transfer, debt-payment, opening-balance, reversal, and confirmed reconciliation workflows use database RPCs and ledger-derived balances.
+- Bank observations create immutable snapshots. A balance difference changes the ledger only after explicit adjustment confirmation.
+- Future migrated events live in `forecast_items`; settled events, overdue resolutions, old templates, lineage hints, and old budget data live in reference tables.
+- Phase 4 does not implement projection calculations, Funds, allocation rules, or automatic forecast posting.
 
 ## State ownership
 

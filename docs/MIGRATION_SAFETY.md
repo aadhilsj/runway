@@ -18,6 +18,14 @@ The owner-only importer reads the immutable ignored backup, validates and classi
 
 The dry run treats current balance as the sole proposed opening ledger value. Settled events and bucket spend remain non-authoritative references, future forecasts have zero actual-ledger effect, UI activity is intentionally ignored after backup preservation, and no planned new Funds are created.
 
+## Phase 4 authoritative state
+
+On 2026-08-19, the checksum-gated Phase 4 application established Runway 2 accounting truth for only the Auth-verified product owner. It created one editable `Operating Cash` asset account and one posted opening-balance transaction for 1,195,600 minor NOK. The derived account balance and net worth both reconcile exactly to the legacy `currentBalance` of NOK 11,956.00. The legacy warning threshold became the editable 900,000-minor-NOK operating floor.
+
+The cutover also created 48 expected forecast items and three scenarios. These are planning inputs and cannot change ledger balances. Fifty settled events, three product-owner-resolved overdue events, two template references, 56 possible recurring-lineage hints, and ten legacy budget-history rows are preserved outside the authoritative ledger. No historical legacy event or bucket entry was posted as an actual transaction.
+
+The application is recorded as migration run `771e5470-36e2-5c1e-9257-65cf6c1287cb`, with verification status `passed`. The second legacy user has no profile, account, transaction, forecast, scenario, history, or application record. Both `runway_state` timestamps and checksums remained unchanged after application.
+
 ## Backups and verification
 
 The ignored `migration/fixtures/legacy/raw/` directory contains:
@@ -36,4 +44,4 @@ Future migration code must copy and verify. It must not delete, truncate, overwr
 
 ## Rollback
 
-The application still serves the unchanged legacy app and aggregate table; Runway 2 does not read the normalized tables in production yet. A future normalized rollout must keep reads behind an explicit cutover control, permit an immediate return to the aggregate read path, and never depend on destructive reverse migration.
+The legacy app and aggregate table remain deployed and unchanged. Runway 2 reads only normalized data, but it has not replaced or disabled the legacy deployment. A return to the legacy application therefore requires no reverse migration. The verified Runway 2 opening transaction must not be deleted or rewritten; any later accounting correction must use an explicit reconciliation adjustment or reversal.

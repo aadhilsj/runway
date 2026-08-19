@@ -12,13 +12,15 @@ import {
   type PostTransferCommand,
   type ReverseTransactionCommand,
 } from "~/domain/ledger-schemas";
-import { requireSupabase, rpcNullable } from "./shared";
+import { requireAuthenticatedUserId, requireSupabase, rpcNullable } from "./shared";
 
 export const transactionsRepository = {
   async listTransactions({ limit = 100 }: { limit?: number } = {}) {
     const client = requireSupabase();
+    const userId = await requireAuthenticatedUserId(client);
     const { data, error } = await client.from("transactions")
       .select("*, transaction_entries(*)")
+      .eq("user_id", userId)
       .order("occurred_at", { ascending: false })
       .limit(limit);
     if (error) throw error;

@@ -185,6 +185,193 @@ export type Database = {
           },
         ]
       }
+      forecast_items: {
+        Row: {
+          amount_minor: number
+          category_id: string | null
+          confidence: Database["public"]["Enums"]["runway_forecast_confidence"]
+          created_at: string
+          destination_account_id: string | null
+          expected_date: string
+          id: string
+          kind: Database["public"]["Enums"]["runway_forecast_kind"]
+          label: string
+          legacy_source_id: string | null
+          notes: string | null
+          original_signed_amount: number | null
+          scenario_id: string | null
+          source_account_id: string | null
+          status: Database["public"]["Enums"]["runway_forecast_status"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount_minor: number
+          category_id?: string | null
+          confidence?: Database["public"]["Enums"]["runway_forecast_confidence"]
+          created_at?: string
+          destination_account_id?: string | null
+          expected_date: string
+          id?: string
+          kind: Database["public"]["Enums"]["runway_forecast_kind"]
+          label: string
+          legacy_source_id?: string | null
+          notes?: string | null
+          original_signed_amount?: number | null
+          scenario_id?: string | null
+          source_account_id?: string | null
+          status?: Database["public"]["Enums"]["runway_forecast_status"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount_minor?: number
+          category_id?: string | null
+          confidence?: Database["public"]["Enums"]["runway_forecast_confidence"]
+          created_at?: string
+          destination_account_id?: string | null
+          expected_date?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["runway_forecast_kind"]
+          label?: string
+          legacy_source_id?: string | null
+          notes?: string | null
+          original_signed_amount?: number | null
+          scenario_id?: string | null
+          source_account_id?: string | null
+          status?: Database["public"]["Enums"]["runway_forecast_status"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "forecast_items_category_owner_fkey"
+            columns: ["category_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "forecast_items_destination_account_owner_fkey"
+            columns: ["destination_account_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "account_balances"
+            referencedColumns: ["account_id", "user_id"]
+          },
+          {
+            foreignKeyName: "forecast_items_destination_account_owner_fkey"
+            columns: ["destination_account_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "forecast_items_scenario_owner_fkey"
+            columns: ["scenario_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "scenarios"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "forecast_items_source_account_owner_fkey"
+            columns: ["source_account_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "account_balances"
+            referencedColumns: ["account_id", "user_id"]
+          },
+          {
+            foreignKeyName: "forecast_items_source_account_owner_fkey"
+            columns: ["source_account_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id", "user_id"]
+          },
+        ]
+      }
+      legacy_budget_history: {
+        Row: {
+          bucket_name: string
+          budget_month: string
+          budgeted_minor: number
+          created_at: string
+          id: string
+          spend_minor: number
+          user_id: string
+          variance_minor: number | null
+          was_active: boolean | null
+        }
+        Insert: {
+          bucket_name: string
+          budget_month: string
+          budgeted_minor: number
+          created_at?: string
+          id?: string
+          spend_minor: number
+          user_id: string
+          variance_minor?: number | null
+          was_active?: boolean | null
+        }
+        Update: {
+          bucket_name?: string
+          budget_month?: string
+          budgeted_minor?: number
+          created_at?: string
+          id?: string
+          spend_minor?: number
+          user_id?: string
+          variance_minor?: number | null
+          was_active?: boolean | null
+        }
+        Relationships: []
+      }
+      legacy_history_items: {
+        Row: {
+          actual_amount_minor: number | null
+          category_name: string | null
+          classification: string
+          created_at: string
+          id: string
+          label: string
+          legacy_source_id: string | null
+          metadata: Json
+          occurred_on: string | null
+          planned_amount_minor: number | null
+          source_path: string
+          source_type: string
+          user_id: string
+        }
+        Insert: {
+          actual_amount_minor?: number | null
+          category_name?: string | null
+          classification: string
+          created_at?: string
+          id?: string
+          label: string
+          legacy_source_id?: string | null
+          metadata?: Json
+          occurred_on?: string | null
+          planned_amount_minor?: number | null
+          source_path: string
+          source_type: string
+          user_id: string
+        }
+        Update: {
+          actual_amount_minor?: number | null
+          category_name?: string | null
+          classification?: string
+          created_at?: string
+          id?: string
+          label?: string
+          legacy_source_id?: string | null
+          metadata?: Json
+          occurred_on?: string | null
+          planned_amount_minor?: number | null
+          source_path?: string
+          source_type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           base_currency: string
@@ -237,6 +424,42 @@ export type Database = {
         }
         Update: {
           state?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      scenarios: {
+        Row: {
+          archived_at: string | null
+          created_at: string
+          description: string | null
+          id: string
+          legacy_source_id: string | null
+          migration_metadata: Json
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          archived_at?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          legacy_source_id?: string | null
+          migration_metadata?: Json
+          name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          archived_at?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          legacy_source_id?: string | null
+          migration_metadata?: Json
+          name?: string
           updated_at?: string
           user_id?: string
         }
@@ -492,6 +715,17 @@ export type Database = {
         }
         Returns: string
       }
+      reconcile_account: {
+        Args: {
+          p_account_id: string
+          p_create_adjustment: boolean
+          p_idempotency_key: string
+          p_notes: string
+          p_observed_at: string
+          p_observed_balance_minor: number
+        }
+        Returns: Json
+      }
       reverse_transaction: {
         Args: {
           p_idempotency_key: string
@@ -523,6 +757,9 @@ export type Database = {
         | "imported_actual"
         | "planned_as_actual"
         | "inferred"
+      runway_forecast_confidence: "low" | "medium" | "high"
+      runway_forecast_kind: "income" | "expense"
+      runway_forecast_status: "expected" | "skipped" | "realized"
       runway_liquidity_class:
         | "operating"
         | "liquid"
@@ -552,7 +789,6 @@ export type Database = {
     }
   }
 }
-
 type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
 
 type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
@@ -696,6 +932,9 @@ export const Constants = {
         "planned_as_actual",
         "inferred",
       ],
+      runway_forecast_confidence: ["low", "medium", "high"],
+      runway_forecast_kind: ["income", "expense"],
+      runway_forecast_status: ["expected", "skipped", "realized"],
       runway_liquidity_class: [
         "operating",
         "liquid",

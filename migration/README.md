@@ -5,7 +5,7 @@ Phase 3 implements deterministic legacy classification and dry-run reconciliatio
 ## Versioning
 
 - `legacy-aggregate-v1`: the current JSON aggregate in `public.runway_state`.
-- `normalized-v1`: the Phase 2 ledger schema; it remains empty until an approved Phase 3 import.
+- `normalized-v1`: the ledger schema. Phase 4 applied the verified opening state and eligible planning/reference records for the active owner only.
 - Every migration run receives a deterministic UUID derived from the owner, source checksum, importer version, and target schema version.
 - A run records source row identity, source checksum, target schema version, code version, start/end timestamps, outcome, and verification result.
 
@@ -32,7 +32,7 @@ The same owner/checksum/importer/target combination produces the same run and it
 
 `runway_migration` is an unexposed schema. Browser roles have no schema, table, or function privileges, and its tables also have RLS enabled without browser policies. `legacy_state_backups` is immutable. Import items normally refer to the backup by source path, leaving `source_json` null to avoid duplicating raw financial JSON.
 
-The live Phase 3 schema is present, but its staging tables remain empty. The connected SQL channel is read-only for DML, and private user data was deliberately not embedded in a schema migration as a workaround. The completed dry run is stored in the ignored local output described above.
+The completed dry run remains stored in the ignored local output described above. Phase 4 copied its checksum-verified immutable source into private staging as part of the transactional application and recorded the applied, verified migration run. Browser roles still have no access to raw migration data.
 
 ## Required behavior
 
@@ -44,4 +44,4 @@ The live Phase 3 schema is present, but its staging tables remain empty. The con
 6. Make a completed run with the same source checksum a no-op.
 7. Keep cutover and rollback separate from data copying.
 
-Phase 2 established empty normalized tables and posting invariants. Phase 3 does not call those posting RPCs. A future approved apply must still follow the checksum, idempotency, never-delete, verification, and separate-cutover rules above.
+Phase 2 established posting invariants and Phase 3 did not call posting RPCs. The approved Phase 4 apply followed the checksum, identity, idempotency, never-delete, and verification rules above. Any later re-application must remain a no-op for the same owner/source/importer combination.
