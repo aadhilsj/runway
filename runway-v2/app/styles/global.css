@@ -136,7 +136,7 @@ button:disabled { opacity: .48; cursor: not-allowed; }
 .forecast-toolbar > div { display: grid; gap: var(--space-2); }
 .forecast-toolbar > div > span { color: var(--color-muted); font-size: .72rem; font-weight: 780; text-transform: uppercase; letter-spacing: .1em; }
 .horizon-options, .scenario-options { display: flex; flex-wrap: wrap; gap: var(--space-2); }
-.horizon-options button, .timeline-actions button { border: 1px solid var(--color-line); background: transparent; color: var(--color-muted); border-radius: 999px; padding: .46rem .7rem; cursor: pointer; font-size: .76rem; font-weight: 720; }
+.horizon-options button, .timeline-actions button, .timeline-overflow summary { border: 1px solid var(--color-line); background: transparent; color: var(--color-muted); border-radius: 999px; padding: .46rem .7rem; cursor: pointer; font-size: .76rem; font-weight: 720; }
 .horizon-options button.active { background: var(--color-ink); color: white; border-color: var(--color-ink); }
 .scenario-options label { display: flex; gap: var(--space-2); align-items: center; font-size: .78rem; color: var(--color-muted); }
 .forecast-chart { height: clamp(20rem, 35vh, 25rem); min-width: 0; }
@@ -151,6 +151,12 @@ button:disabled { opacity: .48; cursor: not-allowed; }
 .timeline-actions { grid-column: 2 / -1; display: flex !important; flex-direction: row; justify-content: flex-end; align-items: center; }
 .timeline-actions select { border: 1px solid var(--color-line); background: var(--color-surface); border-radius: var(--radius-sm); padding: .4rem; color: var(--color-muted); font-size: .75rem; }
 .timeline-actions a { color: var(--color-accent-strong); font-size: .75rem; font-weight: 720; }
+.timeline-overflow { position: relative; }
+.timeline-overflow summary { list-style: none; }
+.timeline-overflow summary::-webkit-details-marker { display: none; }
+.timeline-overflow[open] summary { border-color: var(--color-accent); color: var(--color-accent-strong); }
+.timeline-overflow > div { position: absolute; z-index: 4; right: 0; top: calc(100% + var(--space-2)); min-width: 13rem; padding: var(--space-2); border: 1px solid var(--color-line); border-radius: var(--radius-sm); background: var(--color-surface); box-shadow: var(--shadow-soft); }
+.timeline-overflow > div button, .timeline-overflow > div select { width: 100%; border-radius: var(--radius-xs); text-align: left; }
 .recurring-list { display: grid; gap: var(--space-3); }
 .recurring-row { display: flex; justify-content: space-between; gap: var(--space-4); align-items: center; padding: var(--space-4); border: 1px solid var(--color-line); border-radius: var(--radius-sm); background: var(--color-surface-strong); }
 .recurring-row.paused { opacity: .58; }

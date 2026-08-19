@@ -88,5 +88,13 @@ describe("Phase 4 actual-money workflows", () => {
     expect(await screen.findByText("Invented future income")).toBeInTheDocument();
     expect(screen.getByText(/never changes your actual account balances/i)).toBeInTheDocument();
     expect(screen.getByText((_, element) => element?.textContent?.replace(/\s/g, "") === "+2000kr", { selector: "strong" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Post actual" })).toBeVisible();
+    const more = screen.getByText("More");
+    expect(more).toHaveAttribute("aria-label", "More actions for Invented future income");
+    fireEvent.click(more);
+    expect(screen.getByRole("button", { name: "Edit" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Skip" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeVisible();
+    expect(screen.getByLabelText("Match Invented future income")).toBeVisible();
   });
 });

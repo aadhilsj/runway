@@ -185,6 +185,11 @@ test("creates recurring plans and projects horizon and scenario changes", async 
   await expect(page.getByText("Invented recurring rent")).toBeVisible();
   await page.goto("/forecast"); await expect(page.getByText("Invented recurring salary").first()).toBeVisible(); await expect(page.getByText("Invented scenario cost")).toHaveCount(0);
   await page.getByRole("button", { name: "24 months" }).click(); await page.getByRole("checkbox", { name: "Invented plan" }).check(); await expect(page.getByText("Invented scenario cost")).toBeVisible(); await expect(page.getByLabel("Projected operating and liquid cash chart")).toBeVisible();
+  const recurringRow = page.locator(".forecast-row").filter({ hasText: "Invented recurring salary" }).first();
+  await expect(recurringRow.getByRole("link", { name: "Post actual" })).toBeVisible();
+  await recurringRow.getByText("More").click();
+  await expect(recurringRow.getByRole("button", { name: "Skip this occurrence" })).toBeVisible();
+  await expect(recurringRow.getByLabel("Match recurring Invented recurring salary")).toBeVisible();
 });
 
 test("creates, compares, previews, cancels, and confirms a what-if Plan", async ({ page }) => {
