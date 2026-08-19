@@ -64,7 +64,7 @@ export async function installFixtureBackend(page: Page) {
     const url = new URL(request.url());
     if (url.pathname.startsWith("/auth/v1/")) return json(route, user);
     if (url.pathname === "/rest/v1/accounts" && request.method() === "GET") return json(route, accounts);
-    if (url.pathname === "/rest/v1/profiles" && request.method() === "GET") return json(route, [{ user_id: USER_ID, base_currency: "NOK", timezone: "Europe/Oslo", operating_floor_minor: 900000, forecast_horizon_months: 12, safety_window_days: 30, schema_version: 7 }]);
+    if (url.pathname === "/rest/v1/profiles" && request.method() === "GET") return json(route, { user_id: USER_ID, base_currency: "NOK", timezone: "Europe/Oslo", operating_floor_minor: 900000, forecast_horizon_months: 12, safety_window_days: 30, schema_version: 7 });
     if (url.pathname === "/rest/v1/profiles" && request.method() === "PATCH") return json(route, []);
     if (url.pathname === "/rest/v1/account_balances") return json(route, accounts.map((row) => ({ user_id: USER_ID, account_id: row.id, currency: "NOK", ledger_balance_minor: balances.get(row.id) ?? 0, display_balance_minor: balances.get(row.id) ?? 0 })));
     if (url.pathname === "/rest/v1/current_net_worth") return json(route, [{ user_id: USER_ID, currency: "NOK", net_worth_minor: netWorth() }]);
@@ -73,7 +73,7 @@ export async function installFixtureBackend(page: Page) {
     if (url.pathname === "/rest/v1/forecast_items" && request.method() === "GET") return json(route, forecastItems);
     if (url.pathname === "/rest/v1/funds" && request.method() === "GET") return json(route, []);
     if (url.pathname === "/rest/v1/fund_balances" && request.method() === "GET") return json(route, []);
-    if (["/rest/v1/goals","/rest/v1/fund_movements","/rest/v1/allocation_plans","/rest/v1/allocation_plan_items","/rest/v1/fund_backing_summary","/rest/v1/scenario_applications"].includes(url.pathname)) return json(route, []);
+    if (["/rest/v1/goals","/rest/v1/fund_movements","/rest/v1/allocation_plans","/rest/v1/allocation_plan_items","/rest/v1/fund_backing_summary","/rest/v1/scenario_applications","/rest/v1/budget_periods","/rest/v1/budget_lines","/rest/v1/budget_groups","/rest/v1/budget_group_categories","/rest/v1/budget_actuals","/rest/v1/budget_commitments"].includes(url.pathname)) return json(route, []);
     if (url.pathname === "/rest/v1/recurring_rules" && request.method() === "GET") return json(route, recurringRules);
     if (url.pathname === "/rest/v1/recurring_rules" && request.method() === "POST") { recurringRules.push({ id: newId(), active: true, archived_at: null, confidence: "expected", scenario_id: null, default_sort_order: null, ...request.postDataJSON() }); return json(route, [], 201); }
     if (url.pathname === "/rest/v1/recurring_rules" && request.method() === "PATCH") { const id = url.searchParams.get("id")?.replace("eq.", ""); const rule = recurringRules.find((row) => row.id === id); if (rule) Object.assign(rule, request.postDataJSON()); return json(route, []); }
@@ -216,4 +216,17 @@ test("creates, compares, previews, cancels, and confirms a what-if Plan", async 
   await page.getByRole("button",{name:"Preview Apply to Base"}).click();
   await page.getByRole("button",{name:"Confirm Apply to Base"}).click();
   await expect(page.getByText(/No actual transaction was created/)).toBeVisible();
+});
+
+test("renders the Phase 8 cockpit and authoritative analytics without demo data",async({page})=>{
+  await installFixtureBackend(page);
+  await page.goto("/overview");
+  await expect(page.getByRole("heading",{name:"Overview",level:1})).toBeVisible();
+  await expect(page.getByText("Safe to spend")).toBeVisible();
+  await expect(page.getByText("Total cash")).toBeVisible();
+  await expect(page.getByText("No operating-floor breach projected")).toBeVisible();
+  await page.getByRole("link",{name:/Open analytics/}).click();
+  await expect(page.getByRole("heading",{name:"Analytics",level:1})).toBeVisible();
+  await expect(page.getByRole("heading",{name:"Monthly cash flow"})).toBeVisible();
+  await expect(page.getByText(/No pre-cutover values/)).toBeVisible();
 });

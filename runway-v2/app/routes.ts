@@ -5,6 +5,7 @@ export default [
   layout("routes/protected-layout.tsx", [
     index("routes/home-redirect.tsx"),
     route("overview", "routes/overview.tsx"),
+    route("analytics", "routes/analytics.tsx"),
     route("forecast", "routes/forecast.tsx"),
     route("money", "routes/money-redirect.tsx"),
     route("money/transactions", "routes/money-transactions.tsx"),

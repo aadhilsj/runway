@@ -3,7 +3,7 @@ import { useAuth } from "~/auth/auth-context";
 import { MarkIcon, SyncIcon } from "./icons";
 
 const primary = [
-  ["Overview", "/overview"], ["Forecast", "/forecast"], ["Transactions", "/money/transactions"],
+  ["Overview", "/overview"], ["Forecast", "/forecast"], ["Analytics", "/analytics"], ["Transactions", "/money/transactions"],
   ["Accounts", "/money/accounts"], ["Cash flow", "/money/cash-flow"], ["Budgets", "/money/budgets"],
 ] as const;
 const planning = [["Funds", "/funds"], ["Investments", "/investments"], ["Plans", "/plans"]] as const;
@@ -20,8 +20,8 @@ export function AppShell() {
       <aside className="sidebar">
         <NavLink to="/overview" className="brand" aria-label="Runway overview"><MarkIcon /><span>Runway</span></NavLink>
         <nav aria-label="Primary navigation">
-          <NavigationGroup label="Today" items={primary.slice(0, 2)} />
-          <NavigationGroup label="Money" items={primary.slice(2)} />
+          <NavigationGroup label="Today" items={primary.slice(0, 3)} />
+          <NavigationGroup label="Money" items={primary.slice(3)} />
           <NavigationGroup label="Planning" items={planning} />
         </nav>
         <NavLink className="settings-link" to="/settings">Settings</NavLink>

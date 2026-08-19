@@ -21,6 +21,8 @@ Phase 6 adds a virtual allocation layer without introducing a second accounting 
 
 Phase 7 adds Plans as typed, non-destructive overlays on Base Plan. The pure scenario engine composes changes, detects overlapping-target conflicts, and feeds derived input to the existing forecast and allocation engines. Comparisons are never persisted. Promotion requires a fresh preview token and an atomic, idempotent RPC that applies assumptions—not calculated outcomes—and cannot post actual transactions. See [Plans and scenario comparison](./PLANS_AND_COMPARISON.md).
 
+Phase 8 composes those systems into read-only Overview and Analytics projections. Parallel repositories fetch normalized data; pure helpers derive actual cash flow, spending, and post-cutover net-worth history; existing Phase 5–7 engines supply forecast, safe-to-spend, Funds/Goals, and Plan impact. Charts only render prepared read models. See [Overview and analytics](./OVERVIEW_AND_ANALYTICS.md).
+
 ## Phase 2 ledger boundary
 
 The normalized model uses user-facing typed transactions over a lightweight double-entry ledger:
