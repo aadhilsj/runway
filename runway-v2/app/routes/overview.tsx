@@ -13,7 +13,7 @@ import {
 } from "recharts";
 import { Page } from "~/components/page";
 import { analyticsRepository } from "~/data/repositories/analytics-repository";
-import { asMinorUnits, formatMinorUnits } from "~/domain/money";
+import { asMinorUnits, formatMinorAxis, formatMinorUnits } from "~/domain/money";
 import { buildOverviewReadModel } from "~/read-models/overview";
 function money(value: number, currency: string) {
   return formatMinorUnits(asMinorUnits(Math.trunc(value)), currency);
@@ -107,7 +107,7 @@ export default function OverviewRoute() {
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="date" minTickGap={45} />
               <YAxis
-                tickFormatter={(v) => `${Math.round(Number(v) / 1000)}k`}
+                tickFormatter={(v) => formatMinorAxis(Number(v))}
               />
               <Tooltip
                 formatter={(v) => [

@@ -12,9 +12,11 @@ import {
   YAxis,
 } from "recharts";
 import { Page } from "~/components/page";
+import { Drawer } from "~/components/drawer";
 import { investmentsRepository } from "~/data/repositories/investments-repository";
 import {
   asMinorUnits,
+  formatMinorAxis,
   formatMinorUnits,
   parseDisplayAmountToMinor,
 } from "~/domain/money";
@@ -42,7 +44,8 @@ export default function InvestmentsRoute() {
       [workspace.data],
     ),
     [selected, setSelected] = useState<string | null>(null),
-    [editing, setEditing] = useState<string | null>(null);
+    [editing, setEditing] = useState<string | null>(null),
+    [drawerOpen, setDrawerOpen] = useState(false);
   const invalidate = () =>
     Promise.all([
       qc.invalidateQueries({ queryKey: ["investments-workspace"] }),
@@ -68,6 +71,7 @@ export default function InvestmentsRoute() {
       },
       onSuccess: async () => {
         setEditing(null);
+        setDrawerOpen(false);
         await invalidate();
       },
     }),
@@ -175,17 +179,13 @@ export default function InvestmentsRoute() {
               ))}
             </div>
           </section>
-          <section className="money-panel">
-            <div className="panel-heading">
-              <div>
-                <p className="section-kicker">Manual valuation</p>
-                <h2>
-                  {editing
-                    ? "Correct recorded value"
-                    : "Update portfolio value"}
-                </h2>
-              </div>
-            </div>
+          <section className="money-panel valuation-callout">
+            <p className="section-kicker">Manual valuation</p>
+            <h2>Keep market value current</h2>
+            <p className="muted">Record the latest broker value without creating a cash transaction or changing contributed principal.</p>
+            <button className="primary-button" type="button" onClick={() => { setEditing(null); setDrawerOpen(true); }}>Update portfolio value</button>
+          </section>
+          <Drawer open={drawerOpen} onClose={() => { setEditing(null); setDrawerOpen(false); }} eyebrow="Manual valuation" title={editing ? "Correct recorded value" : "Update portfolio value"}>
             <form className="money-form" onSubmit={onSubmit}>
               <label>
                 Investment account
@@ -257,7 +257,7 @@ export default function InvestmentsRoute() {
                 ) : null}
               </div>
             </form>
-          </section>
+          </Drawer>
         </div>
       )}
       {current ? (
@@ -277,7 +277,7 @@ export default function InvestmentsRoute() {
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="date" />
                     <YAxis
-                      tickFormatter={(v) => `${Math.round(Number(v) / 1000)}k`}
+                      tickFormatter={(v) => formatMinorAxis(Number(v))}
                     />
                     <Tooltip formatter={(v) => money(Number(v), c)} />
                     <Legend />
@@ -315,7 +315,7 @@ export default function InvestmentsRoute() {
                       <td>
                         <button
                           type="button"
-                          onClick={() => setEditing(row.snapshotId)}
+                          onClick={() => { setEditing(row.snapshotId); setDrawerOpen(true); }}
                         >
                           Edit
                         </button>{" "}

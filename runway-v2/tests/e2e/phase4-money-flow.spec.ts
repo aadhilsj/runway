@@ -122,15 +122,17 @@ test("signed-in Phase 4 money flow uses only invented fixture data", async ({ pa
   await installFixtureBackend(page);
   await page.goto("/money/accounts");
   await expect(page.getByRole("heading", { name: "Accounts", level: 1 })).toBeVisible();
-  await expect(page.getByRole("button", { name: /Operating Cash/ })).toContainText("11 956,00 kr");
+  await expect(page.getByRole("button", { name: /Operating Cash/ })).toContainText("11 956 kr");
 
   await page.goto("/money/transactions");
+  await page.getByRole("button", { name: "Add transaction" }).click();
   await page.getByRole("button", { name: "Income" }).click();
   await page.getByLabel("Amount").fill("30000");
   await page.getByLabel("Description").fill("Invented salary");
   await page.getByRole("button", { name: "Post income" }).click();
   await expect(page.getByText("Invented salary")).toBeVisible();
 
+  await page.getByRole("button", { name: "Add transaction" }).click();
   await page.getByRole("button", { name: "Expense" }).click();
   await page.getByLabel("Amount").fill("10000");
   await page.getByLabel("Description").fill("Invented rent");
@@ -138,12 +140,14 @@ test("signed-in Phase 4 money flow uses only invented fixture data", async ({ pa
   await expect(page.getByText("Invented rent")).toBeVisible();
 
   await page.goto("/money/accounts");
+  await page.getByRole("button", { name: "Add account" }).click();
   await page.getByLabel("Account name").fill("Fixture Savings");
   await page.getByRole("button", { name: "Create account" }).click();
   await expect(page.getByText("Fixture Savings")).toBeVisible();
   const worthBeforeTransfer = await page.getByText("Net worth").locator("..").locator("strong").textContent();
 
   await page.goto("/money/transactions");
+  await page.getByRole("button", { name: "Add transaction" }).click();
   await page.getByRole("button", { name: "Transfer" }).click();
   await page.getByLabel("Amount").fill("5000");
   await page.getByLabel("To account").selectOption(SAVINGS_ID);
@@ -168,7 +172,7 @@ test("signed-in Phase 4 money flow uses only invented fixture data", async ({ pa
   await page.getByLabel("Actual bank balance").fill("26300");
   await page.getByLabel("Create a confirmed adjustment").check();
   await page.getByRole("button", { name: "Create adjustment" }).click();
-  await expect(page.getByRole("button", { name: /Operating Cash/ })).toContainText("26 300,00 kr");
+  await expect(page.getByRole("button", { name: /Operating Cash/ })).toContainText("26 300 kr");
 });
 
 test("creates recurring plans and projects horizon and scenario changes", async ({ page }) => {
@@ -186,9 +190,10 @@ test("creates recurring plans and projects horizon and scenario changes", async 
 test("creates, compares, previews, cancels, and confirms a what-if Plan", async ({ page }) => {
   await installFixtureBackend(page);
   await page.goto("/plans");
+  await page.getByRole("button",{name:"Create plan"}).click();
   await page.getByLabel("Name").fill("Brazil Trip");
   await page.getByLabel(/Description/).fill("Invented E2E fixture");
-  await page.getByRole("button",{name:"Create Plan"}).click();
+  await page.getByRole("button",{name:"Save plan"}).click();
   const card=page.locator("article").filter({hasText:"Brazil Trip"});
   await expect(card).toBeVisible();
   await card.getByRole("link",{name:/Edit/}).click();
@@ -204,7 +209,7 @@ test("creates, compares, previews, cancels, and confirms a what-if Plan", async 
   const detailHref=await updated.getByRole("link",{name:/Edit/}).getAttribute("href") ?? "/plans";
   await updated.getByRole("checkbox",{name:"Compare"}).click();
   await expect(updated.getByRole("checkbox",{name:"Compare"})).toBeChecked();
-  await page.getByRole("link",{name:"Compare Plans"}).click();
+  await page.getByRole("link",{name:"Compare plans"}).click();
   await expect(page.getByRole("heading",{name:"Base versus what-if"})).toBeVisible();
   await expect(page.getByLabel("Base and selected Plan operating cash chart")).toBeVisible();
   await expect(page.getByText("Brazil Trip").first()).toBeVisible();
@@ -234,4 +239,62 @@ test("renders the Phase 8 cockpit and authoritative analytics without demo data"
   await expect(page.getByRole("heading",{name:"Analytics",level:1})).toBeVisible();
   await page.getByRole("button", { name: "Sign out" }).click();
   await expect(page).toHaveURL(/\/sign-in$/);
+});
+
+test("captures the Phase 10.5 desktop visual audit", async ({ page }) => {
+  const output = process.env.RUNWAY_SCREENSHOT_DIR;
+  test.skip(!output, "Set RUNWAY_SCREENSHOT_DIR to capture the visual audit.");
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await installFixtureBackend(page);
+  const routes = [
+    ["overview", "/overview", "Safe to spend"],
+    ["forecast", "/forecast", "Cash runway"],
+    ["analytics", "/analytics", "Monthly cash flow"],
+    ["transactions", "/money/transactions", "Posted transactions"],
+    ["accounts", "/money/accounts", "Your accounts"],
+    ["budgets", "/money/budgets", "Budget lines"],
+    ["funds", "/funds", "Review payday plan"],
+    ["investments", "/investments", "No investment accounts yet"],
+    ["plans", "/plans", "What you are exploring"],
+  ] as const;
+  for (const [name, route, readyText] of routes) {
+    await page.goto(route);
+    await expect(page.getByRole("main")).toBeVisible();
+    await expect(page.getByText(readyText, { exact: false }).first()).toBeVisible();
+    await page.screenshot({ path: `${output}/${name}.png`, fullPage: false });
+  }
+});
+
+test("keeps the polished desktop routes collision-free across supported widths", async ({ page }) => {
+  await installFixtureBackend(page);
+  const viewports = [
+    { width: 1280, height: 720 },
+    { width: 1366, height: 768 },
+    { width: 1440, height: 900 },
+    { width: 1512, height: 982 },
+    { width: 1600, height: 900 },
+    { width: 1920, height: 1080 },
+  ];
+  const routes = ["/overview", "/forecast", "/analytics", "/money/transactions", "/money/accounts", "/money/budgets", "/funds", "/investments", "/plans"];
+  for (const viewport of viewports) {
+    await page.setViewportSize(viewport);
+    for (const route of routes) {
+      await page.goto(route);
+      await expect(page.locator("h1")).toBeVisible();
+      const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+      expect(overflow, `${route} at ${viewport.width}×${viewport.height}`).toBeLessThanOrEqual(1);
+    }
+  }
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/money/accounts");
+  const content = page.locator(".content");
+  const before = await content.boundingBox();
+  await page.getByRole("button", { name: "Add account" }).click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  const after = await content.boundingBox();
+  expect(after?.x).toBe(before?.x);
+  expect(after?.width).toBe(before?.width);
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).not.toBeVisible();
 });

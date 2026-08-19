@@ -19,7 +19,21 @@ export function formatMinorUnits(
   locale = "nb-NO",
 ): string {
   if (!Number.isSafeInteger(amountMinor)) throw new Error("Minor-unit amount must be a safe integer");
-  return new Intl.NumberFormat(locale, { style: "currency", currency }).format(amountMinor / 100);
+  const hasMinorValue = Math.abs(amountMinor) % 100 !== 0;
+  return new Intl.NumberFormat(locale, {
+    style: "currency",
+    currency,
+    minimumFractionDigits: hasMinorValue ? 2 : 0,
+    maximumFractionDigits: 2,
+  }).format(amountMinor / 100);
+}
+
+export function formatMinorAxis(amountMinor: number, locale = "nb-NO"): string {
+  if (!Number.isFinite(amountMinor)) return "–";
+  return new Intl.NumberFormat(locale, {
+    notation: "compact",
+    maximumFractionDigits: 1,
+  }).format(amountMinor / 100);
 }
 
 export function asMinorUnits(value: number): MinorUnits {

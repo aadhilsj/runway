@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { asMinorUnits, formatMinorUnits, parseDisplayAmountToMinor } from "~/domain/money";
+import { asMinorUnits, formatMinorAxis, formatMinorUnits, parseDisplayAmountToMinor } from "~/domain/money";
 
 describe("money boundary", () => {
   it("converts display NOK to integer minor units without float multiplication", () => {
@@ -14,5 +14,8 @@ describe("money boundary", () => {
 
   it("formats at the presentation boundary", () => {
     expect(formatMinorUnits(asMinorUnits(3_529_200), "NOK", "nb-NO")).toContain("35");
+    expect(formatMinorUnits(asMinorUnits(1_195_600), "NOK", "nb-NO")).not.toContain(",00");
+    expect(formatMinorUnits(asMinorUnits(1_195_650), "NOK", "nb-NO")).toContain(",50");
+    expect(formatMinorAxis(14_000_000, "en-GB")).toBe("140k");
   });
 });

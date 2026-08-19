@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState, type FormEvent } from "react";
+import { Drawer } from "~/components/drawer";
 import { Page } from "~/components/page";
 import { accountsRepository } from "~/data/repositories/accounts-repository";
 import { categoriesRepository } from "~/data/repositories/categories-repository";
@@ -28,6 +29,7 @@ function transactionDisplay(transaction: Transaction, accounts: Account[], categ
 export default function TransactionsRoute() {
   const queryClient = useQueryClient();
   const [kind, setKind] = useState<TransactionKind>("expense");
+  const [createOpen, setCreateOpen] = useState(false);
   const [search, setSearch] = useState("");
   const transactions = useQuery({ queryKey: ["transactions"], queryFn: () => transactionsRepository.listTransactions({ limit: 250 }) });
   const accounts = useQuery({ queryKey: ["accounts", "balances"], queryFn: () => accountsRepository.listAccountsWithBalances() });
@@ -54,7 +56,7 @@ export default function TransactionsRoute() {
       if (kind === "transfer") return transactionsRepository.postTransfer({ sourceAccountId: String(data.get("sourceAccountId")), destinationAccountId: String(data.get("destinationAccountId")), amountMinor, occurredAt, description, notes, idempotencyKey: newKey("transfer") });
       return transactionsRepository.postDebtPayment({ sourceAccountId: String(data.get("sourceAccountId")), liabilityAccountId: String(data.get("liabilityAccountId")), principalMinor: amountMinor, occurredAt, description, notes, idempotencyKey: newKey("debt") });
     },
-    onSuccess: async (_, form) => { form.reset(); await invalidateMoney(); },
+    onSuccess: async (_, form) => { form.reset(); setCreateOpen(false); await invalidateMoney(); },
   });
   const reverse = useMutation({
     mutationFn: (transactionId: string) => transactionsRepository.reverseTransaction({ transactionId, occurredAt: new Date().toISOString(), notes: "User-requested correction", idempotencyKey: newKey("reversal") }),
@@ -74,9 +76,20 @@ export default function TransactionsRoute() {
 
   return <Page eyebrow="Actual money" title="Transactions" description="Actual entries change your balances. Planned entries belong in Forecast and never post themselves.">
     <div className="actual-planned-strip"><div><strong>Actual</strong><span>Money that really moved and is backed by the ledger.</span></div><div><strong>Planned</strong><span>Expected future movement shown separately in Forecast.</span></div></div>
-    <div className="money-layout transactions-layout">
-      <section className="money-panel" aria-labelledby="post-heading">
-        <div className="panel-heading"><div><p className="section-kicker">Record money movement</p><h2 id="post-heading">Add actual transaction</h2></div></div>
+    <div className="panel-heading page-actions"><p className="muted">Posted entries are permanent; corrections create a linked reversal.</p><button className="primary-button" type="button" onClick={() => setCreateOpen(true)}>Add transaction</button></div>
+    <section className="money-panel" aria-labelledby="history-heading">
+        <div className="panel-heading"><div><p className="section-kicker">Immutable history</p><h2 id="history-heading">Posted transactions</h2></div></div>
+        <label className="search-field">Search history<input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Description or type"/></label>
+        {transactions.isLoading ? <p className="muted">Loading transactions…</p> : null}
+        {transactions.error ? <p className="field-error" role="alert">{message(transactions.error)}</p> : null}
+        <div className="transaction-list">{filtered.map((transaction) => {
+          const display = transactionDisplay(transaction, accountRows, categoryNames);
+          const isReversal = Boolean(transaction.reverses_transaction_id);
+          const reversed = (transactions.data ?? []).some((candidate) => candidate.reverses_transaction_id === transaction.id);
+          return <article className="transaction-row" key={transaction.id}><div className="transaction-icon" data-kind={transaction.kind}>{transaction.kind === "income" ? "+" : transaction.kind === "expense" ? "−" : "↔"}</div><div><strong>{transaction.description}</strong><p>{new Date(transaction.occurred_at).toLocaleString("en-GB")} · {transaction.kind.replace("_", " ")}</p><small>{[display.category, ...display.accountNames].filter(Boolean).join(" · ")}</small></div><div className="transaction-amount"><strong>{formatMinorUnits(asMinorUnits(display.amount), "NOK")}</strong>{isReversal ? <span>Correction</span> : reversed ? <span>Reversed</span> : transaction.kind !== "opening_balance" ? <button type="button" disabled={reverse.isPending} onClick={() => { if (confirm("Reverse this transaction? Runway will keep the original and create a correction.")) reverse.mutate(transaction.id); }}>Reverse transaction</button> : <span>Opening state</span>}</div></article>;
+        })}{!transactions.isLoading && filtered.length === 0 ? <p className="muted">No matching posted transactions.</p> : null}</div>
+      </section>
+    <Drawer open={createOpen} onClose={() => setCreateOpen(false)} eyebrow="Record money movement" title="Add actual transaction">
         <div className="segmented-control" aria-label="Transaction type">{(["income", "expense", "transfer", "debt_payment"] as const).map((value) => <button type="button" className={kind === value ? "active" : ""} aria-pressed={kind === value} onClick={() => setKind(value)} key={value}>{value === "debt_payment" ? "Debt payment" : value[0]!.toUpperCase() + value.slice(1)}</button>)}</div>
         <form className="money-form" onSubmit={onSubmit}>
           <label>Amount<input name="amount" required inputMode="decimal" placeholder="0.00"/></label>
@@ -92,19 +105,6 @@ export default function TransactionsRoute() {
           {post.error ? <p className="field-error" role="alert">{message(post.error)}</p> : null}
           <button className="primary-button" type="submit" disabled={post.isPending || assets.length === 0 || (kind === "debt_payment" && liabilities.length === 0)}>{post.isPending ? "Posting…" : `Post ${kind === "debt_payment" ? "debt payment" : kind}`}</button>
         </form>
-      </section>
-      <section className="money-panel" aria-labelledby="history-heading">
-        <div className="panel-heading"><div><p className="section-kicker">Immutable history</p><h2 id="history-heading">Posted transactions</h2></div></div>
-        <label className="search-field">Search history<input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Description or type"/></label>
-        {transactions.isLoading ? <p className="muted">Loading transactions…</p> : null}
-        {transactions.error ? <p className="field-error" role="alert">{message(transactions.error)}</p> : null}
-        <div className="transaction-list">{filtered.map((transaction) => {
-          const display = transactionDisplay(transaction, accountRows, categoryNames);
-          const isReversal = Boolean(transaction.reverses_transaction_id);
-          const reversed = (transactions.data ?? []).some((candidate) => candidate.reverses_transaction_id === transaction.id);
-          return <article className="transaction-row" key={transaction.id}><div className="transaction-icon" data-kind={transaction.kind}>{transaction.kind === "income" ? "+" : transaction.kind === "expense" ? "−" : "↔"}</div><div><strong>{transaction.description}</strong><p>{new Date(transaction.occurred_at).toLocaleString("en-GB")} · {transaction.kind.replace("_", " ")}</p><small>{[display.category, ...display.accountNames].filter(Boolean).join(" · ")}</small></div><div className="transaction-amount"><strong>{formatMinorUnits(asMinorUnits(display.amount), "NOK")}</strong>{isReversal ? <span>Correction</span> : reversed ? <span>Reversed</span> : transaction.kind !== "opening_balance" ? <button type="button" disabled={reverse.isPending} onClick={() => { if (confirm("Reverse this transaction? Runway will keep the original and create a correction.")) reverse.mutate(transaction.id); }}>Reverse transaction</button> : <span>Opening state</span>}</div></article>;
-        })}{!transactions.isLoading && filtered.length === 0 ? <p className="muted">No matching posted transactions.</p> : null}</div>
-      </section>
-    </div>
+    </Drawer>
   </Page>;
 }

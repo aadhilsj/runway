@@ -14,7 +14,7 @@ import {
 } from "recharts";
 import { Page } from "~/components/page";
 import { analyticsRepository } from "~/data/repositories/analytics-repository";
-import { asMinorUnits, formatMinorUnits } from "~/domain/money";
+import { asMinorUnits, formatMinorAxis, formatMinorUnits } from "~/domain/money";
 import { buildAnalyticsReadModel } from "~/read-models/overview";
 function money(v: number, c: string) {
   return formatMinorUnits(asMinorUnits(Math.trunc(v)), c);
@@ -50,6 +50,7 @@ export default function AnalyticsRoute() {
   const budget = model.budgetPeriods.find(
     (row) => row.month === (month || model.currentMonth),
   );
+  const hasCashFlow = model.cashFlow.some((row) => row.incomeMinor !== 0 || row.expenseMinor !== 0);
   return (
     <Page
       eyebrow="Authoritative trends"
@@ -79,13 +80,13 @@ export default function AnalyticsRoute() {
             <p className="section-kicker">Actual · transfers excluded</p>
             <h2>Monthly cash flow</h2>
           </div>
-          <div className="analytics-chart">
+          {hasCashFlow ? <div className="analytics-chart">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={model.cashFlow}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="month" />
                 <YAxis
-                  tickFormatter={(v) => `${Math.round(Number(v) / 1000)}k`}
+                  tickFormatter={(v) => formatMinorAxis(Number(v))}
                 />
                 <Tooltip formatter={(v) => money(Number(v), model.currency)} />
                 <Legend />
@@ -93,7 +94,7 @@ export default function AnalyticsRoute() {
                 <Bar dataKey="expenseMinor" name="Expenses" fill="#bb5f43" />
               </BarChart>
             </ResponsiveContainer>
-          </div>
+          </div> : <div className="chart-empty"><span>Actual cash flow will appear here</span><small>Post income or an expense to begin the monthly series.</small></div>}
           <table>
             <thead>
               <tr>
@@ -114,7 +115,7 @@ export default function AnalyticsRoute() {
               ))}
             </tbody>
           </table>
-          {!model.cashFlow.length ? (
+          {!hasCashFlow ? (
             <p className="muted">No posted income or expenses yet.</p>
           ) : null}
         </article>
@@ -123,20 +124,20 @@ export default function AnalyticsRoute() {
             <p className="section-kicker">Actual · selected month</p>
             <h2>Spending by category</h2>
           </div>
-          <div className="analytics-chart">
+          {model.spending.length ? <div className="analytics-chart">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={model.spending} layout="vertical">
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis
                   type="number"
-                  tickFormatter={(v) => `${Math.round(Number(v) / 1000)}k`}
+                  tickFormatter={(v) => formatMinorAxis(Number(v))}
                 />
                 <YAxis type="category" dataKey="label" width={100} />
                 <Tooltip formatter={(v) => money(Number(v), model.currency)} />
                 <Bar dataKey="amountMinor" name="Spending" fill="#bb5f43" />
               </BarChart>
             </ResponsiveContainer>
-          </div>
+          </div> : <div className="chart-empty"><span>No category spending yet</span><small>Only posted expenses are included.</small></div>}
           <ul className="ranked-list">
             {model.spending.map((row) => (
               <li key={row.categoryId ?? "none"}>
@@ -160,13 +161,13 @@ export default function AnalyticsRoute() {
             <p className="section-kicker">Actual · ledger-derived</p>
             <h2>Net worth since cutover</h2>
           </div>
-          <div className="analytics-chart">
+          {model.netWorth.length > 1 ? <div className="analytics-chart">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={model.netWorth}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="date" />
                 <YAxis
-                  tickFormatter={(v) => `${Math.round(Number(v) / 1000)}k`}
+                  tickFormatter={(v) => formatMinorAxis(Number(v))}
                 />
                 <Tooltip
                   formatter={(v) => [
@@ -183,7 +184,7 @@ export default function AnalyticsRoute() {
                 />
               </LineChart>
             </ResponsiveContainer>
-          </div>
+          </div> : <div className="chart-empty"><span>Net-worth trend needs another observation</span><small>Your opening position is safe; the line becomes useful after balances change.</small></div>}
           <p className="muted">
             Recorded portfolio values replace book value from their observation
             date and carry forward until the next snapshot. No pre-cutover

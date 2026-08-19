@@ -57,7 +57,8 @@ describe("Phase 4 actual-money workflows", () => {
     mocks.createAccount.mockResolvedValue("new-account");
     mocks.reconcileAccount.mockResolvedValue({ difference_minor: 4400 });
     renderWithQuery(<AccountsRoute />);
-    expect((await screen.findAllByText((_, element) => element?.textContent?.replace(/\s/g, "") === "11956,00kr", { selector: "strong, span" })).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText((_, element) => element?.textContent?.replace(/\s/g, "") === "11956kr", { selector: "strong, span" })).length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole("button", { name: "Add account" }));
     fireEvent.change(screen.getByLabelText("Account name"), { target: { value: "Savings" } });
     fireEvent.click(screen.getByRole("button", { name: "Create account" }));
     await waitFor(() => expect(mocks.createAccount).toHaveBeenCalledOnce());
@@ -74,6 +75,7 @@ describe("Phase 4 actual-money workflows", () => {
   it("posts an expense through the actual transaction workflow", async () => {
     mocks.postExpense.mockResolvedValue("transaction-a");
     renderWithQuery(<TransactionsRoute />);
+    fireEvent.click(await screen.findByRole("button", { name: "Add transaction" }));
     await screen.findByRole("option", { name: "Operating Cash" });
     fireEvent.change(screen.getByLabelText("Amount"), { target: { value: "125.50" } });
     fireEvent.change(screen.getByLabelText("Description"), { target: { value: "Invented purchase" } });
@@ -85,6 +87,6 @@ describe("Phase 4 actual-money workflows", () => {
     renderWithQuery(<ForecastRoute />);
     expect(await screen.findByText("Invented future income")).toBeInTheDocument();
     expect(screen.getByText(/never changes your actual account balances/i)).toBeInTheDocument();
-    expect(screen.getByText((_, element) => element?.textContent?.replace(/\s/g, "") === "+2000,00kr", { selector: "strong" })).toBeInTheDocument();
+    expect(screen.getByText((_, element) => element?.textContent?.replace(/\s/g, "") === "+2000kr", { selector: "strong" })).toBeInTheDocument();
   });
 });

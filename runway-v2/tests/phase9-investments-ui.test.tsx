@@ -73,9 +73,7 @@ describe("Phase 9 investments UI", () => {
     expect((await screen.findAllByText("Portfolio value"))[0]).toBeVisible();
     expect(screen.getByText("Contributed principal")).toBeVisible();
     expect(screen.getByText("Gain / loss")).toBeVisible();
-    expect(
-      screen.getByText(/does not create a ledger transaction/),
-    ).toBeVisible();
+    expect(screen.getByText(/without creating a cash transaction/)).toBeVisible();
   });
   it("shows a useful zero-account state", async () => {
     model = {

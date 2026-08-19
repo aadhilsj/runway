@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState, type FormEvent } from "react";
+import { Drawer } from "~/components/drawer";
 import { MoneySummaryCards } from "~/components/money/summary-cards";
 import { Page } from "~/components/page";
 import { accountsRepository } from "~/data/repositories/accounts-repository";
@@ -36,6 +37,7 @@ export default function AccountsRoute() {
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [reconcileAmount, setReconcileAmount] = useState("");
   const [confirmAdjustment, setConfirmAdjustment] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
   const accounts = useQuery({ queryKey: ["accounts", "balances"], queryFn: () => accountsRepository.listAccountsWithBalances() });
   const netWorth = useQuery({ queryKey: ["net-worth"], queryFn: () => balancesRepository.getCurrentNetWorth("NOK") });
   const history = useQuery({
@@ -78,7 +80,7 @@ export default function AccountsRoute() {
         idempotencyKey: newKey("account"),
       });
     },
-    onSuccess: invalidateMoney,
+    onSuccess: async () => { setCreateOpen(false); await invalidateMoney(); },
   });
   const rename = useMutation({
     mutationFn: ({ id, name }: { id: string; name: string }) => accountsRepository.renameAccount(id, name),
@@ -127,7 +129,7 @@ export default function AccountsRoute() {
 
   return <Page eyebrow="Actual money" title="Accounts" description="Balances come from posted transactions. Snapshots record what the bank says; adjustments are always explicit.">
     <MoneySummaryCards totalCashMinor={summary.totalCash} operatingCashMinor={summary.operating} netWorthMinor={summary.netWorth} accountCount={activeAccounts.length} />
-    <div className="money-layout">
+    <div className="panel-heading page-actions"><p className="muted">Choose an account to inspect its ledger history or reconcile it.</p><button className="primary-button" type="button" onClick={() => setCreateOpen(true)}>Add account</button></div>
       <section className="money-panel" aria-labelledby="accounts-heading">
         <div className="panel-heading"><div><p className="section-kicker">Where money lives</p><h2 id="accounts-heading">Your accounts</h2></div></div>
         {accounts.isLoading ? <p className="muted">Loading accounts…</p> : null}
@@ -144,8 +146,7 @@ export default function AccountsRoute() {
           {!accounts.isLoading && activeAccounts.length === 0 ? <p className="muted">No active accounts yet.</p> : null}
         </div>
       </section>
-      <section className="money-panel" aria-labelledby="create-account-heading">
-        <div className="panel-heading"><div><p className="section-kicker">Add a home for money</p><h2 id="create-account-heading">Create account</h2></div></div>
+      <Drawer open={createOpen} onClose={() => setCreateOpen(false)} eyebrow="Add a home for money" title="Create account">
         <form className="money-form" onSubmit={onCreate}>
           <label>Account name<input name="name" required maxLength={120} placeholder="Savings account"/></label>
           <label>Account type<select name="subtype" defaultValue="savings"><option value="checking">Checking</option><option value="savings">Savings</option><option value="cash">Cash</option><option value="investment">Investment</option><option value="credit_card">Credit card</option><option value="loan">Loan</option></select></label>
@@ -156,8 +157,7 @@ export default function AccountsRoute() {
           {createAccount.error ? <p className="field-error" role="alert">{message(createAccount.error)}</p> : null}
           <button className="primary-button" type="submit" disabled={createAccount.isPending}>{createAccount.isPending ? "Creating…" : "Create account"}</button>
         </form>
-      </section>
-    </div>
+      </Drawer>
     {selected ? <section className="money-panel detail-panel" aria-labelledby="account-detail-heading">
       <div className="panel-heading"><div><p className="section-kicker">Account detail</p><h2 id="account-detail-heading">{selected.name}</h2></div><strong className="balance-emphasis">{formatMinorUnits(asMinorUnits(selected.display_balance_minor), "NOK")}</strong></div>
       <div className="detail-grid">
