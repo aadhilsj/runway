@@ -15,5 +15,6 @@ export default [
     route("investments", "routes/investments.tsx"),
     route("plans", "routes/plans.tsx"),
     route("settings", "routes/settings.tsx"),
+    route("settings/recurring", "routes/settings-recurring.tsx"),
   ]),
 ] satisfies RouteConfig;

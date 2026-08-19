@@ -34,8 +34,15 @@ vi.mock("~/data/repositories/transactions-repository", () => ({ transactionsRepo
   postTransfer: vi.fn(), postDebtPayment: vi.fn(), reverseTransaction: mocks.reverseTransaction,
 } }));
 vi.mock("~/data/repositories/forecast-repository", () => ({ forecastRepository: {
-  listExpectedItems: vi.fn().mockResolvedValue([{ id: "forecast-a", expected_date: "2026-09-01", kind: "income", amount_minor: 200000,
-    label: "Invented future income", categories: { name: "Income" }, scenarios: null }]),
+  getWorkspace: vi.fn().mockResolvedValue({
+    profile: { base_currency: "NOK", timezone: "Europe/Oslo", operating_floor_minor: 1500000, forecast_horizon_months: 12 },
+    accounts: [mocks.operatingAccount], balances: [{ account_id: mocks.operatingAccount.id, display_balance_minor: 1195600 }],
+    items: [{ id: "forecast-a", expected_date: "2026-09-01", kind: "income", amount_minor: 200000, label: "Invented future income",
+      category_id: null, confidence: "expected", destination_account_id: mocks.operatingAccount.id, source_account_id: null, notes: null,
+      scenario_id: null, default_sort_order: null, status: "expected" }],
+    rules: [], occurrences: [], scenarios: [], categories: [], transactions: [],
+  }),
+  saveHorizon: vi.fn(), createItem: vi.fn(), updateItem: vi.fn(), matchItem: vi.fn(),
 } }));
 
 function renderWithQuery(ui: React.ReactNode) {

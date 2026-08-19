@@ -189,57 +189,69 @@ export type Database = {
         Row: {
           amount_minor: number
           category_id: string | null
-          confidence: Database["public"]["Enums"]["runway_forecast_confidence"]
+          confidence: Database["public"]["Enums"]["runway_planned_confidence"]
           created_at: string
+          default_sort_order: number | null
           destination_account_id: string | null
           expected_date: string
+          expected_amount_minor_snapshot: number | null
+          expected_date_snapshot: string | null
           id: string
-          kind: Database["public"]["Enums"]["runway_forecast_kind"]
+          kind: Database["public"]["Enums"]["runway_planned_kind"]
           label: string
           legacy_source_id: string | null
+          matched_transaction_id: string | null
           notes: string | null
           original_signed_amount: number | null
           scenario_id: string | null
           source_account_id: string | null
-          status: Database["public"]["Enums"]["runway_forecast_status"]
+          status: Database["public"]["Enums"]["runway_planned_status"]
           updated_at: string
           user_id: string
         }
         Insert: {
           amount_minor: number
           category_id?: string | null
-          confidence?: Database["public"]["Enums"]["runway_forecast_confidence"]
+          confidence?: Database["public"]["Enums"]["runway_planned_confidence"]
           created_at?: string
+          default_sort_order?: number | null
           destination_account_id?: string | null
           expected_date: string
+          expected_amount_minor_snapshot?: number | null
+          expected_date_snapshot?: string | null
           id?: string
-          kind: Database["public"]["Enums"]["runway_forecast_kind"]
+          kind: Database["public"]["Enums"]["runway_planned_kind"]
           label: string
           legacy_source_id?: string | null
+          matched_transaction_id?: string | null
           notes?: string | null
           original_signed_amount?: number | null
           scenario_id?: string | null
           source_account_id?: string | null
-          status?: Database["public"]["Enums"]["runway_forecast_status"]
+          status?: Database["public"]["Enums"]["runway_planned_status"]
           updated_at?: string
           user_id: string
         }
         Update: {
           amount_minor?: number
           category_id?: string | null
-          confidence?: Database["public"]["Enums"]["runway_forecast_confidence"]
+          confidence?: Database["public"]["Enums"]["runway_planned_confidence"]
           created_at?: string
+          default_sort_order?: number | null
           destination_account_id?: string | null
           expected_date?: string
+          expected_amount_minor_snapshot?: number | null
+          expected_date_snapshot?: string | null
           id?: string
-          kind?: Database["public"]["Enums"]["runway_forecast_kind"]
+          kind?: Database["public"]["Enums"]["runway_planned_kind"]
           label?: string
           legacy_source_id?: string | null
+          matched_transaction_id?: string | null
           notes?: string | null
           original_signed_amount?: number | null
           scenario_id?: string | null
           source_account_id?: string | null
-          status?: Database["public"]["Enums"]["runway_forecast_status"]
+          status?: Database["public"]["Enums"]["runway_planned_status"]
           updated_at?: string
           user_id?: string
         }
@@ -426,6 +438,121 @@ export type Database = {
           state?: Json
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      recurring_occurrences: {
+        Row: {
+          created_at: string
+          expected_amount_minor_snapshot: number | null
+          expected_date_snapshot: string | null
+          id: string
+          matched_transaction_id: string | null
+          occurrence_date: string
+          override_amount_minor: number | null
+          override_date: string | null
+          recurring_rule_id: string
+          status: Database["public"]["Enums"]["runway_occurrence_status"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expected_amount_minor_snapshot?: number | null
+          expected_date_snapshot?: string | null
+          id?: string
+          matched_transaction_id?: string | null
+          occurrence_date: string
+          override_amount_minor?: number | null
+          override_date?: string | null
+          recurring_rule_id: string
+          status: Database["public"]["Enums"]["runway_occurrence_status"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          expected_amount_minor_snapshot?: number | null
+          expected_date_snapshot?: string | null
+          matched_transaction_id?: string | null
+          occurrence_date?: string
+          override_amount_minor?: number | null
+          override_date?: string | null
+          status?: Database["public"]["Enums"]["runway_occurrence_status"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      recurring_rules: {
+        Row: {
+          active: boolean
+          amount_minor: number
+          archived_at: string | null
+          category_id: string | null
+          confidence: Database["public"]["Enums"]["runway_planned_confidence"]
+          created_at: string
+          day_of_month: number | null
+          day_of_week: number | null
+          default_sort_order: number | null
+          destination_account_id: string | null
+          end_on: string | null
+          frequency: Database["public"]["Enums"]["runway_recurrence_frequency"]
+          id: string
+          interval_count: number
+          is_reliable_income: boolean
+          kind: Database["public"]["Enums"]["runway_planned_kind"]
+          label: string
+          legacy_source_id: string | null
+          notes: string | null
+          scenario_id: string | null
+          source_account_id: string | null
+          start_on: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          active?: boolean
+          amount_minor: number
+          archived_at?: string | null
+          category_id?: string | null
+          confidence?: Database["public"]["Enums"]["runway_planned_confidence"]
+          day_of_month?: number | null
+          day_of_week?: number | null
+          default_sort_order?: number | null
+          destination_account_id?: string | null
+          end_on?: string | null
+          frequency: Database["public"]["Enums"]["runway_recurrence_frequency"]
+          id?: string
+          interval_count?: number
+          is_reliable_income?: boolean
+          kind: Database["public"]["Enums"]["runway_planned_kind"]
+          label: string
+          legacy_source_id?: string | null
+          notes?: string | null
+          scenario_id?: string | null
+          source_account_id?: string | null
+          start_on: string
+          user_id: string
+        }
+        Update: {
+          active?: boolean
+          amount_minor?: number
+          archived_at?: string | null
+          category_id?: string | null
+          confidence?: Database["public"]["Enums"]["runway_planned_confidence"]
+          day_of_month?: number | null
+          day_of_week?: number | null
+          default_sort_order?: number | null
+          destination_account_id?: string | null
+          end_on?: string | null
+          frequency?: Database["public"]["Enums"]["runway_recurrence_frequency"]
+          interval_count?: number
+          is_reliable_income?: boolean
+          kind?: Database["public"]["Enums"]["runway_planned_kind"]
+          label?: string
+          notes?: string | null
+          scenario_id?: string | null
+          source_account_id?: string | null
+          start_on?: string
         }
         Relationships: []
       }
@@ -623,6 +750,14 @@ export type Database = {
       }
     }
     Functions: {
+      match_forecast_item: {
+        Args: { p_forecast_item_id: string; p_transaction_id: string }
+        Returns: undefined
+      }
+      match_recurring_occurrence: {
+        Args: { p_occurrence_date: string; p_recurring_rule_id: string; p_transaction_id: string }
+        Returns: undefined
+      }
       create_account: {
         Args: {
           p_class: Database["public"]["Enums"]["runway_account_class"]
@@ -735,6 +870,10 @@ export type Database = {
         }
         Returns: string
       }
+      unmatch_forecast_item: {
+        Args: { p_forecast_item_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       runway_account_class:
@@ -757,9 +896,11 @@ export type Database = {
         | "imported_actual"
         | "planned_as_actual"
         | "inferred"
-      runway_forecast_confidence: "low" | "medium" | "high"
-      runway_forecast_kind: "income" | "expense"
-      runway_forecast_status: "expected" | "skipped" | "realized"
+      runway_occurrence_status: "expected" | "skipped" | "overridden" | "matched"
+      runway_planned_confidence: "committed" | "expected" | "tentative"
+      runway_planned_kind: "income" | "expense" | "transfer"
+      runway_planned_status: "expected" | "skipped" | "canceled" | "matched"
+      runway_recurrence_frequency: "weekly" | "monthly" | "yearly"
       runway_liquidity_class:
         | "operating"
         | "liquid"
@@ -932,9 +1073,11 @@ export const Constants = {
         "planned_as_actual",
         "inferred",
       ],
-      runway_forecast_confidence: ["low", "medium", "high"],
-      runway_forecast_kind: ["income", "expense"],
-      runway_forecast_status: ["expected", "skipped", "realized"],
+      runway_occurrence_status: ["expected", "skipped", "overridden", "matched"],
+      runway_planned_confidence: ["committed", "expected", "tentative"],
+      runway_planned_kind: ["income", "expense", "transfer"],
+      runway_planned_status: ["expected", "skipped", "canceled", "matched"],
+      runway_recurrence_frequency: ["weekly", "monthly", "yearly"],
       runway_liquidity_class: [
         "operating",
         "liquid",

@@ -1,42 +1,49 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMemo, useState, type FormEvent } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Page } from "~/components/page";
 import { forecastRepository } from "~/data/repositories/forecast-repository";
-import { asMinorUnits, formatMinorUnits } from "~/domain/money";
+import { recurringRepository } from "~/data/repositories/recurring-repository";
+import { asMinorUnits, formatMinorUnits, parseDisplayAmountToMinor } from "~/domain/money";
+import { buildForecastScreenModel } from "~/read-models/forecast";
 
-function message(error: unknown): string {
-  return error instanceof Error ? error.message : "Forecast items could not be loaded.";
-}
+const horizons = [6, 12, 18, 24];
+function message(error: unknown): string { return error instanceof Error ? error.message : "Forecast could not be loaded."; }
+function money(value: number, currency: string): string { return formatMinorUnits(asMinorUnits(value), currency); }
+function dateLabel(value: string): string { return new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(`${value}T00:00:00Z`)); }
 
 export default function ForecastRoute() {
-  const forecast = useQuery({
-    queryKey: ["forecast-items", "expected"],
-    queryFn: () => forecastRepository.listExpectedItems(),
-  });
-  const items = forecast.data ?? [];
-  const incomeMinor = items.filter((item) => item.kind === "income").reduce((sum, item) => sum + Number(item.amount_minor), 0);
-  const expenseMinor = items.filter((item) => item.kind === "expense").reduce((sum, item) => sum + Number(item.amount_minor), 0);
-
-  return <Page eyebrow="Time and certainty" title="Forecast" description="Expected money is planning information. It never changes your actual account balances until you deliberately post an actual transaction.">
-    <div className="actual-planned-strip">
-      <div><strong>Actual</strong><span>Posted in the double-entry ledger and reflected in Accounts.</span></div>
-      <div><strong>Planned</strong><span>Dated expectations preserved from legacy Runway for review.</span></div>
-    </div>
-    <section className="money-panel" aria-labelledby="forecast-heading">
-      <div className="panel-heading">
-        <div><p className="section-kicker">Base plan</p><h2 id="forecast-heading">Expected items</h2></div>
-        <div className="forecast-totals"><span>Income <strong>{formatMinorUnits(asMinorUnits(incomeMinor), "NOK")}</strong></span><span>Expenses <strong>{formatMinorUnits(asMinorUnits(expenseMinor), "NOK")}</strong></span></div>
-      </div>
-      <p className="form-help">Scenario items remain associated with their plans. Phase 5 will add projection calculations; this view intentionally shows only the migrated planning inputs.</p>
-      {forecast.isLoading ? <p className="muted">Loading expected items…</p> : null}
-      {forecast.error ? <p className="field-error" role="alert">{message(forecast.error)}</p> : null}
-      <div className="forecast-list">
-        {items.map((item) => <article className="forecast-row" key={item.id}>
-          <time dateTime={item.expected_date}>{new Date(`${item.expected_date}T12:00:00`).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}</time>
-          <div><strong>{item.label}</strong><span>{item.categories?.name ?? "Uncategorized"}{item.scenarios?.name ? ` · ${item.scenarios.name}` : " · Base plan"}</span></div>
-          <strong className={item.kind === "expense" ? "negative" : "positive"}>{item.kind === "expense" ? "−" : "+"}{formatMinorUnits(asMinorUnits(Number(item.amount_minor)), "NOK")}</strong>
-        </article>)}
-        {!forecast.isLoading && items.length === 0 ? <p className="muted">No expected future items.</p> : null}
-      </div>
-    </section>
+  const client = useQueryClient();
+  const workspace = useQuery({ queryKey: ["forecast-workspace"], queryFn: () => forecastRepository.getWorkspace() });
+  const [horizon, setHorizon] = useState<number | null>(null); const [selectedScenarios, setSelectedScenarios] = useState<string[]>([]);
+  const [editingId, setEditingId] = useState<string | null>(null); const [kind, setKind] = useState<"income" | "expense" | "transfer">("expense");
+  const [label, setLabel] = useState(""); const [amount, setAmount] = useState(""); const [date, setDate] = useState("");
+  const [source, setSource] = useState(""); const [destination, setDestination] = useState(""); const [scenario, setScenario] = useState("");
+  const [confidence, setConfidence] = useState<"committed" | "expected" | "tentative">("expected"); const [formError, setFormError] = useState("");
+  const months = horizon ?? workspace.data?.profile.forecast_horizon_months ?? 12;
+  const model = useMemo(() => workspace.data ? buildForecastScreenModel(workspace.data, months, selectedScenarios) : null, [workspace.data, months, selectedScenarios]);
+  const invalidate = () => client.invalidateQueries({ queryKey: ["forecast-workspace"] });
+  const save = useMutation({ mutationFn: async () => {
+    const amountMinor = Number(parseDisplayAmountToMinor(amount)); if (amountMinor <= 0) throw new Error("Amount must be positive.");
+    const payload = { kind, label: label.trim(), amount_minor: amountMinor, expected_date: date, confidence, scenario_id: scenario || null,
+      source_account_id: kind === "income" ? null : source || null, destination_account_id: kind === "expense" ? null : destination || null };
+    if (!payload.label || !date) throw new Error("Label and date are required.");
+    if (editingId) await forecastRepository.updateItem(editingId, payload); else await forecastRepository.createItem(payload);
+  }, onSuccess: () => { setEditingId(null); setLabel(""); setAmount(""); setDate(""); setFormError(""); void invalidate(); }, onError: (error) => setFormError(message(error)) });
+  const update = useMutation({ mutationFn: ({ id, values }: { id: string; values: Parameters<typeof forecastRepository.updateItem>[1] }) => forecastRepository.updateItem(id, values), onSuccess: () => void invalidate() });
+  const match = useMutation({ mutationFn: ({ itemId, transactionId }: { itemId: string; transactionId: string }) => forecastRepository.matchItem(itemId, transactionId), onSuccess: () => void invalidate() });
+  const occurrence = useMutation({ mutationFn: (command: { ruleId: string; date: string; transactionId?: string }) => command.transactionId ? recurringRepository.matchOccurrence(command.ruleId, command.date, command.transactionId) : recurringRepository.setException(command.ruleId, command.date, { status: "skipped" }), onSuccess: () => void invalidate() });
+  function beginEdit(id: string) { const item = workspace.data?.items.find((candidate) => candidate.id === id); if (!item) return; setEditingId(id); setKind(item.kind); setLabel(item.label); setAmount((Number(item.amount_minor) / 100).toFixed(2)); setDate(item.expected_date); setSource(item.source_account_id ?? ""); setDestination(item.destination_account_id ?? ""); setScenario(item.scenario_id ?? ""); setConfidence(item.confidence); }
+  function submit(event: FormEvent) { event.preventDefault(); save.mutate(); }
+  const currency = workspace.data?.profile.base_currency ?? "NOK";
+  return <Page eyebrow="Time and certainty" title="Forecast" description="A deterministic projection from actual balances plus explicit one-off plans, recurring rules, and selected scenarios. Planned money never changes your actual account balances.">
+    <div className="forecast-toolbar" aria-label="Forecast controls"><div><span>Horizon</span><div className="horizon-options">{horizons.map((value) => <button className={months === value ? "active" : ""} key={value} onClick={() => { setHorizon(value); void forecastRepository.saveHorizon(value); }}>{value} months</button>)}</div></div><div><span>Scenarios</span><div className="scenario-options">{workspace.data?.scenarios.map((item) => <label key={item.id}><input type="checkbox" checked={selectedScenarios.includes(item.id)} onChange={(event) => setSelectedScenarios((current) => event.target.checked ? [...current, item.id] : current.filter((id) => id !== item.id))}/>{item.name}</label>)}</div></div>{model ? <small>As of {dateLabel(model.result.asOfDate)} · through {dateLabel(model.result.endDate)}</small> : null}</div>
+    {workspace.isLoading ? <p className="muted">Building forecast…</p> : null}{workspace.error ? <p className="field-error" role="alert">{message(workspace.error)}</p> : null}
+    {model ? <><section className="money-summary" aria-label="Forecast summary"><div className="metric-card"><p>At horizon</p><strong>{money(model.summary.projectedBalanceMinor, currency)}</strong></div><div className="metric-card"><p>Lowest operating cash</p><strong className={model.result.firstFloorBreach ? "negative" : ""}>{money(model.summary.lowestOperatingMinor, currency)}</strong><small>{dateLabel(model.result.lowestOperatingCash.date)}</small></div><div className="metric-card"><p>Projected income</p><strong className="positive">{money(model.summary.incomeMinor, currency)}</strong></div><div className="metric-card"><p>Projected expenses</p><strong>{money(model.summary.expenseMinor, currency)}</strong><small>{model.summary.overdueCount} overdue</small></div></section>
+      <section className="chart-card"><div className="panel-heading"><div><p className="section-kicker">Financial position</p><h2>Cash runway</h2></div><span className="chart-legend">Operating cash · Liquid cash</span></div><div className="forecast-chart" aria-label="Projected operating and liquid cash chart"><ResponsiveContainer width="100%" height="100%"><AreaChart data={model.chart}><CartesianGrid vertical={false} stroke="var(--color-line)"/><XAxis dataKey="date" tickFormatter={(value) => String(value).slice(5)} minTickGap={36}/><YAxis tickFormatter={(value) => `${Math.round(Number(value) / 1000)}k`}/><Tooltip formatter={(value) => money(Number(value), currency)} labelFormatter={(value) => dateLabel(String(value))}/><Area type="stepAfter" dataKey="liquidCashMinor" name="Liquid cash" stroke="var(--color-positive)" fill="transparent"/><Area type="stepAfter" dataKey="operatingCashMinor" name="Operating cash" stroke="var(--color-accent)" fill="rgb(187 95 67 / .12)"/></AreaChart></ResponsiveContainer></div></section>
+      {model.result.overdueItems.length ? <section className="money-panel attention-panel"><div className="panel-heading"><div><p className="section-kicker">Needs attention</p><h2>Overdue plans</h2></div><strong>{model.result.overdueItems.length}</strong></div>{model.result.overdueItems.map((item) => <div className="attention-row" key={item.id}><div><strong>{item.label}</strong><span>{dateLabel(item.date)} · {money(item.amountMinor, currency)}</span></div>{item.sourceType === "forecast_item" ? <div className="row-actions"><button onClick={() => update.mutate({ id: item.sourceId, values: { status: "skipped" } })}>Mark skipped</button><button onClick={() => beginEdit(item.sourceId)}>Reschedule</button></div> : null}</div>)}</section> : null}
+      <div className="forecast-layout"><section className="money-panel"><div className="panel-heading"><div><p className="section-kicker">Projected events</p><h2>Timeline</h2></div><div className="forecast-totals"><span>Events<strong>{model.timeline.length}</strong></span><span>Scenarios<strong>{model.result.scenario.eventCount}</strong></span></div></div>{model.result.scenario.conflicts.length ? <p className="field-error">Conflicting scenario changes were excluded: {model.result.scenario.conflicts.length}.</p> : null}<div className="forecast-list">{model.timeline.map((item) => <article className="forecast-row forecast-row-detailed" key={item.id}><time dateTime={item.date}>{dateLabel(item.date)}</time><div><strong>{item.label}</strong><span>{item.accountImpact} · {item.confidence}{item.recurrenceRuleId ? " · Recurring" : ""}{item.scenarioId ? " · Scenario" : ""}</span><small>Running operating cash {money(item.runningBalanceMinor, currency)}</small></div><strong className={item.kind === "expense" ? "negative" : item.kind === "income" ? "positive" : ""}>{item.kind === "expense" ? "−" : item.kind === "income" ? "+" : "↔"}{money(item.amountMinor, currency)}</strong>{item.sourceType === "forecast_item" ? <div className="timeline-actions"><button onClick={() => beginEdit(item.sourceId)}>Edit</button><button onClick={() => update.mutate({ id: item.sourceId, values: { status: "skipped" } })}>Skip</button><button onClick={() => update.mutate({ id: item.sourceId, values: { status: "canceled" } })}>Cancel</button><a href="/money/transactions">Post actual</a><select aria-label={`Match ${item.label}`} defaultValue="" onChange={(event) => event.target.value && match.mutate({ itemId: item.sourceId, transactionId: event.target.value })}><option value="">Match transaction…</option>{workspace.data?.transactions.map((transaction) => <option key={transaction.id} value={transaction.id}>{transaction.description} · {dateLabel(transaction.occurred_at.slice(0, 10))}</option>)}</select></div> : item.recurrenceRuleId ? <div className="timeline-actions"><button onClick={() => occurrence.mutate({ ruleId: item.recurrenceRuleId!, date: item.canonicalDate })}>Skip this occurrence</button><a href="/money/transactions">Post actual</a><select aria-label={`Match recurring ${item.label}`} defaultValue="" onChange={(event) => event.target.value && occurrence.mutate({ ruleId: item.recurrenceRuleId!, date: item.canonicalDate, transactionId: event.target.value })}><option value="">Match transaction…</option>{workspace.data?.transactions.map((transaction) => <option key={transaction.id} value={transaction.id}>{transaction.description} · {dateLabel(transaction.occurred_at.slice(0, 10))}</option>)}</select></div> : null}</article>)}</div></section>
+        <section className="money-panel"><div className="panel-heading"><div><p className="section-kicker">One-off plan</p><h2>{editingId ? "Edit planned item" : "Add planned item"}</h2></div></div><form className="money-form" onSubmit={submit}><label>Type<select value={kind} onChange={(event) => setKind(event.target.value as typeof kind)}><option value="income">Income</option><option value="expense">Expense</option><option value="transfer">Transfer</option></select></label><label>Label<input value={label} onChange={(event) => setLabel(event.target.value)} required/></label><label>Amount<input value={amount} inputMode="decimal" onChange={(event) => setAmount(event.target.value)} required/></label><label>Date<input type="date" value={date} onChange={(event) => setDate(event.target.value)} required/></label>{kind !== "income" ? <label>From account<select value={source} onChange={(event) => setSource(event.target.value)} required><option value="">Choose account</option>{workspace.data?.accounts.filter((account) => !account.is_system).map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}</select></label> : null}{kind !== "expense" ? <label>To account<select value={destination} onChange={(event) => setDestination(event.target.value)} required><option value="">Choose account</option>{workspace.data?.accounts.filter((account) => !account.is_system).map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}</select></label> : null}<label>Confidence<select value={confidence} onChange={(event) => setConfidence(event.target.value as typeof confidence)}><option value="committed">Committed</option><option value="expected">Expected</option><option value="tentative">Tentative</option></select></label><label>Scenario <span className="optional">optional</span><select value={scenario} onChange={(event) => setScenario(event.target.value)}><option value="">Base plan</option>{workspace.data?.scenarios.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>{formError ? <p className="field-error" role="alert">{formError}</p> : null}<button className="primary-button" disabled={save.isPending}>{editingId ? "Save changes" : "Add to forecast"}</button>{editingId ? <button type="button" onClick={() => setEditingId(null)}>Cancel editing</button> : null}</form></section></div>
+    </> : null}
   </Page>;
 }

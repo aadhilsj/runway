@@ -16,7 +16,7 @@ function json(route: Route, body: unknown, status = 200) {
   return route.fulfill({ status, contentType: "application/json", headers: { "content-range": "0-0/1" }, body: JSON.stringify(body) });
 }
 
-async function installFixtureBackend(page: Page) {
+export async function installFixtureBackend(page: Page) {
   const now = "2026-08-19T12:00:00.000Z";
   const account = (id: string, name: string, subtype: "checking" | "savings", liquidity: "operating" | "liquid"): FixtureAccount => ({
     id, user_id: USER_ID, name, class: "asset", subtype, currency: "NOK", include_in_net_worth: true,
@@ -34,6 +34,8 @@ async function installFixtureBackend(page: Page) {
     ],
   }];
   const snapshots: Array<Record<string, unknown>> = [];
+  const recurringRules: Array<Record<string, unknown>> = [];
+  const forecastItems: Array<Record<string, unknown>> = [{ id: "forecast-scenario", user_id: USER_ID, kind: "expense", expected_date: "2026-10-15", amount_minor: 250000, source_account_id: OPERATING_ID, destination_account_id: null, category_id: CATEGORY_ID, label: "Invented scenario cost", notes: null, confidence: "expected", status: "expected", scenario_id: "scenario-fixture", default_sort_order: null }];
   let sequence = 0;
   const newId = () => `aaaaaaaa-aaaa-4aaa-8aaa-${String(++sequence).padStart(12, "0")}`;
   const netWorth = () => [...balances.values()].reduce((sum, value) => sum + value, 0);
@@ -60,10 +62,18 @@ async function installFixtureBackend(page: Page) {
     const url = new URL(request.url());
     if (url.pathname.startsWith("/auth/v1/")) return json(route, user);
     if (url.pathname === "/rest/v1/accounts" && request.method() === "GET") return json(route, accounts);
+    if (url.pathname === "/rest/v1/profiles" && request.method() === "GET") return json(route, [{ user_id: USER_ID, base_currency: "NOK", timezone: "Europe/Oslo", operating_floor_minor: 900000, forecast_horizon_months: 12 }]);
+    if (url.pathname === "/rest/v1/profiles" && request.method() === "PATCH") return json(route, []);
     if (url.pathname === "/rest/v1/account_balances") return json(route, accounts.map((row) => ({ user_id: USER_ID, account_id: row.id, currency: "NOK", ledger_balance_minor: balances.get(row.id) ?? 0, display_balance_minor: balances.get(row.id) ?? 0 })));
     if (url.pathname === "/rest/v1/current_net_worth") return json(route, [{ user_id: USER_ID, currency: "NOK", net_worth_minor: netWorth() }]);
     if (url.pathname === "/rest/v1/categories") return json(route, [{ id: CATEGORY_ID, user_id: USER_ID, name: "Housing", kind: "expense", archived_at: null, sort_order: 10 }]);
     if (url.pathname === "/rest/v1/transactions") return json(route, transactions);
+    if (url.pathname === "/rest/v1/forecast_items" && request.method() === "GET") return json(route, forecastItems);
+    if (url.pathname === "/rest/v1/recurring_rules" && request.method() === "GET") return json(route, recurringRules);
+    if (url.pathname === "/rest/v1/recurring_rules" && request.method() === "POST") { recurringRules.push({ id: newId(), active: true, archived_at: null, confidence: "expected", scenario_id: null, default_sort_order: null, ...request.postDataJSON() }); return json(route, [], 201); }
+    if (url.pathname === "/rest/v1/recurring_rules" && request.method() === "PATCH") { const id = url.searchParams.get("id")?.replace("eq.", ""); const rule = recurringRules.find((row) => row.id === id); if (rule) Object.assign(rule, request.postDataJSON()); return json(route, []); }
+    if (url.pathname === "/rest/v1/recurring_occurrences") return json(route, []);
+    if (url.pathname === "/rest/v1/scenarios") return json(route, [{ id: "scenario-fixture", user_id: USER_ID, name: "Invented plan", description: "Fixture", archived_at: null }]);
     if (url.pathname === "/rest/v1/transaction_entries") return json(route, []);
     if (url.pathname === "/rest/v1/account_balance_snapshots" && request.method() === "GET") return json(route, snapshots);
     if (url.pathname === "/rest/v1/account_balance_snapshots" && request.method() === "POST") {
@@ -145,4 +155,16 @@ test("signed-in Phase 4 money flow uses only invented fixture data", async ({ pa
   await page.getByLabel("Create a confirmed adjustment").check();
   await page.getByRole("button", { name: "Create adjustment" }).click();
   await expect(page.getByRole("button", { name: /Operating Cash/ })).toContainText("26 300,00 kr");
+});
+
+test("creates recurring plans and projects horizon and scenario changes", async ({ page }) => {
+  await installFixtureBackend(page);
+  await page.goto("/settings/recurring");
+  await expect(page.getByRole("heading", { name: "Recurring rules", level: 1 })).toBeVisible();
+  await page.getByLabel("Type").selectOption("income"); await page.getByLabel("Label").fill("Invented recurring salary"); await page.getByLabel("Amount").fill("30000"); await page.getByLabel("Starts").fill("2026-09-01"); await page.getByLabel("To account").selectOption(OPERATING_ID); await page.getByRole("button", { name: "Create recurring rule" }).click();
+  await expect(page.getByText("Invented recurring salary")).toBeVisible();
+  await page.getByLabel("Type").selectOption("expense"); await page.getByLabel("Label").fill("Invented recurring rent"); await page.getByLabel("Amount").fill("10000"); await page.getByLabel("Starts").fill("2026-09-02"); await page.getByLabel("From account").selectOption(OPERATING_ID); await page.getByRole("button", { name: "Create recurring rule" }).click();
+  await expect(page.getByText("Invented recurring rent")).toBeVisible();
+  await page.goto("/forecast"); await expect(page.getByText("Invented recurring salary").first()).toBeVisible(); await expect(page.getByText("Invented scenario cost")).toHaveCount(0);
+  await page.getByRole("button", { name: "24 months" }).click(); await page.getByRole("checkbox", { name: "Invented plan" }).check(); await expect(page.getByText("Invented scenario cost")).toBeVisible(); await expect(page.getByLabel("Projected operating and liquid cash chart")).toBeVisible();
 });

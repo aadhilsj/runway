@@ -5,7 +5,7 @@ Runway 2 is an isolated React Router Framework Mode SPA in `runway-v2/`. Phase 4
 ## Boundaries
 
 - `app/domain/` contains pure TypeScript. It must not import React, Supabase, Recharts, browser globals, or route modules.
-- `app/data/` owns Supabase and TanStack Query integration. Generated database types live in `app/data/database.types.ts` and are regenerated from the linked project, never hand-edited.
+- `app/data/` owns Supabase and TanStack Query integration. The schema-synchronized database interface lives in `app/data/database.types.ts`.
 - `app/read-models/` defines screen-shaped projections. Charts receive read-model data; they do not calculate financial truth.
 - `app/auth/` restores the Supabase session and exposes the minimum auth state/actions.
 - `app/routes/` composes page modules. Remote server state belongs in TanStack Query; ephemeral controls stay local; shareable filters belong in the URL.
@@ -15,7 +15,7 @@ Runway 2 is an isolated React Router Framework Mode SPA in `runway-v2/`. Phase 4
 
 The root creates one QueryClient, restores the Supabase session, then allows the protected layout to render. `/` redirects to `/overview`; `/money` redirects to `/money/transactions`. Financial routes redirect unauthenticated users to `/sign-in` and preserve the intended destination.
 
-No route reads `public.runway_state`. Accounts and Transactions read the normalized ledger; Forecast reads non-authoritative `forecast_items`. This keeps legacy state out of the runtime truth path after the approved Phase 4 application.
+No route reads `public.runway_state`. Accounts and Transactions read the normalized ledger; Forecast reads non-authoritative planning tables and ledger-derived actual balances. This keeps legacy state out of the runtime truth path after the approved Phase 4 application.
 
 ## Phase 2 ledger boundary
 
@@ -39,6 +39,15 @@ Posted transactions remain `posted` forever. Corrections create an equal-and-opp
 - Bank observations create immutable snapshots. A balance difference changes the ledger only after explicit adjustment confirmation.
 - Future migrated events live in `forecast_items`; settled events, overdue resolutions, old templates, lineage hints, and old budget data live in reference tables.
 - Phase 4 does not implement projection calculations, Funds, allocation rules, or automatic forecast posting.
+
+## Phase 5 forecast boundary
+
+- `app/domain/forecast.ts` expands recurrence and calculates projections without React, Supabase, or chart dependencies.
+- `recurring_rules` stores finite or open-ended schedule intent; `recurring_occurrences` stores only exceptions and matches.
+- `app/read-models/forecast.ts` maps normalized rows into typed engine input and screen-shaped output.
+- `/forecast` selects horizon/scenarios and renders summaries, chart series, attention items, and a dense timeline. `/settings/recurring` edits schedule configuration.
+- Matching links planned expectations to authoritative posted transactions through guarded RPCs. It preserves expected snapshots and never changes the ledger or future rule.
+- The fully materialized finite legacy template remains concrete one-off items; no duplicate recurring rules are created.
 
 ## State ownership
 

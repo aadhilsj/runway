@@ -116,6 +116,33 @@ button:disabled { opacity: .48; cursor: not-allowed; }
 .forecast-row div { display: grid; gap: var(--space-1); }
 .positive { color: var(--color-positive); }
 .negative { color: var(--color-negative); }
+.forecast-toolbar { display: grid; grid-template-columns: auto minmax(18rem, 1fr) auto; gap: var(--space-6); align-items: end; padding: var(--space-5); border: 1px solid var(--color-line); border-radius: var(--radius-md); background: var(--color-surface); }
+.forecast-toolbar > div { display: grid; gap: var(--space-2); }
+.forecast-toolbar > div > span { color: var(--color-muted); font-size: .72rem; font-weight: 780; text-transform: uppercase; letter-spacing: .1em; }
+.horizon-options, .scenario-options { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.horizon-options button, .timeline-actions button { border: 1px solid var(--color-line); background: transparent; color: var(--color-muted); border-radius: 999px; padding: .46rem .7rem; cursor: pointer; font-size: .76rem; font-weight: 720; }
+.horizon-options button.active { background: var(--color-ink); color: white; border-color: var(--color-ink); }
+.scenario-options label { display: flex; gap: var(--space-2); align-items: center; font-size: .78rem; color: var(--color-muted); }
+.forecast-chart { height: 23rem; min-width: 0; }
+.chart-legend { color: var(--color-muted); font-size: .76rem; }
+.forecast-layout { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(20rem, .55fr); gap: var(--space-5); align-items: start; }
+.attention-panel { border-color: color-mix(in srgb, var(--color-negative) 38%, var(--color-line)); }
+.attention-row { display: flex; justify-content: space-between; gap: var(--space-4); align-items: center; padding: var(--space-3) 0; border-top: 1px solid var(--color-line); }
+.attention-row > div:first-child { display: grid; gap: var(--space-1); }
+.attention-row span, .forecast-row small { color: var(--color-muted); font-size: .75rem; }
+.forecast-row-detailed { grid-template-columns: 7.5rem minmax(0, 1fr) auto; }
+.timeline-actions { grid-column: 2 / -1; display: flex !important; flex-direction: row; justify-content: flex-end; align-items: center; }
+.timeline-actions select { border: 1px solid var(--color-line); background: var(--color-surface); border-radius: var(--radius-sm); padding: .4rem; color: var(--color-muted); font-size: .75rem; }
+.timeline-actions a { color: var(--color-accent-strong); font-size: .75rem; font-weight: 720; }
+.recurring-list { display: grid; gap: var(--space-3); }
+.recurring-row { display: flex; justify-content: space-between; gap: var(--space-4); align-items: center; padding: var(--space-4); border: 1px solid var(--color-line); border-radius: var(--radius-sm); background: var(--color-surface-strong); }
+.recurring-row.paused { opacity: .58; }
+.recurring-row h3 { margin: var(--space-1) 0; }
+.recurring-row p { margin: 0 0 var(--space-2); color: var(--color-muted); font-size: .8rem; }
+.rule-kind { color: var(--color-accent-strong); text-transform: uppercase; letter-spacing: .1em; font-size: .65rem; font-weight: 800; }
+.settings-card { max-width: 40rem; }
+.settings-card h2 { margin-bottom: var(--space-2); }
+.settings-card .primary-button { display: inline-block; margin-top: var(--space-3); text-decoration: none; }
 
 @media (max-width: 64rem) {
   .app-frame { grid-template-columns: 13.5rem minmax(0, 1fr); }
@@ -133,6 +160,7 @@ button:disabled { opacity: .48; cursor: not-allowed; }
   .sync-status, .quiet-button { display: none; }
   .content { padding: var(--space-6) var(--space-4); }
   .money-layout, .transactions-layout { grid-template-columns: 1fr; }
+  .forecast-layout, .forecast-toolbar { grid-template-columns: 1fr; }
   .actual-planned-strip { grid-template-columns: 1fr; }
   .forecast-row { grid-template-columns: 1fr auto; gap: var(--space-2); }
   .forecast-row time { grid-column: 1 / -1; }

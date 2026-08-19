@@ -1,2 +1,3 @@
 import { Page } from "~/components/page";
-export default function SettingsRoute() { return <Page eyebrow="Your defaults" title="Settings" description="Currency, timezone, forecast horizon, safety floor, payday plan, and preferences belong here." />; }
+import { Link } from "react-router";
+export default function SettingsRoute() { return <Page eyebrow="Your defaults" title="Settings" description="Currency, timezone, forecast horizon, safety floor, and preferences belong here."><section className="money-panel settings-card"><p className="section-kicker">Forecast</p><h2>Recurring rules</h2><p className="muted">Manage repeating income, expenses, and transfers without generating permanent future rows.</p><Link className="primary-button" to="/settings/recurring">Manage recurring rules</Link></section></Page>; }
