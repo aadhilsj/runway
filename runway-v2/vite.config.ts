@@ -6,8 +6,8 @@ export default defineConfig({
   resolve: { tsconfigPaths: true },
   define: {
     __RUNWAY_BUILD_SHA__: JSON.stringify(
-      process.env.VERCEL_GIT_COMMIT_SHA ??
-        process.env.RUNWAY_BUILD_SHA ??
+      process.env.VERCEL_GIT_COMMIT_SHA ||
+        process.env.RUNWAY_BUILD_SHA ||
         "development",
     ),
   },
