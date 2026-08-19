@@ -1,29 +1,74 @@
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { useState, type FormEvent } from "react";
 import { Navigate, useLocation } from "react-router";
 import { z } from "zod";
 import { useAuth } from "~/auth/auth-context";
 import { MarkIcon } from "~/components/icons";
 import { getSupabaseClient } from "~/data/supabase";
 
-const signInSchema = z.object({ email: z.email(), password: z.string().min(8) });
-type SignInFields = z.infer<typeof signInSchema>;
+const emailSchema = z.email();
 
 export default function SignInRoute() {
   const { session, configured } = useAuth();
   const location = useLocation();
+  const [email, setEmail] = useState("");
+  const [pendingEmail, setPendingEmail] = useState<string | null>(null);
+  const [code, setCode] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<SignInFields>({ resolver: zodResolver(signInSchema) });
+  const [status, setStatus] = useState<string | null>(null);
   const destination = (location.state as { from?: string } | null)?.from ?? "/overview";
   if (session) return <Navigate to={destination} replace />;
 
-  async function submit(values: SignInFields) {
+  async function sendEmail(event: FormEvent) {
+    event.preventDefault();
+    const parsed = emailSchema.safeParse(email.trim());
+    if (!parsed.success) {
+      setServerError("Enter a valid email address.");
+      return;
+    }
     const client = getSupabaseClient();
     if (!client) return;
+    setIsSubmitting(true);
     setServerError(null);
-    const { error } = await client.auth.signInWithPassword(values);
-    if (error) setServerError(error.message);
+    setStatus(null);
+    const { error } = await client.auth.signInWithOtp({
+      email: parsed.data,
+      options: {
+        emailRedirectTo: window.location.origin,
+        shouldCreateUser: false,
+      },
+    });
+    setIsSubmitting(false);
+    if (error) {
+      setServerError("The sign-in email could not be sent. Check the address and try again.");
+      return;
+    }
+    setPendingEmail(parsed.data);
+    setStatus(`Sign-in email sent to ${parsed.data}. Open the link or enter the code below.`);
+  }
+
+  async function verifyCode(event: FormEvent) {
+    event.preventDefault();
+    if (!pendingEmail) return;
+    const token = code.replace(/\s+/g, "").trim();
+    if (!token) {
+      setServerError("Enter the code from your email.");
+      return;
+    }
+    const client = getSupabaseClient();
+    if (!client) return;
+    setIsSubmitting(true);
+    setServerError(null);
+    const { error } = await client.auth.verifyOtp({ email: pendingEmail, token, type: "email" });
+    setIsSubmitting(false);
+    if (error) setServerError("That code could not be verified. Request a new email and try again.");
+  }
+
+  function changeEmail() {
+    setPendingEmail(null);
+    setCode("");
+    setServerError(null);
+    setStatus(null);
   }
 
   return (
@@ -32,18 +77,25 @@ export default function SignInRoute() {
         <div className="sign-in-brand"><MarkIcon /><span>Runway</span></div>
         <p className="eyebrow">Private financial workspace</p>
         <h1 id="sign-in-title">Welcome back</h1>
-        <p>Sign in to continue to your runway.</p>
+        <p>Use the secure link or one-time code sent to your email.</p>
         {!configured && <p className="form-notice" role="status">Add the two Supabase variables from `.env.example` to enable sign-in.</p>}
-        <form onSubmit={handleSubmit(submit)} noValidate>
-          <label htmlFor="email">Email</label>
-          <input id="email" type="email" autoComplete="email" {...register("email")} aria-invalid={Boolean(errors.email)} />
-          {errors.email && <p className="field-error">{errors.email.message}</p>}
-          <label htmlFor="password">Password</label>
-          <input id="password" type="password" autoComplete="current-password" {...register("password")} aria-invalid={Boolean(errors.password)} />
-          {errors.password && <p className="field-error">{errors.password.message}</p>}
-          {serverError && <p className="field-error" role="alert">{serverError}</p>}
-          <button type="submit" disabled={!configured || isSubmitting}>{isSubmitting ? "Signing in…" : "Sign in"}</button>
-        </form>
+        {!pendingEmail ? (
+          <form onSubmit={sendEmail} noValidate>
+            <label htmlFor="email">Email</label>
+            <input id="email" type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} aria-invalid={Boolean(serverError)} />
+            {serverError && <p className="field-error" role="alert">{serverError}</p>}
+            <button type="submit" disabled={!configured || isSubmitting}>{isSubmitting ? "Sending…" : "Send sign-in email"}</button>
+          </form>
+        ) : (
+          <form onSubmit={verifyCode} noValidate>
+            <label htmlFor="code">One-time code</label>
+            <input id="code" type="text" inputMode="numeric" autoComplete="one-time-code" value={code} onChange={(event) => setCode(event.target.value)} autoFocus />
+            {status && <p className="form-notice" role="status">{status}</p>}
+            {serverError && <p className="field-error" role="alert">{serverError}</p>}
+            <button type="submit" disabled={!configured || isSubmitting}>{isSubmitting ? "Verifying…" : "Verify code"}</button>
+            <button type="button" onClick={changeEmail}>Use a different email</button>
+          </form>
+        )}
       </section>
     </main>
   );

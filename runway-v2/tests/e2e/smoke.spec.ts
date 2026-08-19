@@ -8,5 +8,7 @@ test("unauthenticated financial routes are protected", async ({ page }) => {
   await page.goto("/overview");
   await expect(page).toHaveURL(/\/sign-in$/);
   await expect(page.getByRole("heading", { name: "Welcome back" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Send sign-in email" })).toBeVisible();
+  await expect(page.getByLabel("Password")).toHaveCount(0);
   expect(consoleErrors).toEqual([]);
 });

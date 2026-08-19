@@ -20,6 +20,14 @@ describe("Phase 10 production readiness", () => {
     expect(userFacingError(new Error("Enter a positive amount."), "Could not save.")).toBe("Enter a positive amount.");
   });
 
+  it("keeps the established passwordless sign-in flow without creating users", async () => {
+    const source = await readFile("app/routes/sign-in.tsx", "utf8");
+    expect(source).toContain("signInWithOtp");
+    expect(source).toContain("verifyOtp");
+    expect(source).toContain("shouldCreateUser: false");
+    expect(source).not.toContain("signInWithPassword");
+  });
+
   it("retires the legacy service worker and Runway PWA caches", async () => {
     const unregister = vi.fn(async () => true);
     const deleteCache = vi.fn(async () => true);
