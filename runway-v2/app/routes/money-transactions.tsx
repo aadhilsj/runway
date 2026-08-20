@@ -80,9 +80,9 @@ export default function TransactionsRoute() {
 
   return <Page eyebrow="What really happened" title="Activity" description="Record money after it moves. Income, spending, and transfers here update your real account balances; Forecast items do not.">
     <div className="actual-planned-strip"><div><strong>Actual</strong><span>Money that really moved and is backed by the ledger.</span></div><div><strong>Planned</strong><span>Expected future movement shown separately in Forecast.</span></div></div>
-    <div className="panel-heading page-actions"><p className="muted">Posted entries are permanent; corrections create a linked reversal.</p><button className="primary-button" type="button" onClick={() => setCreateOpen(true)}>Add transaction</button></div>
+    <div className="panel-heading page-actions"><p className="muted">This is your record of money that really moved. If something is wrong, correct it without losing the original entry.</p><button className="primary-button" type="button" aria-label="Add transaction" onClick={() => setCreateOpen(true)}>Record activity</button></div>
     <section className="money-panel" aria-labelledby="history-heading">
-        <div className="panel-heading"><div><p className="section-kicker">Immutable history</p><h2 id="history-heading">Posted transactions</h2></div></div>
+        <div className="panel-heading"><div><p className="section-kicker">Your history</p><h2 id="history-heading">Money activity</h2></div></div>
         <label className="search-field">Search history<input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Description or type"/></label>
         {transactions.isLoading ? <p className="muted">Loading transactions…</p> : null}
         {transactions.error ? <p className="field-error" role="alert">{message(transactions.error)}</p> : null}
