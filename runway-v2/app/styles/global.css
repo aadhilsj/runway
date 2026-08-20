@@ -147,8 +147,17 @@ button:disabled { opacity: .48; cursor: not-allowed; }
 .attention-row > div:first-child { display: grid; gap: var(--space-1); }
 .attention-row span, .forecast-row small { color: var(--color-muted); font-size: .75rem; }
 .forecast-row-detailed { grid-template-columns: 7.5rem minmax(0, 1fr) auto; }
+.forecast-lowest-balance { display:grid; grid-template-columns:minmax(13rem,22rem); }
+.timeline-panel { padding:var(--space-4) var(--space-5); }
+.timeline-panel .panel-heading { align-items:center; margin-bottom:var(--space-3); }
+.timeline-list { gap:var(--space-2); }
+.timeline-list .forecast-row-detailed { grid-template-columns:6.75rem minmax(0,1fr) auto auto; gap:var(--space-3); padding:.65rem .8rem; }
+.timeline-list .forecast-row-detailed > div:nth-of-type(1) { gap:.1rem; }
+.timeline-list .forecast-row-detailed > div:nth-of-type(1) > span,
+.timeline-list .forecast-row-detailed > div:nth-of-type(1) > small { line-height:1.25; }
 .timeline-heading-actions { display:flex; align-items:center; gap:var(--space-4); }
 .timeline-actions { grid-column: 2 / -1; display: flex !important; flex-direction: row; justify-content: flex-end; align-items: center; }
+.timeline-list .timeline-actions { grid-column:auto; gap:var(--space-2); }
 .timeline-actions select { border: 1px solid var(--color-line); background: var(--color-surface); border-radius: var(--radius-sm); padding: .4rem; color: var(--color-muted); font-size: .75rem; }
 .timeline-actions a { color: var(--color-accent-strong); font-size: .75rem; font-weight: 720; }
 .timeline-overflow { position: relative; }
@@ -270,6 +279,10 @@ button:disabled { opacity: .48; cursor: not-allowed; }
   .actual-planned-strip { grid-template-columns: 1fr; }
   .forecast-row { grid-template-columns: 1fr auto; gap: var(--space-2); }
   .forecast-row time { grid-column: 1 / -1; }
+  .timeline-list .forecast-row-detailed { grid-template-columns:1fr auto; }
+  .timeline-list .forecast-row-detailed time { grid-column:1; }
+  .timeline-list .forecast-row-detailed > div:nth-of-type(1) { grid-column:1 / -1; }
+  .timeline-list .timeline-actions { grid-column:1 / -1; justify-content:flex-start; }
   .forecast-mental-model { grid-template-columns:1fr; }
   .assumption-group { grid-template-columns:1fr; }.assumption-group details { text-align:left; }
   .transaction-row { grid-template-columns: 2.4rem minmax(0, 1fr); }
