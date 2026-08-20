@@ -94,7 +94,7 @@ describe("Phase 4 actual-money workflows", () => {
     expect(screen.getByLabelText("Exact amount")).toHaveValue("2000.00");
     expect(screen.getByLabelText("Actual date")).toHaveValue("2026-09-01");
     expect(screen.getByText(/records the real transaction once/i)).toBeVisible();
-    const more = screen.getByText("More");
+    const more = screen.getByLabelText("More actions for Invented future income");
     expect(more).toHaveAttribute("aria-label", "More actions for Invented future income");
     fireEvent.click(more);
     expect(screen.getByRole("button", { name: "Edit" })).toBeVisible();

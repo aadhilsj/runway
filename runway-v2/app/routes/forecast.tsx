@@ -79,7 +79,7 @@ export default function ForecastRoute() {
       <section className="forecast-balance-strip" aria-label="Lowest expected cash balance"><div><p>Lowest cash balance</p><small>The least cash you are projected to have</small></div><strong className={model.result.firstFloorBreach ? "negative" : ""}>{money(model.summary.lowestOperatingMinor, currency)}</strong><span>on {dateLabel(model.result.lowestOperatingCash.date)}</span></section>
       {model.result.overdueItems.length ? <section className="money-panel attention-panel"><div className="panel-heading"><div><p className="section-kicker">Needs attention</p><h2>Overdue plans</h2></div><strong>{model.result.overdueItems.length}</strong></div>{model.result.overdueItems.map((item) => <div className="attention-row" key={item.id}><div><strong>{item.label}</strong><span>{dateLabel(item.date)} · {money(item.amountMinor, currency)}</span></div>{item.sourceType === "forecast_item" ? <div className="row-actions"><button onClick={() => update.mutate({ id: item.sourceId, values: { status: "skipped" } })}>Mark skipped</button><button onClick={() => beginEdit(item.sourceId)}>Reschedule</button></div> : null}</div>)}</section> : null}
       <section className="money-panel timeline-panel">
-        <div className="panel-heading"><div><p className="section-kicker">What creates your forecast</p><h2>Upcoming timeline</h2><span className="muted">Expected items only. Mark an item paid or received when it happens.</span></div><div className="timeline-heading-actions"><button className="primary-button" type="button" onClick={() => { setEditingId(null); setDrawerOpen(true); }}>Add planned item</button></div></div>
+        <div className="panel-heading"><div><p className="section-kicker">What creates your forecast</p><h2>Upcoming timeline</h2><span className="muted">Expected items only. Mark an item paid or received when it happens.</span></div><div className="timeline-heading-actions"><button className="primary-button compact-button" type="button" onClick={() => { setEditingId(null); setDrawerOpen(true); }}>Add planned item</button></div></div>
         {model.result.scenario.conflicts.length ? <p className="field-error">Conflicting scenario changes were excluded: {model.result.scenario.conflicts.length}.</p> : null}
         <div className="forecast-list timeline-list">{model.timeline.map((item) => <article className="forecast-row forecast-row-detailed" key={item.id}>
           <time dateTime={item.date}>{dateLabel(item.date)}</time>
@@ -87,16 +87,16 @@ export default function ForecastRoute() {
           <strong className={item.kind === "expense" ? "negative" : item.kind === "income" ? "positive" : ""}>{item.kind === "expense" ? "−" : item.kind === "income" ? "+" : "↔"}{money(item.amountMinor, currency)}</strong>
           <span className="after-event-balance">After event: {money(item.runningBalanceMinor, currency)}</span>
           {item.sourceType === "forecast_item" ? <div className="timeline-actions">
-            <button className="primary-button compact-button" type="button" onClick={() => beginSettlement(item)}>{settlementAction(item.kind)}</button>
-            <details className="timeline-overflow"><summary aria-label={`More actions for ${item.label}`}>More</summary><div>
+            <button className="timeline-settle-action" type="button" onClick={() => beginSettlement(item)}>{settlementAction(item.kind)}</button>
+            <details className="timeline-overflow"><summary aria-label={`More actions for ${item.label}`}>•••</summary><div>
               <button onClick={() => beginEdit(item.sourceId)}>Edit</button>
               <button onClick={() => update.mutate({ id: item.sourceId, values: { status: "skipped" } })}>Skip</button>
               <button onClick={() => update.mutate({ id: item.sourceId, values: { status: "canceled" } })}>Cancel</button>
               <select aria-label={`Match ${item.label}`} defaultValue="" onChange={(event) => event.target.value && match.mutate({ itemId: item.sourceId, transactionId: event.target.value })}><option value="">Match transaction…</option>{workspace.data?.transactions.map((transaction) => <option key={transaction.id} value={transaction.id}>{transaction.description} · {dateLabel(transaction.occurred_at.slice(0, 10))}</option>)}</select>
             </div></details>
           </div> : item.recurrenceRuleId ? <div className="timeline-actions">
-            <button className="primary-button compact-button" type="button" onClick={() => beginSettlement(item)}>{settlementAction(item.kind)}</button>
-            <details className="timeline-overflow"><summary aria-label={`More actions for ${item.label}`}>More</summary><div>
+            <button className="timeline-settle-action" type="button" onClick={() => beginSettlement(item)}>{settlementAction(item.kind)}</button>
+            <details className="timeline-overflow"><summary aria-label={`More actions for ${item.label}`}>•••</summary><div>
               <button onClick={() => occurrence.mutate({ ruleId: item.recurrenceRuleId!, date: item.canonicalDate })}>Skip this occurrence</button>
               <select aria-label={`Match recurring ${item.label}`} defaultValue="" onChange={(event) => event.target.value && occurrence.mutate({ ruleId: item.recurrenceRuleId!, date: item.canonicalDate, transactionId: event.target.value })}><option value="">Match transaction…</option>{workspace.data?.transactions.map((transaction) => <option key={transaction.id} value={transaction.id}>{transaction.description} · {dateLabel(transaction.occurred_at.slice(0, 10))}</option>)}</select>
             </div></details>
