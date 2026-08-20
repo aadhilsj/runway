@@ -100,6 +100,6 @@ describe("Phase 4 actual-money workflows", () => {
     expect(screen.getByRole("button", { name: "Edit" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Skip" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Cancel" })).toBeVisible();
-    expect(screen.getByLabelText("Match Invented future income")).toBeVisible();
+    expect(screen.queryByText("Match transaction…")).not.toBeInTheDocument();
   });
 });
