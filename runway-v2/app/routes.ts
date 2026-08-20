@@ -7,6 +7,7 @@ export default [
     route("overview", "routes/overview.tsx"),
     route("analytics", "routes/analytics.tsx"),
     route("forecast", "routes/forecast.tsx"),
+    route("forecast/assumptions", "routes/forecast-assumptions.tsx"),
     route("money", "routes/money-redirect.tsx"),
     route("money/transactions", "routes/money-transactions.tsx"),
     route("money/accounts", "routes/money-accounts.tsx"),

@@ -53,27 +53,20 @@ export default function OverviewRoute() {
       description="Actual money, planned obligations, and the decisions that shape your runway—kept in their proper lanes."
     >
       <section className="cockpit-hero">
-        <article className="safe-card">
-          <p className="section-kicker">Safe to spend</p>
-          <strong>{money(model.safeToSpendMinor, c)}</strong>
+        <article className="safe-card cash-card">
+          <p className="section-kicker">Total cash</p>
+          <strong>{money(model.position.totalCashMinor, c)}</strong>
           <p>
-            Projected operating cash inside your {model.safetyWindowDays}-day
-            safety window after preserving a{" "}
-            {money(model.operatingFloorMinor, c)} floor.
+            Cash across your liquid accounts. Planned income is not
+            included until it is actually received.
           </p>
-          {model.nextReliableIncome ? (
-            <small>
-              Next reliable income: {model.nextReliableIncome.date} ·{" "}
-              {money(model.nextReliableIncome.amountMinor, c)}
-            </small>
-          ) : (
-            <small>No reliable income is configured inside this horizon.</small>
-          )}
+          <small>Based only on posted account balances.</small>
         </article>
         <div className="position-grid">
           <article>
-            <span>Total cash</span>
-            <strong>{money(model.position.totalCashMinor, c)}</strong>
+            <span>Safe to spend</span>
+            <strong>{money(model.safeToSpendMinor, c)}</strong>
+            <small>{model.safeToSpendTrace ? `After your floor and expected bills through ${model.safeToSpendTrace.protectionEndDate}` : `After your floor and expected bills in the ${model.safetyWindowDays}-day safety window`}</small>
           </article>
           <article>
             <span>Allocated</span>
@@ -92,6 +85,10 @@ export default function OverviewRoute() {
             </small>
           </article>
         </div>
+      </section>
+      <section className="actual-planned-strip">
+        <div><strong>Actual money</strong><span>Cash and account balances update only when money is posted in Activity.</span></div>
+        <div><strong>Planned money</strong><span>Forecast income and spending show what may happen next. They never become cash automatically.</span></div>
       </section>
       <section className="chart-card overview-forecast">
         <div className="panel-heading">
@@ -257,7 +254,7 @@ export default function OverviewRoute() {
           <div className="panel-heading">
             <div>
               <p className="section-kicker">Next 30 days</p>
-              <h2>Upcoming obligations</h2>
+              <h2>Upcoming plans</h2>
             </div>
             <Link to="/forecast">Forecast →</Link>
           </div>
@@ -268,7 +265,7 @@ export default function OverviewRoute() {
                 <span>
                   <strong>{row.label}</strong>
                   <small>
-                    {row.sourceType.replaceAll("_", " ")} · {row.confidence}
+                    Expected—not received or paid yet · {row.confidence}
                   </small>
                 </span>
                 <b className={row.kind === "income" ? "positive" : "negative"}>
