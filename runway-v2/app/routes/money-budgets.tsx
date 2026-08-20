@@ -40,7 +40,7 @@ export default function BudgetsRoute() {
   function submit(event: FormEvent) { event.preventDefault(); add.mutate(); }
   const currency = workspace.data?.currency ?? "NOK";
 
-  return <Page eyebrow="Intentional limits" title="Budgets" description="Monthly limits compared with posted spending and committed plans. Transfers and fund allocations stay separate.">
+  return <Page eyebrow="Plan this month" title="Budgets" description="Set how much you want to spend by category, then compare it with spending that actually happened.">
     {workspace.isLoading ? <p className="muted">Loading budgets…</p> : null}
     {workspace.data ? <>
       <div className="forecast-toolbar compact-toolbar"><label className="standalone-label">Budget month<select value={period?.id ?? ""} onChange={(event) => setSelected(event.target.value)}>{workspace.data.periods.map((row) => <option key={row.id} value={row.id}>{row.month_start.slice(0, 7)} · {row.status}</option>)}</select></label><span className="muted">Actuals use posted expenses and refunds only.</span><button className="primary-button" type="button" onClick={() => setDrawerOpen(true)}>Add budget line</button></div>

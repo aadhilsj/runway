@@ -102,7 +102,7 @@ export default function InvestmentsRoute() {
     <Page
       eyebrow="Long-term position"
       title="Investments"
-      description="Market value is recorded separately from cash movement. Contributions and withdrawals remain authoritative ledger transfers."
+      description="Track what your investments are worth and how much you contributed. Moving cash into an investment is recorded in Activity."
     >
       <section className="position-grid">
         <article>

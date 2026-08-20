@@ -53,9 +53,9 @@ export default function AnalyticsRoute() {
   const hasCashFlow = model.cashFlow.some((row) => row.incomeMinor !== 0 || row.expenseMinor !== 0);
   return (
     <Page
-      eyebrow="Authoritative trends"
+      eyebrow="Your money over time"
       title="Analytics"
-      description="Actual history is ledger-derived from Runway 2 cutover. Projected money remains visibly separate in Forecast."
+      description="See what actually came in, what went out, and how your net worth changed. Future money stays in Forecast."
     >
       <div className="analytics-toolbar">
         <label>

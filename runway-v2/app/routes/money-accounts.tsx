@@ -127,7 +127,7 @@ export default function AccountsRoute() {
   const onCreate = (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); createAccount.mutate(event.currentTarget); };
   const onSnapshot = (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); addSnapshot.mutate(event.currentTarget); };
 
-  return <Page eyebrow="Actual money" title="Accounts" description="Balances come from posted transactions. Snapshots record what the bank says; adjustments are always explicit.">
+  return <Page eyebrow="Where your money lives" title="Accounts" description="See the real balance of each bank, cash, or debt account. Record money in Activity when a balance changes.">
     <MoneySummaryCards totalCashMinor={summary.totalCash} operatingCashMinor={summary.operating} netWorthMinor={summary.netWorth} accountCount={activeAccounts.length} />
     <div className="panel-heading page-actions"><p className="muted">Choose an account to inspect its ledger history or reconcile it.</p><button className="primary-button" type="button" onClick={() => setCreateOpen(true)}>Add account</button></div>
       <section className="money-panel" aria-labelledby="accounts-heading">

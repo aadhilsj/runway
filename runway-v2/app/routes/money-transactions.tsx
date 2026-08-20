@@ -40,6 +40,10 @@ export default function TransactionsRoute() {
       queryClient.invalidateQueries({ queryKey: ["accounts"] }),
       queryClient.invalidateQueries({ queryKey: ["net-worth"] }),
       queryClient.invalidateQueries({ queryKey: ["account-history"] }),
+      queryClient.invalidateQueries({ queryKey: ["analytics-workspace"] }),
+      queryClient.invalidateQueries({ queryKey: ["forecast-workspace"] }),
+      queryClient.invalidateQueries({ queryKey: ["payday-workspace"] }),
+      queryClient.invalidateQueries({ queryKey: ["funds-workspace"] }),
     ]);
   };
   const post = useMutation({
@@ -74,7 +78,7 @@ export default function TransactionsRoute() {
   });
   const onSubmit = (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); post.mutate(event.currentTarget); };
 
-  return <Page eyebrow="Actual money" title="Transactions" description="Actual entries change your balances. Planned entries belong in Forecast and never post themselves.">
+  return <Page eyebrow="What really happened" title="Activity" description="Record money after it moves. Income, spending, and transfers here update your real account balances; Forecast items do not.">
     <div className="actual-planned-strip"><div><strong>Actual</strong><span>Money that really moved and is backed by the ledger.</span></div><div><strong>Planned</strong><span>Expected future movement shown separately in Forecast.</span></div></div>
     <div className="panel-heading page-actions"><p className="muted">Posted entries are permanent; corrections create a linked reversal.</p><button className="primary-button" type="button" onClick={() => setCreateOpen(true)}>Add transaction</button></div>
     <section className="money-panel" aria-labelledby="history-heading">
@@ -89,7 +93,7 @@ export default function TransactionsRoute() {
           return <article className="transaction-row" key={transaction.id}><div className="transaction-icon" data-kind={transaction.kind}>{transaction.kind === "income" ? "+" : transaction.kind === "expense" ? "−" : "↔"}</div><div><strong>{transaction.description}</strong><p>{new Date(transaction.occurred_at).toLocaleString("en-GB")} · {transaction.kind.replace("_", " ")}</p><small>{[display.category, ...display.accountNames].filter(Boolean).join(" · ")}</small></div><div className="transaction-amount"><strong>{formatMinorUnits(asMinorUnits(display.amount), "NOK")}</strong>{isReversal ? <span>Correction</span> : reversed ? <span>Reversed</span> : transaction.kind !== "opening_balance" ? <button type="button" disabled={reverse.isPending} onClick={() => { if (confirm("Reverse this transaction? Runway will keep the original and create a correction.")) reverse.mutate(transaction.id); }}>Reverse transaction</button> : <span>Opening state</span>}</div></article>;
         })}{!transactions.isLoading && filtered.length === 0 ? <p className="muted">No matching posted transactions.</p> : null}</div>
       </section>
-    <Drawer open={createOpen} onClose={() => setCreateOpen(false)} eyebrow="Record money movement" title="Add actual transaction">
+    <Drawer open={createOpen} onClose={() => setCreateOpen(false)} eyebrow="Update your real balance" title="Record activity">
         <div className="segmented-control" aria-label="Transaction type">{(["income", "expense", "transfer", "debt_payment"] as const).map((value) => <button type="button" className={kind === value ? "active" : ""} aria-pressed={kind === value} onClick={() => setKind(value)} key={value}>{value === "debt_payment" ? "Debt payment" : value[0]!.toUpperCase() + value.slice(1)}</button>)}</div>
         <form className="money-form" onSubmit={onSubmit}>
           <label>Amount<input name="amount" required inputMode="decimal" placeholder="0.00"/></label>

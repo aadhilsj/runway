@@ -97,8 +97,8 @@ export async function installFixtureBackend(page: Page) {
       if (rpc === "create_account") {
         accounts.push(account(SAVINGS_ID, body.p_name, "savings", "liquid")); balances.set(SAVINGS_ID, 0); return json(route, SAVINGS_ID);
       }
-      if (rpc === "post_income") return json(route, addTransaction("income", body.p_description, [{ account_id: body.p_account_id, amount_minor: body.p_amount_minor }]));
-      if (rpc === "post_expense") return json(route, addTransaction("expense", body.p_description, [{ account_id: body.p_account_id, amount_minor: -body.p_amount_minor }]));
+      if (rpc === "post_income") return json(route, addTransaction("income", body.p_description, [{ account_id: body.p_destination_account_id, amount_minor: body.p_amount_minor }]));
+      if (rpc === "post_expense") return json(route, addTransaction("expense", body.p_description, [{ account_id: body.p_source_account_id, amount_minor: -body.p_amount_minor }]));
       if (rpc === "post_transfer") return json(route, addTransaction("transfer", body.p_description, [{ account_id: body.p_source_account_id, amount_minor: -body.p_amount_minor }, { account_id: body.p_destination_account_id, amount_minor: body.p_amount_minor }]));
       if (rpc === "reverse_transaction") {
         const original = transactions.find((row) => row.id === body.p_transaction_id)!;
@@ -302,4 +302,64 @@ test("keeps the polished desktop routes collision-free across supported widths",
   expect(after?.width).toBe(before?.width);
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).not.toBeVisible();
+});
+
+async function installPhase10SimplificationFixture(page: Page) {
+  await installFixtureBackend(page);
+  const fundId = "66666666-6666-4666-8666-666666666666";
+  const items: Array<Record<string, unknown>> = [
+    { id: "salary-plan", user_id: USER_ID, kind: "income", expected_date: "2026-08-22", amount_minor: 2_300_000, source_account_id: null, destination_account_id: OPERATING_ID, category_id: null, label: "Expected salary", notes: null, confidence: "expected", status: "expected", scenario_id: null, default_sort_order: null, legacy_source_id: "legacy-salary" },
+    { id: "phone-plan", user_id: USER_ID, kind: "expense", expected_date: "2026-08-22", amount_minor: 56_800, source_account_id: OPERATING_ID, destination_account_id: null, category_id: null, label: "Phone", notes: null, confidence: "expected", status: "expected", scenario_id: null, default_sort_order: null, legacy_source_id: "legacy-phone" },
+  ];
+  const fund = { id: fundId, user_id: USER_ID, backing_account_id: OPERATING_ID, name: "Emergency", purpose_key: "emergency", currency: "NOK", color: null, icon: null, sort_order: 1, active: true };
+  const goal = { id: "goal-fixture", fund_id: fundId, name: "Emergency goal", target_minor: 4_500_000, preferred_balance_minor: null, cap_minor: null, preferred_contribution_minor: 500_000, floor_minor: null, target_date: null, status: "active", is_primary: true };
+  const plan = { id: "payday-fixture", name: "Payday plan", trigger_kind: "payday", source_account_id: OPERATING_ID, active: true, is_default: true };
+  const planItem = { id: "payday-item", plan_id: plan.id, label: "Emergency", destination_type: "fund", destination_fund_id: fundId, destination_account_id: null, amount_minor: 500_000, mode: "recommended", priority: 1, stop_basis: "target", activation_source_item_id: null, active: true, starts_on: null, ends_on: null };
+  await page.route("http://127.0.0.1:54321/**", async (route) => {
+    const request = route.request(), url = new URL(request.url()), path = url.pathname;
+    if (path === "/rest/v1/forecast_items" && request.method() === "GET") return json(route, items);
+    if (path === "/rest/v1/forecast_items" && request.method() === "PATCH") { const item = items.find((row) => row.id === url.searchParams.get("id")?.replace("eq.", "")); if (item) Object.assign(item, request.postDataJSON()); return json(route, []); }
+    if (path === "/rest/v1/funds") return json(route, [fund]);
+    if (path === "/rest/v1/fund_balances") return json(route, [{ fund_id: fundId, backing_account_id: OPERATING_ID, balance_minor: 0, currency: "NOK" }]);
+    if (path === "/rest/v1/goals") return json(route, [goal]);
+    if (path === "/rest/v1/allocation_plans") return json(route, [plan]);
+    if (path === "/rest/v1/allocation_plan_items") return json(route, [planItem]);
+    if (path === "/rest/v1/fund_backing_summary") return json(route, [{ account_id: OPERATING_ID, account_name: "Operating Cash", account_balance_minor: 1_195_600, allocated_minor: 0, unallocated_minor: 1_195_600, backing_valid: true }]);
+    if (["/rest/v1/fund_movements", "/rest/v1/scenario_applications"].includes(path)) return json(route, []);
+    return route.fallback();
+  });
+}
+
+test("planned salary stays out of safe-to-spend until it is received", async ({ page }) => {
+  await installPhase10SimplificationFixture(page); await page.goto("/overview");
+  await expect(page.locator(".position-grid article").filter({ hasText: "Safe to spend" })).toContainText("2 388 kr");
+  await page.goto("/money/transactions"); await page.getByRole("button", { name: "Add transaction" }).click(); await page.getByRole("button", { name: "Income" }).click();
+  await page.getByLabel("Amount").fill("23000"); await page.getByLabel("Description").fill("Salary received"); await page.getByRole("button", { name: "Post income" }).click(); await expect(page.getByText("Salary received")).toBeVisible();
+  await page.goto("/overview"); await page.reload(); await expect(page.locator(".position-grid article").filter({ hasText: "Safe to spend" })).toContainText("25 388 kr");
+});
+
+test("forecast assumptions are traceable, editable, and use display currency", async ({ page }) => {
+  await installPhase10SimplificationFixture(page); await page.goto("/forecast");
+  await expect(page.getByText("Planned income · next 12 months")).toBeVisible();
+  await page.getByRole("link", { name: "Review income →" }).click(); await expect(page.getByText("Expected salary")).toBeVisible();
+  await page.getByRole("button", { name: "Edit" }).click(); await page.getByLabel("Amount").fill("24000"); await page.getByRole("button", { name: "Save change" }).click();
+  await expect(page.getByText("24 000 kr", { exact: false }).first()).toBeVisible();
+  await page.getByRole("button", { name: "Spending" }).click(); await expect(page.getByText("Phone")).toBeVisible();
+  await page.getByRole("button", { name: "Edit" }).click(); await page.getByLabel("Amount").fill("600"); await page.getByRole("button", { name: "Save change" }).click();
+  await expect(page.getByText("600 kr", { exact: false }).first()).toBeVisible();
+  await page.goto("/funds/payday"); const amount = page.getByLabel("Emergency amount"); await expect(amount).toHaveValue("2356"); await amount.fill("2000"); await expect(amount).toHaveValue("2000");
+  await page.goto("/money/transactions"); await expect(page.getByText(/Record money after it moves/)).toBeVisible();
+  await page.goto("/money/accounts"); await expect(page.getByText(/real balance of each bank/)).toBeVisible();
+  await page.goto("/funds"); await expect(page.getByText(/Give part of your cash a job/)).toBeVisible();
+});
+
+test("captures the Phase 10.6 simplified product surfaces", async ({ page }) => {
+  const output = process.env.RUNWAY_PHASE10_6_SCREENSHOT_DIR; test.skip(!output, "Set RUNWAY_PHASE10_6_SCREENSHOT_DIR to capture the audit.");
+  await page.setViewportSize({ width: 1440, height: 900 }); await installPhase10SimplificationFixture(page);
+  const capture = async (name: string, path: string, ready: string) => { await page.goto(path); await expect(page.getByText(ready, { exact: false }).first()).toBeVisible(); await page.screenshot({ path: `${output}/${name}.png`, fullPage: false }); };
+  await capture("overview", "/overview", "Total cash"); await capture("forecast-top", "/forecast", "Your cash over the next 12 months");
+  await capture("assumptions-income", "/forecast/assumptions?type=income&horizon=12", "Expected salary"); await capture("assumptions-spending", "/forecast/assumptions?type=expense&horizon=12", "Phone");
+  await page.goto("/forecast"); await page.getByRole("heading", { name: "Upcoming timeline" }).scrollIntoViewIfNeeded(); await page.screenshot({ path: `${output}/forecast-timeline.png`, fullPage: false });
+  await capture("payday", "/funds/payday", "Available to split"); await capture("funds", "/funds", "Emergency");
+  await capture("activity", "/money/transactions", "Activity"); await capture("accounts", "/money/accounts", "Your accounts"); await capture("sidebar", "/overview", "Total cash");
 });

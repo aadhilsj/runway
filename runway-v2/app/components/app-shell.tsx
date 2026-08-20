@@ -5,15 +5,15 @@ import { MarkIcon, SyncIcon } from "./icons";
 const primary = [
   ["Overview", "/overview"],
   ["Forecast", "/forecast"],
-  ["Analytics", "/analytics"],
-  ["Transactions", "/money/transactions"],
+  ["Funds", "/funds"],
+  ["Plans", "/plans"],
+  ["Investments", "/investments"],
+] as const;
+const money = [
+  ["Activity", "/money/transactions"],
   ["Accounts", "/money/accounts"],
   ["Budgets", "/money/budgets"],
-] as const;
-const planning = [
-  ["Funds", "/funds"],
-  ["Investments", "/investments"],
-  ["Plans", "/plans"],
+  ["Analytics", "/analytics"],
 ] as const;
 
 function NavigationGroup({
@@ -46,9 +46,8 @@ export function AppShell() {
           <span>Runway</span>
         </NavLink>
         <nav aria-label="Primary navigation">
-          <NavigationGroup label="Today" items={primary.slice(0, 3)} />
-          <NavigationGroup label="Money" items={primary.slice(3)} />
-          <NavigationGroup label="Planning" items={planning} />
+          <NavigationGroup label="Plan your money" items={primary} />
+          <NavigationGroup label="Money records" items={money} />
         </nav>
         <NavLink className="settings-link" to="/settings">
           Settings
@@ -88,11 +87,12 @@ function titleForPath(path: string): string {
   if (path === "/plans/compare") return "Compare Plans";
   if (path.startsWith("/plans/")) return "Plan detail";
   if (path === "/settings/recurring") return "Recurring rules";
+  if (path === "/forecast/assumptions") return "Forecast assumptions";
   if (path === "/funds/payday") return "Payday plan";
   if (path.startsWith("/funds/")) return "Fund detail";
   const match = [
     ...primary,
-    ...planning,
+    ...money,
     ["Settings", "/settings"] as const,
   ].find(([, href]) => path === href);
   return match?.[0] ?? "Runway";
