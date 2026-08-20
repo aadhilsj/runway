@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useId, useRef, type ReactNode } from "react";
 
 type DrawerProps = {
   open: boolean;
@@ -10,6 +10,7 @@ type DrawerProps = {
 
 export function Drawer({ open, onClose, eyebrow, title, children }: DrawerProps) {
   const ref = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
 
   useEffect(() => {
     const dialog = ref.current;
@@ -28,7 +29,7 @@ export function Drawer({ open, onClose, eyebrow, title, children }: DrawerProps)
     <dialog
       className="drawer"
       ref={ref}
-      aria-labelledby="drawer-title"
+      aria-labelledby={titleId}
       onCancel={(event) => {
         event.preventDefault();
         onClose();
@@ -38,7 +39,7 @@ export function Drawer({ open, onClose, eyebrow, title, children }: DrawerProps)
       <div className="drawer-header">
         <div>
           {eyebrow ? <p className="section-kicker">{eyebrow}</p> : null}
-          <h2 id="drawer-title">{title}</h2>
+          <h2 id={titleId}>{title}</h2>
         </div>
         <button className="drawer-close" type="button" onClick={onClose} aria-label="Close panel">×</button>
       </div>

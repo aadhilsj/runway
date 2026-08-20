@@ -6,7 +6,7 @@ import TransactionsRoute from "~/routes/money-transactions";
 import ForecastRoute from "~/routes/forecast";
 
 const mocks = vi.hoisted(() => ({
-  createAccount: vi.fn(), reconcileAccount: vi.fn(), postExpense: vi.fn(), reverseTransaction: vi.fn(),
+  createAccount: vi.fn(), reconcileAccount: vi.fn(), postExpense: vi.fn(), reverseTransaction: vi.fn(), settleItem: vi.fn(),
   operatingAccount: {
     id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", user_id: "owner", name: "Operating Cash", class: "asset" as const,
     subtype: "checking" as const, currency: "NOK", liquidity_class: "operating" as const, valuation_mode: "ledger" as const,
@@ -40,10 +40,11 @@ vi.mock("~/data/repositories/forecast-repository", () => ({ forecastRepository: 
     items: [{ id: "forecast-a", expected_date: "2026-09-01", kind: "income", amount_minor: 200000, label: "Invented future income",
       category_id: null, confidence: "expected", destination_account_id: mocks.operatingAccount.id, source_account_id: null, notes: null,
       scenario_id: null, default_sort_order: null, status: "expected" }],
-    rules: [], occurrences: [], scenarios: [], categories: [], transactions: [],
+    rules: [], occurrences: [], scenarios: [], categories: [{ id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc", name: "Income", kind: "income" }], transactions: [], funds: [], fundBalances: [], portfolioSnapshots: [],
   }),
-  saveHorizon: vi.fn(), createItem: vi.fn(), updateItem: vi.fn(), matchItem: vi.fn(),
+  saveHorizon: vi.fn(), createItem: vi.fn(), updateItem: vi.fn(), matchItem: vi.fn(), settleItem: mocks.settleItem,
 } }));
+vi.mock("~/data/repositories/recurring-repository", () => ({ recurringRepository: { matchOccurrence: vi.fn(), setException: vi.fn(), settleOccurrence: vi.fn() } }));
 
 function renderWithQuery(ui: React.ReactNode) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
@@ -88,7 +89,11 @@ describe("Phase 4 actual-money workflows", () => {
     expect(await screen.findByText("Invented future income")).toBeInTheDocument();
     expect(screen.getByText(/never changes your actual account balances/i)).toBeInTheDocument();
     expect(screen.getByText((_, element) => element?.textContent?.replace(/\s/g, "") === "+2000kr", { selector: "strong" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Post actual" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Mark received" })).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Mark received" }));
+    expect(screen.getByLabelText("Exact amount")).toHaveValue("2000.00");
+    expect(screen.getByLabelText("Actual date")).toHaveValue("2026-09-01");
+    expect(screen.getByText(/records the real transaction once/i)).toBeVisible();
     const more = screen.getByText("More");
     expect(more).toHaveAttribute("aria-label", "More actions for Invented future income");
     fireEvent.click(more);

@@ -1,368 +1,46 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
-import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  ReferenceLine,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
 import { Page } from "~/components/page";
 import { analyticsRepository } from "~/data/repositories/analytics-repository";
-import { asMinorUnits, formatMinorAxis, formatMinorUnits } from "~/domain/money";
+import { asMinorUnits, formatMinorUnits } from "~/domain/money";
 import { buildOverviewReadModel } from "~/read-models/overview";
-function money(value: number, currency: string) {
-  return formatMinorUnits(asMinorUnits(Math.trunc(value)), currency);
+
+const projectionStorageKey = "runway:overview-projection-date:v1";
+function money(value: number, currency: string) { return formatMinorUnits(asMinorUnits(Math.trunc(value)), currency); }
+function initialProjectionDate() {
+  if (typeof window !== "undefined") {
+    const saved = window.localStorage.getItem(projectionStorageKey);
+    if (saved && /^\d{4}-\d{2}-\d{2}$/.test(saved)) return saved;
+  }
+  const date = new Date(); date.setUTCDate(date.getUTCDate() + 30); return date.toISOString().slice(0, 10);
 }
+
 export default function OverviewRoute() {
-  const workspace = useQuery({
-      queryKey: ["analytics-workspace"],
-      queryFn: () => analyticsRepository.getWorkspace(),
-    }),
-    model = useMemo(
-      () => (workspace.data ? buildOverviewReadModel(workspace.data) : null),
-      [workspace.data],
-    );
-  if (workspace.isLoading)
-    return (
-      <Page
-        eyebrow="Financial cockpit"
-        title="Overview"
-        description="Bringing actual balances, forecast, Funds, budgets and Plans together…"
-      />
-    );
-  if (!model)
-    return (
-      <Page
-        eyebrow="Financial cockpit"
-        title="Overview unavailable"
-        description="The financial read model could not be loaded."
-      />
-    );
-  const c = model.currency,
-    flow = model.currentFlow,
-    budget = model.currentBudget;
-  return (
-    <Page
-      eyebrow="Financial cockpit"
-      title="Overview"
-      description="Actual money, planned obligations, and the decisions that shape your runway—kept in their proper lanes."
-    >
-      <section className="cockpit-hero">
-        <article className="safe-card cash-card">
-          <p className="section-kicker">Total cash</p>
-          <strong>{money(model.position.totalCashMinor, c)}</strong>
-          <p>
-            Cash across your liquid accounts. Planned income is not
-            included until it is actually received.
-          </p>
-          <small>Based only on posted account balances.</small>
-        </article>
-        <div className="position-grid">
-          <article>
-            <span>Safe to spend</span>
-            <strong>{money(model.safeToSpendMinor, c)}</strong>
-            <small>{model.safeToSpendTrace ? `After your floor and expected bills through ${model.safeToSpendTrace.protectionEndDate}` : `After your floor and expected bills in the ${model.safetyWindowDays}-day safety window`}</small>
-          </article>
-          <article>
-            <span>Allocated</span>
-            <strong>{money(model.position.allocatedCashMinor, c)}</strong>
-          </article>
-          <article>
-            <span>Unallocated</span>
-            <strong>{money(model.position.unallocatedCashMinor, c)}</strong>
-          </article>
-          <article>
-            <span>Net worth</span>
-            <strong>{money(model.position.netWorthMinor, c)}</strong>
-            <small>
-              Investments (latest value):{" "}
-              {money(model.position.investmentBookValueMinor, c)}
-            </small>
-          </article>
-        </div>
-      </section>
-      <section className="actual-planned-strip">
-        <div><strong>Actual money</strong><span>Cash and account balances update only when money is posted in Activity.</span></div>
-        <div><strong>Planned money</strong><span>Forecast income and spending show what may happen next. They never become cash automatically.</span></div>
-      </section>
-      <section className="chart-card overview-forecast">
-        <div className="panel-heading">
-          <div>
-            <p className="section-kicker">Projected · Base Plan</p>
-            <h2>Operating cash through {model.forecast.endDate}</h2>
-          </div>
-          <Link to="/forecast">View full forecast →</Link>
-        </div>
-        <div className="overview-chart">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={model.forecast.chart}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" minTickGap={45} />
-              <YAxis
-                tickFormatter={(v) => formatMinorAxis(Number(v))}
-              />
-              <Tooltip
-                formatter={(v) => [
-                  money(Number(v), c),
-                  "Projected operating cash",
-                ]}
-              />
-              <ReferenceLine
-                y={model.operatingFloorMinor}
-                stroke="#bb5f43"
-                strokeDasharray="6 4"
-                label="Floor"
-              />
-              <Area
-                type="monotone"
-                dataKey="operatingCashMinor"
-                stroke="#3e7356"
-                strokeDasharray="5 3"
-                fill="rgba(62,115,86,.12)"
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-        <div className="forecast-mini">
-          <span>
-            Ending{" "}
-            <strong>{money(model.forecast.endingOperatingCashMinor, c)}</strong>
-          </span>
-          <span>
-            Lowest{" "}
-            <strong>{money(model.forecast.lowest.balanceMinor, c)}</strong> on{" "}
-            {model.forecast.lowest.date}
-          </span>
-          <span>
-            {model.forecast.firstBreach
-              ? `First floor breach ${model.forecast.firstBreach.date}`
-              : "No operating-floor breach projected"}
-          </span>
-        </div>
-      </section>
-      <div className="overview-two">
-        <section className="money-panel">
-          <div className="panel-heading">
-            <div>
-              <p className="section-kicker">Funds + Goals</p>
-              <h2>Allocated purpose</h2>
-            </div>
-            <Link to="/funds">All Funds →</Link>
-          </div>
-          <div className="overview-funds">
-            {model.funds.map((fund) => (
-              <article key={fund.id}>
-                <div>
-                  <strong>{fund.name}</strong>
-                  <span>
-                    {money(fund.balanceMinor, c)}
-                    {fund.targetMinor != null
-                      ? ` / ${money(fund.targetMinor, c)}`
-                      : ""}
-                  </span>
-                </div>
-                {fund.progress != null ? (
-                  <div className="progress-track">
-                    <span style={{ width: `${fund.progress * 100}%` }} />
-                  </div>
-                ) : null}
-                <small>
-                  {fund.projectedCompletion
-                    ? `Projected target ${fund.projectedCompletion}`
-                    : "Not reached in selected horizon"}
-                  {fund.contributionMode ? ` · ${fund.contributionMode}` : ""}
-                </small>
-              </article>
-            ))}
-          </div>
-        </section>
-        <section className="money-panel">
-          <div className="panel-heading">
-            <div>
-              <p className="section-kicker">Actual · {flow.month}</p>
-              <h2>Monthly cash flow</h2>
-            </div>
-            <Link to="/analytics">Open analytics →</Link>
-          </div>
-          <dl className="metric-list">
-            <div>
-              <dt>Income</dt>
-              <dd>{money(flow.incomeMinor, c)}</dd>
-            </div>
-            <div>
-              <dt>Expenses</dt>
-              <dd>{money(flow.expenseMinor, c)}</dd>
-            </div>
-            <div>
-              <dt>Net cash flow</dt>
-              <dd>{money(flow.netMinor, c)}</dd>
-            </div>
-          </dl>
-          {flow.incomeMinor === 0 && flow.expenseMinor === 0 ? (
-            <p className="muted">
-              No posted income or spending yet this month. Opening balance and
-              transfers are excluded.
-            </p>
-          ) : null}
-        </section>
+  const [projectionDate, setProjectionDate] = useState(initialProjectionDate);
+  const workspace = useQuery({ queryKey: ["analytics-workspace"], queryFn: () => analyticsRepository.getWorkspace() });
+  const model = useMemo(() => workspace.data ? buildOverviewReadModel(workspace.data, projectionDate) : null, [workspace.data, projectionDate]);
+  useEffect(() => { window.localStorage.setItem(projectionStorageKey, projectionDate); }, [projectionDate]);
+
+  if (workspace.isLoading) return <Page eyebrow="Today" title="Overview" description="Your money at a glance."><section className="cockpit-hero overview-skeleton" aria-label="Loading overview"><article/><div className="position-grid"><article/><article/><article/></div></section></Page>;
+  if (!model) return <Page eyebrow="Today" title="Overview unavailable" description="Your current figures could not be loaded. Please try again."/>;
+
+  const c = model.currency, flow = model.currentFlow;
+  return <Page eyebrow="Today" title="Overview" description="Your current balance, where it is allocated, and what is coming next.">
+    <section className="cockpit-hero runway-position" aria-label="Current financial position">
+      <article className="safe-card cash-card"><p className="section-kicker">Total current balance</p><strong>{money(model.position.totalCashMinor, c)}</strong><p>All liquid cash you have right now.</p><small>Planned income is included only after you mark it received.</small></article>
+      <div className="position-grid overview-metrics">
+        <article><span>Allocated to funds</span><strong>{money(model.position.allocatedCashMinor, c)}</strong><small>Part of your current balance</small></article>
+        <article><span>Net worth</span><strong>{money(model.position.netWorthMinor, c)}</strong><small>Assets minus debts</small></article>
+        <article className="projection-card"><label htmlFor="overview-projection-date">Projected balance</label><strong>{money(model.projection.liquidCashMinor, c)}</strong><input id="overview-projection-date" type="date" min={model.projection.minDate} max={model.projection.maxDate} value={model.projection.date} onChange={(event) => setProjectionDate(event.target.value)}/><small>Includes planned money through this date</small></article>
       </div>
-      <div className="overview-two">
-        <section className="money-panel">
-          <div className="panel-heading">
-            <div>
-              <p className="section-kicker">Budget</p>
-              <h2>{budget?.month ?? "No active period"}</h2>
-            </div>
-            <Link to="/money/budgets">Budgets →</Link>
-          </div>
-          {budget ? (
-            <>
-              <div className="budget-overview">
-                <span>
-                  Budgeted{" "}
-                  <strong>{money(budget.totals.budgetedMinor, c)}</strong>
-                </span>
-                <span>
-                  Actual <strong>{money(budget.totals.actualMinor, c)}</strong>
-                </span>
-                <span>
-                  Committed{" "}
-                  <strong>{money(budget.totals.committedMinor, c)}</strong>
-                </span>
-                <span>
-                  Uncommitted{" "}
-                  <strong>{money(budget.totals.uncommittedMinor, c)}</strong>
-                </span>
-              </div>
-              {budget.rows.slice(0, 4).map((row) => (
-                <div className="mini-budget" key={row.label}>
-                  <span>{row.label}</span>
-                  <strong>{Math.round(row.utilization * 100)}%</strong>
-                </div>
-              ))}
-            </>
-          ) : (
-            <p className="muted">No budget periods exist yet.</p>
-          )}
-        </section>
-        <section className="money-panel">
-          <div className="panel-heading">
-            <div>
-              <p className="section-kicker">Next 30 days</p>
-              <h2>Upcoming plans</h2>
-            </div>
-            <Link to="/forecast">Forecast →</Link>
-          </div>
-          <ul className="overview-list">
-            {model.upcoming.map((row) => (
-              <li key={row.id}>
-                <time>{row.date}</time>
-                <span>
-                  <strong>{row.label}</strong>
-                  <small>
-                    Expected—not received or paid yet · {row.confidence}
-                  </small>
-                </span>
-                <b className={row.kind === "income" ? "positive" : "negative"}>
-                  {row.kind === "income" ? "+" : "−"}
-                  {money(row.amountMinor, c)}
-                </b>
-              </li>
-            ))}
-          </ul>
-          {!model.upcoming.length ? (
-            <p className="muted">
-              No committed or expected items in the next 30 days.
-            </p>
-          ) : null}
-          {model.overdue.length ? (
-            <p className="attention-note">
-              {model.overdue.length} overdue forecast item
-              {model.overdue.length === 1 ? "" : "s"} need attention.
-            </p>
-          ) : null}
-        </section>
-      </div>
-      <div className="overview-two">
-        <section className="money-panel">
-          <div className="panel-heading">
-            <div>
-              <p className="section-kicker">Plans</p>
-              <h2>
-                {model.planAlternative
-                  ? "Selected Plan impact"
-                  : "No Plan selected"}
-              </h2>
-            </div>
-            <Link to="/plans/compare">Compare →</Link>
-          </div>
-          {model.planAlternative ? (
-            <dl className="metric-list">
-              <div>
-                <dt>{model.planAlternative.label}</dt>
-                <dd>
-                  {money(
-                    model.planAlternative.deltas.endingOperatingCashMinor,
-                    c,
-                  )}{" "}
-                  ending cash
-                </dd>
-              </div>
-              <div>
-                <dt>Lowest cash impact</dt>
-                <dd>
-                  {money(
-                    model.planAlternative.deltas.lowestOperatingCashMinor,
-                    c,
-                  )}
-                </dd>
-              </div>
-              <div>
-                <dt>Floor breach change</dt>
-                <dd>{model.planAlternative.deltas.floorBreachCount}</dd>
-              </div>
-            </dl>
-          ) : (
-            <p className="muted">
-              Enable a Plan for comparison to see its impact here. Base remains
-              unchanged.
-            </p>
-          )}
-        </section>
-        <section className="money-panel">
-          <div className="panel-heading">
-            <div>
-              <p className="section-kicker">Authoritative ledger</p>
-              <h2>Recent activity</h2>
-            </div>
-            <Link to="/money/transactions">Transactions →</Link>
-          </div>
-          <ul className="overview-list">
-            {model.recent.map((row) => (
-              <li key={row.id}>
-                <time>{row.date.slice(0, 10)}</time>
-                <span>
-                  <strong>{row.description}</strong>
-                  <small>
-                    {row.isReversal
-                      ? "Correction"
-                      : row.kind.replaceAll("_", " ")}
-                  </small>
-                </span>
-                <b>{money(row.amountMinor, c)}</b>
-              </li>
-            ))}
-          </ul>
-          {!model.recent.length ? (
-            <p className="muted">No authoritative transactions yet.</p>
-          ) : null}
-        </section>
-      </div>
-    </Page>
-  );
+    </section>
+
+    <div className="overview-two overview-primary-grid">
+      <section className="money-panel"><div className="panel-heading"><div><p className="section-kicker">Funds</p><h2>Money set aside</h2></div><Link to="/funds">Manage funds →</Link></div><div className="overview-funds">{model.funds.map((fund) => <article key={fund.id}><div><strong>{fund.name}</strong><span>{money(fund.balanceMinor, c)}{fund.targetMinor != null ? ` of ${money(fund.targetMinor, c)}` : ""}</span></div>{fund.progress != null ? <div className="progress-track" aria-label={`${fund.name} ${Math.round(fund.progress * 100)}% complete`}><span style={{ width: `${fund.progress * 100}%` }}/></div> : null}</article>)}</div>{!model.funds.length ? <p className="muted">No funds yet.</p> : null}</section>
+      <section className="money-panel"><div className="panel-heading"><div><p className="section-kicker">Actual this month · {flow.month}</p><h2>Monthly cash flow</h2></div><Link to="/money/transactions">Record activity →</Link></div><dl className="metric-list"><div><dt>Income received</dt><dd className="positive">{money(flow.incomeMinor, c)}</dd></div><div><dt>Expenses paid</dt><dd>{money(flow.expenseMinor, c)}</dd></div><div><dt>Left after expenses</dt><dd>{money(flow.netMinor, c)}</dd></div></dl><p className="muted">Calculated from completed income and expenses. Opening balances, transfers and fund allocations are excluded.</p></section>
+    </div>
+
+    <section className="money-panel upcoming-panel"><div className="panel-heading"><div><p className="section-kicker">Next 30 days</p><h2>Upcoming</h2></div><Link to="/forecast">Open forecast →</Link></div><ul className="overview-list">{model.upcoming.map((row) => <li key={row.id}><time>{row.date}</time><span><strong>{row.label}</strong></span><b className={row.kind === "income" ? "positive" : row.kind === "expense" ? "negative" : ""}>{row.kind === "income" ? "+" : row.kind === "expense" ? "−" : "↔"}{money(row.amountMinor, c)}</b></li>)}</ul>{!model.upcoming.length ? <p className="muted">Nothing planned in the next 30 days.</p> : null}{model.overdue.length ? <p className="attention-note">{model.overdue.length} overdue item{model.overdue.length === 1 ? "" : "s"} need your attention in Forecast.</p> : null}</section>
+  </Page>;
 }

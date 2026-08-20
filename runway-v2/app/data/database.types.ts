@@ -1987,6 +1987,33 @@ export type Database = {
         }
         Returns: undefined
       }
+      settle_forecast_item: {
+        Args: {
+          p_actual_amount_minor: number
+          p_category_id: string | null
+          p_destination_account_id: string | null
+          p_forecast_item_id: string
+          p_idempotency_key: string
+          p_notes: string | null
+          p_occurred_at: string
+          p_source_account_id: string | null
+        }
+        Returns: string
+      }
+      settle_recurring_occurrence: {
+        Args: {
+          p_actual_amount_minor: number
+          p_category_id: string | null
+          p_destination_account_id: string | null
+          p_idempotency_key: string
+          p_notes: string | null
+          p_occurred_at: string
+          p_occurrence_date: string
+          p_recurring_rule_id: string
+          p_source_account_id: string | null
+        }
+        Returns: string
+      }
       post_debt_payment: {
         Args: {
           p_description: string

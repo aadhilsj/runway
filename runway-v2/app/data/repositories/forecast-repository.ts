@@ -3,6 +3,11 @@ import { requireAuthenticatedUserId, requireSupabase } from "./shared";
 
 type ForecastInsert = Omit<Database["public"]["Tables"]["forecast_items"]["Insert"], "user_id">;
 type ForecastUpdate = Database["public"]["Tables"]["forecast_items"]["Update"];
+export interface SettleForecastItemCommand {
+  itemId: string; actualAmountMinor: number; occurredAt: string;
+  sourceAccountId: string | null; destinationAccountId: string | null;
+  categoryId: string | null; notes: string | null; idempotencyKey: string;
+}
 
 export const forecastRepository = {
   async getWorkspace() {
@@ -50,6 +55,17 @@ export const forecastRepository = {
   },
   async unmatchItem(itemId: string): Promise<void> {
     const client = requireSupabase(); const { error } = await client.rpc("unmatch_forecast_item", { p_forecast_item_id: itemId }); if (error) throw error;
+  },
+  async settleItem(command: SettleForecastItemCommand): Promise<string> {
+    const client = requireSupabase();
+    const { data, error } = await client.rpc("settle_forecast_item", {
+      p_forecast_item_id: command.itemId, p_actual_amount_minor: command.actualAmountMinor,
+      p_occurred_at: command.occurredAt, p_source_account_id: command.sourceAccountId,
+      p_destination_account_id: command.destinationAccountId, p_category_id: command.categoryId,
+      p_notes: command.notes, p_idempotency_key: command.idempotencyKey,
+    });
+    if (error) throw error;
+    return data;
   },
   async saveHorizon(months: number): Promise<void> {
     const client = requireSupabase(); const userId = await requireAuthenticatedUserId(client);

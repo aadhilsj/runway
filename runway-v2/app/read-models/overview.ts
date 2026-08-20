@@ -158,7 +158,7 @@ export function buildAnalyticsReadModel(
 }
 export function buildOverviewReadModel(
   workspace: AnalyticsWorkspace,
-  asOfDate?: string,
+  projectionDate?: string,
 ) {
   const analytics = buildAnalyticsReadModel(workspace),
     balances = new Map(
@@ -184,7 +184,7 @@ export function buildOverviewReadModel(
       )
       .slice(0, 2)
       .map((row) => row.id),
-    comparison = buildPlansComparison(workspace, selectedPlanIds, asOfDate),
+    comparison = buildPlansComparison(workspace, selectedPlanIds),
     base = comparison.base,
     currentFlow = analytics.cashFlow.find(
       (row) => row.month === analytics.currentMonth,
@@ -217,7 +217,11 @@ export function buildOverviewReadModel(
         row.recurrenceRuleId &&
         ruleReliability.get(row.recurrenceRuleId),
     ),
-    fundEnd = base.result.fundSeries.at(-1)?.balancesMinor ?? {};
+    fundEnd = base.result.fundSeries.at(-1)?.balancesMinor ?? {},
+    requestedProjectionDate = projectionDate ?? shift(base.result.asOfDate, 30),
+    projectionPoint = base.result.dailySeries.find((point) => point.date === requestedProjectionDate)
+      ?? base.result.dailySeries.findLast((point) => point.date <= requestedProjectionDate)
+      ?? base.result.dailySeries[0];
   const funds = workspace.funds.funds
       .filter((row) => row.active)
       .map((fund) => {
@@ -282,6 +286,12 @@ export function buildOverviewReadModel(
     operatingFloorMinor: base.applied.forecast.operatingFloorMinor,
     safetyWindowDays: base.applied.safetyWindowDays,
     nextReliableIncome,
+    projection: {
+      date: projectionPoint?.date ?? base.result.asOfDate,
+      liquidCashMinor: projectionPoint?.liquidCashMinor ?? position.totalCashMinor,
+      minDate: base.result.asOfDate,
+      maxDate: base.result.endDate,
+    },
     forecast: {
       endDate: base.result.endDate,
       endingOperatingCashMinor: base.result.endingOperatingCashMinor,

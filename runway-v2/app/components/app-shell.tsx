@@ -1,5 +1,8 @@
+import { useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { NavLink, Outlet, useLocation } from "react-router";
 import { useAuth } from "~/auth/auth-context";
+import { analyticsRepository } from "~/data/repositories/analytics-repository";
 import { MarkIcon, SyncIcon } from "./icons";
 
 const primary = [
@@ -38,6 +41,11 @@ function NavigationGroup({
 export function AppShell() {
   const { session, signOut } = useAuth();
   const location = useLocation();
+  const queryClient = useQueryClient();
+  useEffect(() => {
+    if (!session) return;
+    void queryClient.prefetchQuery({ queryKey: ["analytics-workspace"], queryFn: () => analyticsRepository.getWorkspace(), staleTime: 30_000 });
+  }, [queryClient, session]);
   return (
     <div className="app-frame">
       <aside className="sidebar">

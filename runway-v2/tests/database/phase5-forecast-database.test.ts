@@ -6,7 +6,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 const USER_A = "88888888-8888-4888-8888-888888888888";
 const USER_B = "99999999-9999-4999-8999-999999999999";
 let db: PGlite; let accountA: string; let accountB: string; let transactionA: string;
-const files = ["20260819060132_phase_2_ledger_core.sql", "20260819060415_phase_2_view_privileges.sql", "20260819060530_phase_2_fk_indexes.sql", "20260819063329_phase_3_migration_staging.sql", "20260819063626_phase_3_staging_fk_indexes.sql", "20260819114938_phase_4_actual_money_workflows.sql", "20260819115028_phase_4_fk_indexes.sql", "20260819160000_phase_5_forecast_recurrence.sql", "20260819190000_phase_6_funds_payday_budgets.sql", "20260819190500_phase_6_budget_group_scope_fix.sql", "20260819200000_phase_6_1_budget_and_function_cleanup.sql"];
+const files = ["20260819060132_phase_2_ledger_core.sql", "20260819060415_phase_2_view_privileges.sql", "20260819060530_phase_2_fk_indexes.sql", "20260819063329_phase_3_migration_staging.sql", "20260819063626_phase_3_staging_fk_indexes.sql", "20260819114938_phase_4_actual_money_workflows.sql", "20260819115028_phase_4_fk_indexes.sql", "20260819160000_phase_5_forecast_recurrence.sql", "20260819190000_phase_6_funds_payday_budgets.sql", "20260819190500_phase_6_budget_group_scope_fix.sql", "20260819200000_phase_6_1_budget_and_function_cleanup.sql", "20260820201655_settle_forecast_from_timeline.sql"];
 
 async function asUser<T>(userId: string, action: () => Promise<T>): Promise<T> { await db.exec("set role authenticated"); await db.query("select set_config('request.jwt.claim.sub',$1,false)", [userId]); try { return await action(); } finally { await db.exec("reset role"); } }
 
@@ -47,5 +47,22 @@ describe.sequential("Phase 5 forecast database integrity", () => {
     await expect(asUser(USER_A, () => db.query("select public.match_forecast_item($1,$2)", [second.rows[0]!.id, transactionA]))).rejects.toThrow(/already matched/i);
     const otherActual = (await asUser(USER_B, () => db.query<{ id: string }>("select public.post_income($1,10000,null,now(),'Other actual',null,null,'other-income') id", [accountB]))).rows[0]!.id;
     await expect(asUser(USER_A, () => db.query("select public.match_forecast_item($1,$2)", [second.rows[0]!.id, otherActual]))).rejects.toThrow(/posted owned/i);
+  });
+
+  it("settles a forecast item atomically and is idempotent on repeat", async () => {
+    const item = await asUser(USER_A, () => db.query<{ id: string }>("insert into public.forecast_items(user_id,kind,expected_date,amount_minor,destination_account_id,label) values($1,'income','2026-10-01',70000,$2,'Expected bonus') returning id", [USER_A, accountA]));
+    const before = (await db.query<{ balance: number }>("select display_balance_minor::int balance from public.account_balances where account_id=$1", [accountA])).rows[0]!.balance;
+    const first = await asUser(USER_A, () => db.query<{ id: string }>("select public.settle_forecast_item($1,72500,'2026-10-02T12:00:00Z',null,$2,null,'Exact amount','settle-bonus') id", [item.rows[0]!.id, accountA]));
+    const second = await asUser(USER_A, () => db.query<{ id: string }>("select public.settle_forecast_item($1,72500,'2026-10-02T12:00:00Z',null,$2,null,'Exact amount','settle-bonus-repeat') id", [item.rows[0]!.id, accountA]));
+    expect(second.rows[0]!.id).toBe(first.rows[0]!.id);
+    const after = await db.query<{ balance: number; count: number }>("select (select display_balance_minor::int from public.account_balances where account_id=$1) balance,(select count(*)::int from public.transactions where id=$2) count", [accountA, first.rows[0]!.id]);
+    expect(after.rows[0]).toEqual({ balance: before + 72500, count: 1 });
+    const matched = await db.query<{ status: string; amount: number; date: string }>("select status::text,expected_amount_minor_snapshot::int amount,expected_date_snapshot::text date from public.forecast_items where id=$1", [item.rows[0]!.id]);
+    expect(matched.rows[0]).toEqual({ status: "matched", amount: 70000, date: "2026-10-01" });
+  });
+
+  it("does not allow another user to settle the item", async () => {
+    const item = await asUser(USER_A, () => db.query<{ id: string }>("insert into public.forecast_items(user_id,kind,expected_date,amount_minor,destination_account_id,label) values($1,'income','2026-11-01',10000,$2,'Private income') returning id", [USER_A, accountA]));
+    await expect(asUser(USER_B, () => db.query("select public.settle_forecast_item($1,10000,now(),null,$2,null,null,'wrong-owner')", [item.rows[0]!.id, accountB]))).rejects.toThrow(/not found/i);
   });
 });
