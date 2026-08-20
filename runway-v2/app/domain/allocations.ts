@@ -98,12 +98,53 @@ export function recommendAllocations(input: AllocationEngineInput): AllocationEn
     recommendations, resultingFundBalancesMinor: balances };
 }
 
-export interface SafeToSpendInput { dailyOperatingCash: readonly { date: string; balanceMinor: number }[]; allocatedOperatingMinor: number; operatingFloorMinor: number; safetyWindowDays: number }
+export interface SafeToSpendObligation { date: string; amountMinor: number; label?: string }
+export interface SafeToSpendInput {
+  actualCashMinor: number;
+  allocatedOperatingMinor: number;
+  operatingFloorMinor: number;
+  asOfDate: string;
+  safetyWindowDays: number;
+  obligations: readonly SafeToSpendObligation[];
+  nextReliableIncomeDate?: string | null;
+}
+export interface SafeToSpendTrace {
+  actualCashMinor: number;
+  allocatedOperatingMinor: number;
+  operatingFloorMinor: number;
+  reservedObligationsMinor: number;
+  protectionEndDate: string;
+  nextReliableIncomeDate: string | null;
+  safeToSpendMinor: number;
+  obligations: SafeToSpendObligation[];
+}
+function shiftDate(value: string, days: number): string {
+  const date = new Date(`${value}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+/**
+ * Cash that is already owned after protecting allocations, the operating floor,
+ * and expected spending. Future income can shorten the protection window, but is
+ * deliberately never added to available cash.
+ */
+export function calculateSafeToSpendTrace(input: SafeToSpendInput): SafeToSpendTrace {
+  const fixedEnd = shiftDate(input.asOfDate, Math.max(1, input.safetyWindowDays) - 1);
+  const incomeDate = input.nextReliableIncomeDate && input.nextReliableIncomeDate > input.asOfDate
+    ? input.nextReliableIncomeDate : null;
+  const protectionEndDate = incomeDate && incomeDate <= fixedEnd ? shiftDate(incomeDate, -1) : fixedEnd;
+  const obligations = input.obligations
+    .filter((item) => item.amountMinor > 0 && item.date >= input.asOfDate && item.date <= protectionEndDate)
+    .map((item) => ({ ...item, amountMinor: Math.trunc(item.amountMinor) }))
+    .toSorted((a, b) => a.date.localeCompare(b.date) || (a.label ?? "").localeCompare(b.label ?? ""));
+  const reservedObligationsMinor = obligations.reduce((sum, item) => sum + item.amountMinor, 0);
+  const safeToSpendMinor = Math.max(0, Math.trunc(input.actualCashMinor) - Math.max(0, Math.trunc(input.allocatedOperatingMinor)) - Math.max(0, Math.trunc(input.operatingFloorMinor)) - reservedObligationsMinor);
+  return { actualCashMinor: Math.trunc(input.actualCashMinor), allocatedOperatingMinor: Math.max(0, Math.trunc(input.allocatedOperatingMinor)),
+    operatingFloorMinor: Math.max(0, Math.trunc(input.operatingFloorMinor)), reservedObligationsMinor, protectionEndDate,
+    nextReliableIncomeDate: incomeDate, safeToSpendMinor, obligations };
+}
 export function calculateSafeToSpend(input: SafeToSpendInput): number {
-  const window = input.dailyOperatingCash.slice(0, Math.max(1, input.safetyWindowDays));
-  if (!window.length) return 0;
-  const minimumUnallocated = Math.min(...window.map((point) => point.balanceMinor - input.allocatedOperatingMinor));
-  return Math.max(0, minimumUnallocated - input.operatingFloorMinor);
+  return calculateSafeToSpendTrace(input).safeToSpendMinor;
 }
 export function calculateUnallocatedCash(accountBalanceMinor: number, backedFundBalancesMinor: readonly number[]): number {
   return accountBalanceMinor - backedFundBalancesMinor.reduce((sum, value) => sum + value, 0);

@@ -278,6 +278,7 @@ export function buildOverviewReadModel(
     analytics,
     position,
     safeToSpendMinor: base.safeToSpendMinor,
+    safeToSpendTrace: base.safeToSpendTrace,
     operatingFloorMinor: base.applied.forecast.operatingFloorMinor,
     safetyWindowDays: base.applied.safetyWindowDays,
     nextReliableIncome,

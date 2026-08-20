@@ -36,7 +36,8 @@ describe("Phase 6 allocation engine", () => {
 describe("Phase 6 cash and budget invariants", () => {
   it("subtracts allocated cash once and clamps safe-to-spend", () => {
     const series = [{ date: "2026-10-01", balanceMinor: 20_000 }, { date: "2026-10-02", balanceMinor: 16_000 }];
-    expect(calculateSafeToSpend({ dailyOperatingCash: series, allocatedOperatingMinor: 2_000, operatingFloorMinor: 9_000, safetyWindowDays: 30 })).toBe(5_000);
+    expect(calculateSafeToSpend({ actualCashMinor: 17_000, allocatedOperatingMinor: 2_000, operatingFloorMinor: 9_000,
+      asOfDate: "2026-01-01", safetyWindowDays: 30, obligations: [{ date: "2026-01-10", amountMinor: 1_000 }] })).toBe(5_000);
     expect(calculateUnallocatedCash(20_000, [2_000, 3_000])).toBe(15_000);
     expect(fundBackingIntegrity(4_000, [2_000, 3_000]).valid).toBe(false);
   });

@@ -32,7 +32,7 @@ export function toForecastInput(workspace: ForecastWorkspace, horizonMonths: num
       sourceAccountId: rule.source_account_id, destinationAccountId: rule.destination_account_id, categoryId: rule.category_id,
       amountMinor: Number(rule.amount_minor), frequency: rule.frequency, intervalCount: rule.interval_count, dayOfMonth: rule.day_of_month,
       dayOfWeek: rule.day_of_week, startOn: rule.start_on, endOn: rule.end_on, defaultSortOrder: rule.default_sort_order,
-      confidence: rule.confidence, scenarioId: rule.scenario_id, active: rule.active })),
+      confidence: rule.confidence, scenarioId: rule.scenario_id, active: rule.active, isReliableIncome: rule.is_reliable_income })),
     recurrenceExceptions: workspace.occurrences.map((row) => ({ id: row.id, recurringRuleId: row.recurring_rule_id,
       occurrenceDate: row.occurrence_date, status: row.status, overrideDate: row.override_date, overrideAmountMinor: row.override_amount_minor,
       matchedTransactionId: row.matched_transaction_id, expectedAmountMinorSnapshot: row.expected_amount_minor_snapshot,
@@ -46,15 +46,17 @@ export function toForecastInput(workspace: ForecastWorkspace, horizonMonths: num
 
 export interface ForecastScreenModel {
   result: ForecastResult;
-  summary: { projectedBalanceMinor: number; lowestOperatingMinor: number; incomeMinor: number; expenseMinor: number; overdueCount: number };
+  summary: { startingCashMinor: number; projectedBalanceMinor: number; lowestOperatingMinor: number; incomeMinor: number; expenseMinor: number; overdueCount: number };
   chart: Array<{ date: string; operatingCashMinor: number; liquidCashMinor: number; netWorthMinor: number }>;
   timeline: Array<ForecastResult["events"][number] & { accountImpact: string; runningBalanceMinor: number }>;
 }
 
 export function buildForecastScreenModel(workspace: ForecastWorkspace, horizonMonths: number, selectedScenarioIds: string[], asOfDate?: string): ForecastScreenModel {
-  const result = forecast(toForecastInput(workspace, horizonMonths, selectedScenarioIds, asOfDate));
+  const input = toForecastInput(workspace, horizonMonths, selectedScenarioIds, asOfDate);
+  const result = forecast(input);
   const accountNames = new Map(workspace.accounts.map((account) => [account.id, account.name]));
-  return { result, summary: { projectedBalanceMinor: result.endingOperatingCashMinor, lowestOperatingMinor: result.lowestOperatingCash.balanceMinor,
+  const startingCashMinor = input.accounts.filter((account) => account.class === "asset" && account.liquidityClass === "operating").reduce((sum, account) => sum + account.balanceMinor, 0);
+  return { result, summary: { startingCashMinor, projectedBalanceMinor: result.endingOperatingCashMinor, lowestOperatingMinor: result.lowestOperatingCash.balanceMinor,
     incomeMinor: result.totals.incomeMinor, expenseMinor: result.totals.expenseMinor, overdueCount: result.overdueItems.length },
     chart: result.dailySeries.map((point) => ({ date: point.date, operatingCashMinor: point.operatingCashMinor, liquidCashMinor: point.liquidCashMinor, netWorthMinor: point.netWorthMinor })),
     timeline: result.events.map((event) => ({ ...event, accountImpact: event.kind === "income" ? `Into ${accountNames.get(event.destinationAccountId ?? "") ?? "account"}` : event.kind === "expense" ? `From ${accountNames.get(event.sourceAccountId ?? "") ?? "account"}` : `${accountNames.get(event.sourceAccountId ?? "") ?? "account"} → ${accountNames.get(event.destinationAccountId ?? "") ?? "account"}`,

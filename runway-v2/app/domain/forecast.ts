@@ -20,6 +20,7 @@ export interface RecurringRuleInput {
   amountMinor: number; frequency: "weekly" | "monthly" | "yearly"; intervalCount: number;
   dayOfMonth?: number | null; dayOfWeek?: number | null; startOn: CalendarDate; endOn?: CalendarDate | null;
   defaultSortOrder?: number | null; confidence?: PlannedConfidence; scenarioId?: string | null; active: boolean;
+  isReliableIncome?: boolean;
 }
 export interface RecurrenceExceptionInput {
   id: string; recurringRuleId: string; occurrenceDate: CalendarDate;

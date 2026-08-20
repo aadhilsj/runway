@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { calculateSafeToSpend, recommendAllocations, type AllocationGoalInput, type AllocationPlanItemInput, type AllocationRecommendation } from "./allocations";
+import { calculateSafeToSpendTrace, recommendAllocations, type AllocationGoalInput, type AllocationPlanItemInput, type AllocationRecommendation, type SafeToSpendTrace } from "./allocations";
 import { forecast, type ForecastInput, type ForecastResult, type OneOffForecastInput, type ProjectedFundActionInput, type RecurringRuleInput } from "./forecast";
 
 export const scenarioChangeTypeSchema = z.enum([
@@ -33,7 +33,7 @@ export interface ScenarioGoalInput extends AllocationGoalInput { id: string; nam
 export interface ScenarioBaseInput { forecast: ForecastInput; safetyWindowDays: number; allocationItems: readonly AllocationPlanItemInput[]; goals: readonly ScenarioGoalInput[] }
 export interface ScenarioConflict { targetKey: string; planIds: string[]; changeIds: string[]; message: string }
 export interface ScenarioAppliedInput extends ScenarioBaseInput { selectedPlanIds: string[]; conflicts: ScenarioConflict[] }
-export interface ScenarioEvaluation { applied: ScenarioAppliedInput; result: ForecastResult; safeToSpendMinor: number; allocationRecommendations: AllocationRecommendation[]; goalCompletionDates: Record<string, string | null>; health: Array<{ kind: "neutral" | "warning"; label: string; detail: string }> }
+export interface ScenarioEvaluation { applied: ScenarioAppliedInput; result: ForecastResult; safeToSpendMinor: number; safeToSpendTrace: SafeToSpendTrace; allocationRecommendations: AllocationRecommendation[]; goalCompletionDates: Record<string, string | null>; health: Array<{ kind: "neutral" | "warning"; label: string; detail: string }> }
 
 function shiftDate(value: string, days: number): string { const date = new Date(`${value}T00:00:00Z`); date.setUTCDate(date.getUTCDate() + days); return date.toISOString().slice(0, 10); }
 function overlaps(a: ScenarioChange, b: ScenarioChange): boolean { const startA = a.effectiveOn ?? "0000-01-01", startB = b.effectiveOn ?? "0000-01-01"; const endA = a.effectiveUntil ?? "9999-12-31", endB = b.effectiveUntil ?? "9999-12-31"; return startA <= endB && startB <= endA; }
@@ -92,7 +92,15 @@ export function applyPlans(base: ScenarioBaseInput, plans: readonly PlanInput[])
 
 export function evaluatePlans(base: ScenarioBaseInput, plans: readonly PlanInput[]): ScenarioEvaluation {
   const applied = applyPlans(base, plans), first = forecast(applied.forecast), allocated = applied.forecast.funds?.reduce((sum, fund) => sum + fund.balanceMinor, 0) ?? 0;
-  const safeToSpendMinor = calculateSafeToSpend({ dailyOperatingCash: first.dailySeries.map((point) => ({ date: point.date, balanceMinor: point.operatingCashMinor })), allocatedOperatingMinor: allocated, operatingFloorMinor: applied.forecast.operatingFloorMinor, safetyWindowDays: applied.safetyWindowDays });
+  const operatingIds = new Set(applied.forecast.accounts.filter((account) => account.class === "asset" && account.liquidityClass === "operating").map((account) => account.id));
+  const actualCashMinor = applied.forecast.accounts.filter((account) => operatingIds.has(account.id)).reduce((sum, account) => sum + account.balanceMinor, 0);
+  const reliableRuleIds = new Set(applied.forecast.recurringRules.filter((rule) => rule.active && rule.kind === "income" && rule.isReliableIncome).map((rule) => rule.id));
+  const nextReliableIncomeDate = first.events.find((event) => event.kind === "income" && event.recurrenceRuleId && reliableRuleIds.has(event.recurrenceRuleId))?.date ?? null;
+  const safeToSpendTrace = calculateSafeToSpendTrace({ actualCashMinor, allocatedOperatingMinor: allocated, operatingFloorMinor: applied.forecast.operatingFloorMinor,
+    asOfDate: applied.forecast.asOfDate, safetyWindowDays: applied.safetyWindowDays, nextReliableIncomeDate,
+    obligations: first.events.filter((event) => event.kind === "expense" && event.confidence !== "tentative" && event.sourceAccountId && operatingIds.has(event.sourceAccountId))
+      .map((event) => ({ date: event.date, amountMinor: event.amountMinor, label: event.label })) });
+  const safeToSpendMinor = safeToSpendTrace.safeToSpendMinor;
   const allocation = recommendAllocations({ asOfDate: applied.forecast.asOfDate, safeAllocatableMinor: safeToSpendMinor, items: applied.allocationItems, fundBalancesMinor: Object.fromEntries((applied.forecast.funds ?? []).map((fund) => [fund.id, fund.balanceMinor])), goals: applied.goals });
   const allocationActions: ProjectedFundActionInput[] = allocation.recommendations.filter((row) => row.destinationFundId && row.recommendedMinor > 0).map((row) => ({ id: `plan-allocation:${row.itemId}`, date: applied.forecast.asOfDate, fundId: row.destinationFundId!, amountMinor: row.recommendedMinor, label: row.label }));
   const result = forecast({ ...applied.forecast, projectedFundActions: [...(applied.forecast.projectedFundActions ?? []), ...allocationActions] });
@@ -102,7 +110,7 @@ export function evaluatePlans(base: ScenarioBaseInput, plans: readonly PlanInput
   const health: ScenarioEvaluation["health"] = [result.floorBreaches.length ? { kind: "warning", label: "Operating floor breached", detail: `${result.floorBreaches.length} projected breach${result.floorBreaches.length === 1 ? "" : "es"}.` } : { kind: "neutral", label: "No floor breach", detail: "Operating cash stays above the selected floor." }];
   if (result.lowestOperatingCash.balanceMinor < 0) health.push({ kind: "warning", label: "Negative projected cash", detail: `First low point is ${result.lowestOperatingCash.date}.` });
   for (const [fundId, balance] of Object.entries(result.fundSeries.at(-1)?.balancesMinor ?? {})) if (balance < 0) health.push({ kind: "warning", label: "Fund depleted", detail: `Fund ${fundId} falls below zero.` });
-  return { applied, result, safeToSpendMinor, allocationRecommendations: allocation.recommendations, goalCompletionDates, health };
+  return { applied, result, safeToSpendMinor, safeToSpendTrace, allocationRecommendations: allocation.recommendations, goalCompletionDates, health };
 }
 
 export interface PlanComparisonAlternative { planIds: string[]; label: string; evaluation: ScenarioEvaluation; deltas: { endingOperatingCashMinor: number; endingLiquidCashMinor: number; endingNetWorthMinor: number; lowestOperatingCashMinor: number; safeToSpendMinor: number; incomeMinor: number; expenseMinor: number; floorBreachCount: number } }
