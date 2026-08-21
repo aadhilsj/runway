@@ -22,7 +22,8 @@ afterEach(() => { cleanup(); vi.clearAllMocks(); });
 describe("Phase 5 forecast UI", () => {
   it("changes horizon and includes selected scenarios without mutating base input", async () => {
     show(<ForecastRoute/>); expect(await screen.findByText("Base expense")).toBeVisible(); expect(screen.queryByText("Scenario expense")).not.toBeInTheDocument();
-    const range = screen.getByText(/\d{2} \w{3} – \d{2} \w{3}/); expect(range).toBeVisible(); expect(range).not.toHaveTextContent(/As of|through/);
+    expect(screen.getByText("Forecast period")).toBeVisible();
+    const range = screen.getByText(/\d{2} \w{3} \d{4} – \d{2} \w{3} \d{4}/); expect(range).toBeVisible(); expect(range).not.toHaveTextContent(/As of|through/);
     fireEvent.click(screen.getByRole("button", { name: "24 months" })); expect(mocks.saveHorizon).toHaveBeenCalledWith(24);
     fireEvent.click(screen.getByLabelText("Optional plan")); expect(await screen.findByText("Scenario expense")).toBeVisible(); expect(mocks.workspace.items).toHaveLength(2);
   });

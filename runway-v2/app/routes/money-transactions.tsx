@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState, type FormEvent } from "react";
+import { useSearchParams } from "react-router";
 import { Drawer } from "~/components/drawer";
 import { Page } from "~/components/page";
 import { accountsRepository } from "~/data/repositories/accounts-repository";
@@ -28,8 +29,10 @@ function transactionDisplay(transaction: Transaction, accounts: Account[], categ
 
 export default function TransactionsRoute() {
   const queryClient = useQueryClient();
+  const [searchParams] = useSearchParams();
+  const startsWithExpense = searchParams.get("new") === "expense";
   const [kind, setKind] = useState<TransactionKind>("expense");
-  const [createOpen, setCreateOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(startsWithExpense);
   const [search, setSearch] = useState("");
   const transactions = useQuery({ queryKey: ["transactions"], queryFn: () => transactionsRepository.listTransactions({ limit: 250 }) });
   const accounts = useQuery({ queryKey: ["accounts", "balances"], queryFn: () => accountsRepository.listAccountsWithBalances() });

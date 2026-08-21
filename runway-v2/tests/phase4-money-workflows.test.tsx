@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import AccountsRoute from "~/routes/money-accounts";
 import TransactionsRoute from "~/routes/money-transactions";
@@ -46,9 +47,9 @@ vi.mock("~/data/repositories/forecast-repository", () => ({ forecastRepository: 
 } }));
 vi.mock("~/data/repositories/recurring-repository", () => ({ recurringRepository: { matchOccurrence: vi.fn(), setException: vi.fn(), settleOccurrence: vi.fn() } }));
 
-function renderWithQuery(ui: React.ReactNode) {
+function renderWithQuery(ui: React.ReactNode, initialEntry = "/") {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
-  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
+  return render(<MemoryRouter initialEntries={[initialEntry]}><QueryClientProvider client={client}>{ui}</QueryClientProvider></MemoryRouter>);
 }
 
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
@@ -82,6 +83,12 @@ describe("Phase 4 actual-money workflows", () => {
     fireEvent.change(screen.getByLabelText("Description"), { target: { value: "Invented purchase" } });
     fireEvent.click(screen.getByRole("button", { name: "Post expense" }));
     await waitFor(() => expect(mocks.postExpense).toHaveBeenCalledWith(expect.objectContaining({ amountMinor: 12550, description: "Invented purchase" })));
+  });
+
+  it("opens the expense form from the budget spending shortcut", async () => {
+    renderWithQuery(<TransactionsRoute />, "/money/transactions?new=expense");
+    expect(await screen.findByRole("button", { name: "Post expense" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Expense" })).toHaveAttribute("aria-pressed", "true");
   });
 
   it("keeps migrated plans visibly separate from actual money", async () => {
