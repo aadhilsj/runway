@@ -1,5 +1,6 @@
 import { QueryClient,QueryClientProvider } from "@tanstack/react-query";
 import { render,screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import type { ReactNode } from "react";
 import { describe,expect,it,vi } from "vitest";
@@ -13,5 +14,5 @@ vi.mock("~/data/repositories/forecast-repository",()=>({forecastRepository:{getW
 function show(element:ReactNode){const client=new QueryClient({defaultOptions:{queries:{retry:false}}});return render(<MemoryRouter>{<QueryClientProvider client={client}>{element}</QueryClientProvider>}</MemoryRouter>);}
 describe("Phase 6 UI",()=>{
  it("shows zero-balance funds and compact payday navigation",async()=>{show(<FundsRoute/>);expect(await screen.findByRole("heading",{name:"Emergency"})).toBeInTheDocument();expect(screen.queryByText(/starts at zero/i)).not.toBeInTheDocument();expect(screen.getByRole("link",{name:/review payday plan/i})).toHaveAttribute("href","/funds/payday");});
- it("explains a floor-clamped payday recommendation before confirmation",async()=>{show(<FundsPaydayRoute/>);expect(await screen.findByRole("heading",{name:"Recommendation"})).toBeInTheDocument();expect(screen.getByText(/partially funded because/i)).toBeInTheDocument();expect(screen.getByRole("button",{name:/confirm fund allocations/i})).toBeEnabled();});
+ it("lets the user choose payday amounts without recommendations",async()=>{show(<FundsPaydayRoute/>);expect(await screen.findByRole("heading",{name:"Set each amount"})).toBeInTheDocument();expect(screen.queryByText(/suggested|recommendation/i)).not.toBeInTheDocument();expect(screen.queryByText(/cash now/i)).not.toBeInTheDocument();const confirm=screen.getByRole("button",{name:/confirm fund allocations/i});expect(confirm).toBeDisabled();await userEvent.clear(screen.getByLabelText("Emergency amount"));await userEvent.type(screen.getByLabelText("Emergency amount"),"1000");expect(confirm).toBeEnabled();});
 });
