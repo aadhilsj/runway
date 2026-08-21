@@ -51,7 +51,7 @@ export default function FundsPaydayRoute() {
     {view ? <section className="money-panel payday-panel"><div className="panel-heading"><div><p className="section-kicker">Your funds</p><h2>Set each amount</h2></div></div>
         <div className="payday-list">{view.planItems.map((row) => <article className="payday-row" key={row.id}><strong>{row.label}</strong><label><span className="sr-only">Amount for {row.label}</span><input aria-label={`${row.label} amount`} type="number" min="0" step="0.01" value={amounts[row.id] ?? "0"} onChange={(event) => setAmounts((current) => ({ ...current, [row.id]: event.target.value }))}/><small>{view.currency}</small></label></article>)}</div>
         {notice ? <p className={notice.startsWith("Allocations confirmed") ? "form-notice" : "field-error"}>{notice}</p> : null}
-        {exceedsAvailable ? <p className="field-error">The total exceeds your safe allocation limit.</p> : null}
+        {exceedsAvailable ? <p className="field-error">You can set aside up to {money(availableMinor, view.currency)} after money already in funds, upcoming bills, and your {money(view.safeTrace.operatingFloorMinor, view.currency)} cash minimum are covered. You can change the cash minimum in Settings.</p> : null}
         <button className="primary-button" aria-label="Confirm fund allocations" disabled={execute.isPending || exceedsAvailable || view.planItems.every((row) => approvedMinor(row.id) === 0)} onClick={() => execute.mutate()}>Confirm allocations</button>
       </section> : null}
   </Page>;

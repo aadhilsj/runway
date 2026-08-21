@@ -1,9 +1,9 @@
 import { QueryClient,QueryClientProvider } from "@tanstack/react-query";
-import { render,screen,waitFor } from "@testing-library/react";
+import { cleanup,render,screen,waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import type { ReactNode } from "react";
-import { describe,expect,it,vi } from "vitest";
+import { afterEach,describe,expect,it,vi } from "vitest";
 import FundsRoute from "~/routes/funds";
 import FundsPaydayRoute from "~/routes/funds-payday";
 import { fundsRepository } from "~/data/repositories/funds-repository";
@@ -13,7 +13,9 @@ const forecastWorkspace={profile:{user_id:"user",base_currency:"NOK",timezone:"E
 vi.mock("~/data/repositories/funds-repository",()=>({fundsRepository:{getWorkspace:vi.fn(async()=>fundWorkspace),updatePlanItem:vi.fn(),executePayday:vi.fn(),allocate:vi.fn(),release:vi.fn()}}));
 vi.mock("~/data/repositories/forecast-repository",()=>({forecastRepository:{getWorkspace:vi.fn(async()=>forecastWorkspace)}}));
 function show(element:ReactNode){const client=new QueryClient({defaultOptions:{queries:{retry:false}}});return render(<MemoryRouter>{<QueryClientProvider client={client}>{element}</QueryClientProvider>}</MemoryRouter>);}
+afterEach(()=>cleanup());
 describe("Phase 6 UI",()=>{
  it("shows zero-balance funds and compact payday navigation",async()=>{show(<FundsRoute/>);expect(await screen.findByRole("heading",{name:"Emergency"})).toBeInTheDocument();expect(screen.queryByText(/starts at zero/i)).not.toBeInTheDocument();expect(screen.getByRole("link",{name:/review payday plan/i})).toHaveAttribute("href","/funds/payday");});
- it("loads and saves payday amounts without recommendation or availability clutter",async()=>{show(<FundsPaydayRoute/>);expect(await screen.findByRole("heading",{name:"Set each amount"})).toBeInTheDocument();expect(screen.queryByText(/suggested|recommendation/i)).not.toBeInTheDocument();expect(screen.queryByText(/cash now|available today|remaining/i)).not.toBeInTheDocument();const input=screen.getByLabelText("Emergency amount");expect(input).toHaveValue(5000);await userEvent.clear(input);await userEvent.type(input,"1000");const confirm=screen.getByRole("button",{name:/confirm fund allocations/i});expect(confirm).toBeEnabled();await userEvent.click(confirm);await waitFor(()=>expect(fundsRepository.updatePlanItem).toHaveBeenCalledWith("item",{amount_minor:100_000}));expect(fundsRepository.executePayday).toHaveBeenCalled();});
+ it("loads and saves payday amounts without recommendation, availability, or completion clutter",async()=>{show(<FundsPaydayRoute/>);expect(await screen.findByRole("heading",{name:"Set each amount"})).toBeInTheDocument();expect(screen.queryByText(/suggested|recommendation/i)).not.toBeInTheDocument();expect(screen.queryByText(/cash now|available today|remaining|complete|capped/i)).not.toBeInTheDocument();const input=screen.getByLabelText("Emergency amount");expect(input).toHaveValue(5000);await userEvent.clear(input);await userEvent.type(input,"1000");const confirm=screen.getByRole("button",{name:/confirm fund allocations/i});expect(confirm).toBeEnabled();await userEvent.click(confirm);await waitFor(()=>expect(fundsRepository.updatePlanItem).toHaveBeenCalledWith("item",{amount_minor:100_000}));expect(fundsRepository.executePayday).toHaveBeenCalled();});
+ it("explains the allocation guardrail in plain language",async()=>{show(<FundsPaydayRoute/>);const input=await screen.findByLabelText("Emergency amount");await userEvent.clear(input);await userEvent.type(input,"999999");expect(screen.getByText(/money already in funds, upcoming bills, and your .* cash minimum are covered/i)).toBeVisible();expect(screen.getByText(/change the cash minimum in Settings/i)).toBeVisible();expect(screen.queryByText(/safe allocation limit/i)).not.toBeInTheDocument();});
 });
