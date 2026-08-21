@@ -1949,6 +1949,10 @@ export type Database = {
         Args: { p_confirmation_token: string; p_scenario_id: string }
         Returns: Json
       }
+      delete_plan: {
+        Args: { p_scenario_id: string }
+        Returns: undefined
+      }
       create_account: {
         Args: {
           p_class: Database["public"]["Enums"]["runway_account_class"]

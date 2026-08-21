@@ -12,6 +12,6 @@ vi.mock("~/data/repositories/funds-repository",()=>({fundsRepository:{getWorkspa
 vi.mock("~/data/repositories/forecast-repository",()=>({forecastRepository:{getWorkspace:vi.fn(async()=>forecastWorkspace)}}));
 function show(element:ReactNode){const client=new QueryClient({defaultOptions:{queries:{retry:false}}});return render(<MemoryRouter>{<QueryClientProvider client={client}>{element}</QueryClientProvider>}</MemoryRouter>);}
 describe("Phase 6 UI",()=>{
- it("shows zero-balance funds and explicit payday navigation",async()=>{show(<FundsRoute/>);expect(await screen.findByRole("heading",{name:"Emergency"})).toBeInTheDocument();expect(screen.getByText(/starts at zero/i)).toBeInTheDocument();expect(screen.getByRole("link",{name:/review payday plan/i})).toHaveAttribute("href","/funds/payday");});
+ it("shows zero-balance funds and compact payday navigation",async()=>{show(<FundsRoute/>);expect(await screen.findByRole("heading",{name:"Emergency"})).toBeInTheDocument();expect(screen.queryByText(/starts at zero/i)).not.toBeInTheDocument();expect(screen.getByRole("link",{name:/review payday plan/i})).toHaveAttribute("href","/funds/payday");});
  it("explains a floor-clamped payday recommendation before confirmation",async()=>{show(<FundsPaydayRoute/>);expect(await screen.findByRole("heading",{name:"Recommendation"})).toBeInTheDocument();expect(screen.getByText(/partially funded because/i)).toBeInTheDocument();expect(screen.getByRole("button",{name:/confirm fund allocations/i})).toBeEnabled();});
 });

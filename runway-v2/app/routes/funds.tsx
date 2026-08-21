@@ -11,7 +11,7 @@ export default function FundsRoute(){
   const data=workspace.data;
   const balances=new Map(data?.balances.map(row=>[row.fund_id,Number(row.balance_minor)]));
   return <Page eyebrow="Money set aside" title="Funds" description="Give part of your cash a job—such as Emergency, Home, or Travel. The money stays in your account until you make a real transfer.">
-    <div className="panel-heading"><p className="muted">Each fund starts at zero. The card shows what is set aside now; payday contributions are supporting details, not part of the balance.</p><Link className="primary-button" to="/funds/payday">Review payday plan</Link></div>
+    <div className="fund-page-actions"><Link className="primary-button" to="/funds/payday">Review payday plan</Link></div>
     {workspace.isLoading?<p className="muted">Loading funds…</p>:null}{workspace.error?<p className="field-error">Funds could not be loaded.</p>:null}
     <section className="fund-grid" aria-label="Funds">{data?.funds.map(fund=>{
       const balance=balances.get(fund.id)??0;
