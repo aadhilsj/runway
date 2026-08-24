@@ -2047,6 +2047,20 @@ export type Database = {
         }
         Returns: string
       }
+      settle_plan_item: {
+        Args: {
+          p_actual_amount_minor: number
+          p_category_id: string | null
+          p_destination_account_id: string | null
+          p_forecast_item_id: string | null
+          p_idempotency_key: string
+          p_notes: string | null
+          p_occurred_at: string
+          p_scenario_change_id: string | null
+          p_source_account_id: string | null
+        }
+        Returns: string
+      }
       settle_recurring_occurrence: {
         Args: {
           p_actual_amount_minor: number

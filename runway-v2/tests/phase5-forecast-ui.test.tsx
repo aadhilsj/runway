@@ -13,16 +13,16 @@ const mocks = vi.hoisted(() => {
   rules: [{ id: "rule-a", kind: "expense", label: "Monthly fixture", notes: null, source_account_id: account.id, destination_account_id: null, category_id: null, amount_minor: 5000, frequency: "monthly", interval_count: 1, day_of_month: 10, day_of_week: null, start_on: "2026-09-10", end_on: null, default_sort_order: null, confidence: "expected", scenario_id: null, active: true, archived_at: null }],
     occurrences: [], scenarios: [{ id: "scenario-a", name: "Optional plan", status: "active", archived_at: null, comparison_enabled: false }], categories: [], transactions: [] } as any;
   const updatePlan = vi.fn(async (id: string, values: { comparison_enabled?: boolean }) => { const plan = workspace.scenarios.find((item: { id: string }) => item.id === id); if (plan && values.comparison_enabled !== undefined) plan.comparison_enabled = values.comparison_enabled; });
-  const planWorkspace = { forecast: workspace, funds: { profile: { safety_window_days: 30 }, items: [], goals: [] }, budgets: { periods: [], lines: [], groups: [], groupCategories: [], actuals: [], categories: [], currency: "NOK" }, plans: workspace.scenarios, changes: [], applications: [] };
-  return { createItem: vi.fn(), createRule: vi.fn(), settleItem: vi.fn(), settleOccurrence: vi.fn(), restoreException: vi.fn(), saveMonthlyBaseline: vi.fn(), saveHorizon: vi.fn(), setActive: vi.fn(), archive: vi.fn(), updatePlan, account, workspace, planWorkspace };
+  const planWorkspace = { forecast: workspace, funds: { profile: { safety_window_days: 30 }, items: [], goals: [] }, budgets: { periods: [], lines: [], groups: [], groupCategories: [], actuals: [], categories: [], currency: "NOK" }, plans: workspace.scenarios, changes: [] as any[], applications: [] };
+  return { createItem: vi.fn(), createRule: vi.fn(), settleItem: vi.fn(), settlePlanItem: vi.fn(), settleOccurrence: vi.fn(), restoreException: vi.fn(), saveMonthlyBaseline: vi.fn(), saveHorizon: vi.fn(), setActive: vi.fn(), archive: vi.fn(), updatePlan, account, workspace, planWorkspace };
 });
 
 vi.mock("~/data/repositories/forecast-repository", () => ({ forecastRepository: { getWorkspace: vi.fn().mockResolvedValue(mocks.workspace), saveHorizon: mocks.saveHorizon, createItem: mocks.createItem, updateItem: vi.fn(), purgeExpiredRecoverableItems: vi.fn().mockResolvedValue(undefined), matchItem: vi.fn(), settleItem: mocks.settleItem } }));
 vi.mock("~/data/repositories/budgets-repository", () => ({ budgetsRepository: { getWorkspace: vi.fn().mockResolvedValue({ periods: [], lines: [], groups: [], groupCategories: [], actuals: [], categories: [], currency: "NOK" }) } }));
 vi.mock("~/data/repositories/recurring-repository", () => ({ recurringRepository: { create: mocks.createRule, update: vi.fn(), setActive: mocks.setActive, archive: mocks.archive, setException: vi.fn(), restoreException: mocks.restoreException, settleOccurrence: mocks.settleOccurrence, saveMonthlyBaseline: mocks.saveMonthlyBaseline } }));
-vi.mock("~/data/repositories/plans-repository", () => ({ plansRepository: { getWorkspace: vi.fn().mockResolvedValue(mocks.planWorkspace), updatePlan: mocks.updatePlan } }));
+vi.mock("~/data/repositories/plans-repository", () => ({ plansRepository: { getWorkspace: vi.fn().mockResolvedValue(mocks.planWorkspace), updatePlan: mocks.updatePlan, settleItem: mocks.settlePlanItem } }));
 function show(ui: React.ReactNode) { const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } }); return render(<MemoryRouter><QueryClientProvider client={client}>{ui}</QueryClientProvider></MemoryRouter>); }
-afterEach(() => { cleanup(); mocks.workspace.occurrences = []; mocks.workspace.scenarios[0].comparison_enabled = false; vi.clearAllMocks(); });
+afterEach(() => { cleanup(); mocks.workspace.occurrences = []; mocks.workspace.scenarios[0].comparison_enabled = false; mocks.planWorkspace.changes = []; vi.clearAllMocks(); });
 
 describe("Phase 5 forecast UI", () => {
   it("extends a forecast horizon through the entire selected end month", () => {
@@ -66,6 +66,46 @@ describe("Phase 5 forecast UI", () => {
     await waitFor(() => expect(mocks.settleItem).toHaveBeenCalledWith(expect.objectContaining({
       itemId: "base", actualAmountMinor: 100000, occurredAt: "2026-09-01T12:00:00.000Z",
       sourceAccountId: mocks.account.id, destinationAccountId: null, categoryId: null, notes: null,
+    })));
+  });
+
+  it("settles an older Plan-linked forecast item and identifies its Plan in the confirmation", async () => {
+    mocks.workspace.scenarios[0].comparison_enabled = true;
+    mocks.settlePlanItem.mockResolvedValue("transaction-a");
+    show(<ForecastRoute/>);
+    await screen.findByText("Scenario expense");
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Mark paid" }).find((button) => button.closest("article")?.textContent?.includes("Scenario expense"))!);
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByText(/Plan: Optional plan/)).toBeVisible();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Mark paid" }));
+
+    await waitFor(() => expect(mocks.settlePlanItem).toHaveBeenCalledWith(expect.objectContaining({
+      scenarioChangeId: null, forecastItemId: "scenario-item", actualAmountMinor: 200000,
+      sourceAccountId: mocks.account.id, destinationAccountId: null,
+    })));
+  });
+
+  it("settles a current Plan change and removes the plan prefix before calling the repository", async () => {
+    mocks.workspace.scenarios[0].comparison_enabled = true;
+    mocks.planWorkspace.changes = [{
+      id: "change-income", user_id: "owner", scenario_id: "scenario-a", change_type: "add_one_off_income",
+      target_forecast_item_id: null, target_recurring_rule_id: null, target_allocation_item_id: null, target_goal_id: null,
+      source_account_id: null, destination_account_id: mocks.account.id, category_id: null, fund_id: null,
+      effective_on: "2026-09-03", effective_until: null, amount_minor: 150000, label: "Plan income", confidence: "expected",
+      target_field: null, boolean_value: null, frequency: null, interval_count: null, day_of_month: null, day_of_week: null,
+      payload_json: {}, sort_order: 0, created_at: "2026-08-24T20:00:00Z", updated_at: "2026-08-24T20:00:00Z",
+    }];
+    mocks.settlePlanItem.mockResolvedValue("transaction-b");
+    show(<ForecastRoute/>);
+    await screen.findByText("Plan income");
+
+    fireEvent.click(screen.getByRole("button", { name: "Mark received" }));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Mark received" }));
+
+    await waitFor(() => expect(mocks.settlePlanItem).toHaveBeenCalledWith(expect.objectContaining({
+      scenarioChangeId: "change-income", forecastItemId: null, actualAmountMinor: 150000,
+      sourceAccountId: null, destinationAccountId: mocks.account.id,
     })));
   });
 

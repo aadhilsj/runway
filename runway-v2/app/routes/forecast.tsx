@@ -16,10 +16,10 @@ import { userFacingError } from "~/user-facing-error";
 
 const horizons = [6, 12, 18, 24];
 type SettlementDraft = {
-  sourceType: "forecast_item" | "recurring_occurrence"; sourceId: string; occurrenceDate: string | null;
+  sourceType: "forecast_item" | "recurring_occurrence" | "plan_change" | "plan_forecast_item"; sourceId: string; occurrenceDate: string | null;
   label: string; kind: "income" | "expense" | "transfer"; expectedAmountMinor: number;
   expectedDate: string; sourceAccountId: string | null; destinationAccountId: string | null; categoryId: string | null;
-  notes: string | null;
+  notes: string | null; planName: string | null;
 };
 function message(error: unknown): string { return userFacingError(error, "Forecast could not be loaded."); }
 function money(value: number, currency: string): string { return formatMinorUnits(asMinorUnits(value), currency); }
@@ -115,7 +115,11 @@ export default function ForecastRoute() {
       categoryId: settlement.kind === "transfer" ? null : settlement.categoryId,
       notes: settlement.notes, idempotencyKey: crypto.randomUUID() };
     if (settlement.sourceType === "forecast_item") await forecastRepository.settleItem({ ...command, itemId: settlement.sourceId });
-    else await recurringRepository.settleOccurrence({ ...command, ruleId: settlement.sourceId, occurrenceDate: settlement.occurrenceDate! });
+    else if (settlement.sourceType === "recurring_occurrence") await recurringRepository.settleOccurrence({ ...command, ruleId: settlement.sourceId, occurrenceDate: settlement.occurrenceDate! });
+    else await plansRepository.settleItem({ ...command,
+      scenarioChangeId: settlement.sourceType === "plan_change" ? settlement.sourceId : null,
+      forecastItemId: settlement.sourceType === "plan_forecast_item" ? settlement.sourceId : null,
+    });
   }, onSuccess: () => { setSettlement(null); void Promise.all([
     client.invalidateQueries({ queryKey: ["forecast-workspace"] }), client.invalidateQueries({ queryKey: ["analytics-workspace"] }),
     client.invalidateQueries({ queryKey: ["transactions"] }), client.invalidateQueries({ queryKey: ["accounts"] }),
@@ -131,11 +135,14 @@ export default function ForecastRoute() {
   function beginEdit(id: string) { const item = workspace.data?.items.find((candidate) => candidate.id === id); if (!item) return; setEditingId(id); setShowDetails(true); setKind(item.kind); setLabel(item.label); setAmount((Number(item.amount_minor) / 100).toFixed(2)); setDate(item.expected_date); setSource(item.source_account_id ?? ""); setDestination(item.destination_account_id ?? ""); setScenario(item.scenario_id ?? ""); setDrawerOpen(true); }
   function submit(event: FormEvent) { event.preventDefault(); save.mutate(); }
   function beginSettlement(item: NonNullable<typeof model>["timeline"][number]) {
-    if (item.sourceType !== "forecast_item" && item.sourceType !== "recurring_occurrence") return;
-    setSettlement({ sourceType: item.sourceType, sourceId: item.sourceId, occurrenceDate: item.recurrenceRuleId ? item.canonicalDate : null,
+    if (item.sourceType === "budget_remaining") return;
+    const sourceType = item.sourceType === "scenario_item"
+      ? item.sourceId.startsWith("plan:") ? "plan_change" : "plan_forecast_item"
+      : item.sourceType;
+    setSettlement({ sourceType, sourceId: item.sourceId.startsWith("plan:") ? item.sourceId.slice(5) : item.sourceId, occurrenceDate: item.recurrenceRuleId ? item.canonicalDate : null,
       label: item.label, kind: item.kind, expectedAmountMinor: item.amountMinor, expectedDate: item.date,
       sourceAccountId: item.sourceAccountId, destinationAccountId: item.destinationAccountId, categoryId: item.categoryId,
-      notes: item.notes });
+      notes: item.notes, planName: workspace.data?.scenarios.find((plan) => plan.id === item.scenarioId)?.name ?? null });
   }
   function settlementAction(kind: SettlementDraft["kind"]) { return kind === "income" ? "Mark received" : kind === "expense" ? "Mark paid" : "Mark transferred"; }
   function settlementState(kind: SettlementDraft["kind"]) { return kind === "income" ? "received" : kind === "expense" ? "paid" : "transferred"; }
@@ -165,6 +172,8 @@ export default function ForecastRoute() {
             <div className="timeline-overflow" data-forecast-menu><button className="timeline-overflow-trigger" type="button" aria-label={`More actions for ${item.label}`} aria-expanded={openMenuId === item.id} onClick={() => setOpenMenuId((current) => current === item.id ? null : item.id)}>⋯</button>{openMenuId === item.id ? <div className="timeline-overflow-menu">
               <button onClick={() => { setOpenMenuId(null); occurrence.mutate({ ruleId: item.recurrenceRuleId!, date: item.canonicalDate }); }}>Skip this occurrence</button>
             </div> : null}</div>
+          </div> : item.sourceType === "scenario_item" ? <div className="timeline-actions">
+            <button className="timeline-settle-action" type="button" onClick={() => beginSettlement(item)}>{settlementAction(item.kind)}</button>
           </div> : null}
         </article></Fragment>})}</div>
       </section>
@@ -181,10 +190,10 @@ export default function ForecastRoute() {
       <ConfirmationDialog open={Boolean(settlement)} onClose={() => setSettlement(null)} eyebrow="Confirm actual money" title={settlement ? `Mark this item as ${settlementState(settlement.kind)}?` : "Confirm item"}>
         {settlement ? <form className="settlement-confirmation" onSubmit={(event) => { event.preventDefault(); settle.mutate(); }}>
           <div className="settlement-confirmation-summary">
-            <div><strong>{settlement.label}</strong><small>{dateLabel(settlement.expectedDate)}</small></div>
+            <div><strong>{settlement.label}</strong><small>{dateLabel(settlement.expectedDate)}{settlement.planName ? ` · Plan: ${settlement.planName}` : ""}</small></div>
             <strong className={settlement.kind === "expense" ? "negative" : settlement.kind === "income" ? "positive" : ""}>{settlement.kind === "expense" ? "−" : settlement.kind === "income" ? "+" : "↔"}{money(settlement.expectedAmountMinor, currency)}</strong>
           </div>
-          <p className="muted">This records it in Activity and removes it from your forecast.</p>
+          <p className="muted">This records it in Activity and removes it from your forecast{settlement.planName ? " and Plan" : ""}.</p>
           {settle.error ? <p className="field-error" role="alert">{userFacingError(settle.error, "This payment could not be recorded.")}</p> : null}
           <div className="confirmation-actions">
             <button className="secondary-button" type="button" onClick={() => setSettlement(null)} disabled={settle.isPending}>Cancel</button>

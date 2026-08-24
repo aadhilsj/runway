@@ -7,6 +7,12 @@ import type { Json } from "../database.types";
 export interface PlanRow { id:string; user_id:string; name:string; description:string|null; status:"draft"|"active"|"archived"|"applied"; start_on:string|null; end_on:string|null; comparison_enabled:boolean; legacy_source_id:string|null; migration_metadata:Record<string,unknown>; archived_at:string|null; applied_at:string|null; created_at:string; updated_at:string }
 export interface ScenarioChangeRow { id:string; user_id:string; scenario_id:string; change_type:string; target_forecast_item_id:string|null; target_recurring_rule_id:string|null; target_allocation_item_id:string|null; target_goal_id:string|null; source_account_id:string|null; destination_account_id:string|null; category_id:string|null; fund_id:string|null; effective_on:string|null; effective_until:string|null; amount_minor:number|null; label:string|null; confidence:"committed"|"expected"|"tentative"|null; target_field:string|null; boolean_value:boolean|null; frequency:"weekly"|"monthly"|"yearly"|null; interval_count:number|null; day_of_month:number|null; day_of_week:number|null; payload_json:Json; sort_order:number; created_at:string; updated_at:string }
 export type ScenarioChangeInsert=Omit<ScenarioChangeRow,"id"|"user_id"|"created_at"|"updated_at">;
+export interface SettlePlanItemCommand {
+  scenarioChangeId: string | null; forecastItemId: string | null;
+  actualAmountMinor: number; occurredAt: string;
+  sourceAccountId: string | null; destinationAccountId: string | null;
+  categoryId: string | null; notes: string | null; idempotencyKey: string;
+}
 
 function client() { return requireSupabase(); }
 export const plansRepository={
@@ -21,6 +27,12 @@ export const plansRepository={
  async addChange(input:ScenarioChangeInsert){const db=client(),userId=await requireAuthenticatedUserId(db);const{data,error}=await db.from("scenario_changes").insert({...input,user_id:userId}).select("*").single();if(error)throw error;return data as ScenarioChangeRow;},
  async updateChange(id:string,input:Partial<ScenarioChangeInsert>){const db=client(),userId=await requireAuthenticatedUserId(db);const{error}=await db.from("scenario_changes").update(input).eq("id",id).eq("user_id",userId);if(error)throw error;},
  async removeChange(id:string){const db=client(),userId=await requireAuthenticatedUserId(db);const{error}=await db.from("scenario_changes").delete().eq("id",id).eq("user_id",userId);if(error)throw error;},
+ async settleItem(command:SettlePlanItemCommand){const{data,error}=await client().rpc("settle_plan_item",{
+   p_scenario_change_id:command.scenarioChangeId,p_forecast_item_id:command.forecastItemId,
+   p_actual_amount_minor:command.actualAmountMinor,p_occurred_at:command.occurredAt,
+   p_source_account_id:command.sourceAccountId,p_destination_account_id:command.destinationAccountId,
+   p_category_id:command.categoryId,p_notes:command.notes,p_idempotency_key:command.idempotencyKey,
+ });if(error)throw error;return data;},
  async previewApply(id:string){const{data,error}=await client().rpc("preview_plan_application",{p_scenario_id:id});if(error)throw error;return data as {scenario_id:string;name:string;confirmation_token:string;change_count:number;changes:Array<Record<string,unknown>>;requires_confirmation:true;actual_transactions_created:0};},
  async applyToBase(id:string,token:string){const{data,error}=await client().rpc("apply_plan_to_base",{p_scenario_id:id,p_confirmation_token:token});if(error)throw error;return data as Record<string,unknown>;},
 };

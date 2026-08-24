@@ -148,6 +148,31 @@ describe("monthly budgets in Forecast", () => {
     expect(overview.upcoming.some((item) => item.label === "Plan expense")).toBe(true);
   });
 
+  it("keeps Overview unchanged when a Plan assumption is replaced by the matching actual balance movement", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-24T12:00:00Z"));
+    const budgets = budgetWorkspace(0);
+    const funds = fundsWorkspace();
+    const plan = { id: "plan-a", name: "Plan A", description: null, status: "active", comparison_enabled: true };
+    const change = {
+      id: "plan-expense", scenario_id: plan.id, change_type: "add_one_off_expense", amount_minor: 25_000,
+      label: "Plan expense", effective_on: "2026-08-29", source_account_id: "operating", destination_account_id: null,
+      target_forecast_item_id: null, target_recurring_rule_id: null, target_allocation_item_id: null, target_goal_id: null,
+      category_id: null, fund_id: null, effective_until: null, confidence: "expected", target_field: null,
+      boolean_value: null, frequency: null, interval_count: null, day_of_month: null, day_of_week: null, payload_json: {}, sort_order: 0,
+    };
+    const beforeForecast = forecastWorkspace(200_000);
+    beforeForecast.scenarios = [plan];
+    const before = buildOverviewReadModel({ forecast: beforeForecast, funds, budgets, transactions: [], plans: [plan], changes: [change] } as any, "2026-08-31");
+
+    const afterForecast = forecastWorkspace(175_000);
+    afterForecast.scenarios = [plan];
+    const after = buildOverviewReadModel({ forecast: afterForecast, funds, budgets, transactions: [], plans: [plan], changes: [] } as any, "2026-08-31");
+
+    expect(after.projection.liquidCashMinor).toBe(before.projection.liquidCashMinor);
+    expect(after.upcoming.some((item) => item.label === "Plan expense")).toBe(false);
+  });
+
   it("combines every selected modern Plan identically in Forecast and Overview", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-08-24T12:00:00Z"));
