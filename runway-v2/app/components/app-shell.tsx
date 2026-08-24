@@ -19,7 +19,6 @@ const money = [
   ["Activity", "/money/transactions"],
 ] as const;
 const planningAndInvestments = [
-  ["Budgets", "/money/budgets"],
   ["Plans", "/plans"],
   ["Investments", "/investments"],
 ] as const;

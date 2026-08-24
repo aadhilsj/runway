@@ -8,7 +8,7 @@ import ForecastRoute from "~/routes/forecast";
 
 const mocks = vi.hoisted(() => ({
   createAccount: vi.fn(), reconcileAccount: vi.fn(), postExpense: vi.fn(), reverseTransaction: vi.fn(), settleItem: vi.fn(),
-  createBudgetPeriod: vi.fn(), createBudgetLine: vi.fn(), updateBudgetLine: vi.fn(),
+  createBudgetPeriod: vi.fn(), createBudgetLine: vi.fn(), updateBudgetLine: vi.fn(), deleteBudgetLine: vi.fn(), getBudgetWorkspace: vi.fn(),
   operatingAccount: {
     id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", user_id: "owner", name: "Operating Cash", class: "asset" as const,
     subtype: "checking" as const, currency: "NOK", liquidity_class: "operating" as const, valuation_mode: "ledger" as const,
@@ -36,14 +36,14 @@ vi.mock("~/data/repositories/categories-repository", () => ({ categoriesReposito
   ]),
 } }));
 vi.mock("~/data/repositories/budgets-repository", () => ({ budgetsRepository: {
-  getWorkspace: vi.fn().mockResolvedValue({
+  getWorkspace: mocks.getBudgetWorkspace.mockResolvedValue({
     periods: [], lines: [], groups: [], groupCategories: [], actuals: [], commitments: [],
     categories: [
       { id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd", name: "Groceries", kind: "expense" },
       { id: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee", name: "Miscellaneous", kind: "expense" },
     ], currency: "NOK",
   }),
-  createPeriod: mocks.createBudgetPeriod, createLine: mocks.createBudgetLine, updateLine: mocks.updateBudgetLine,
+  createPeriod: mocks.createBudgetPeriod, createLine: mocks.createBudgetLine, updateLine: mocks.updateBudgetLine, deleteLine: mocks.deleteBudgetLine,
 } }));
 vi.mock("~/data/repositories/transactions-repository", () => ({ transactionsRepository: {
   listTransactions: vi.fn().mockResolvedValue([]), postIncome: vi.fn(), postExpense: mocks.postExpense,
@@ -131,6 +131,32 @@ describe("Phase 4 actual-money workflows", () => {
     await waitFor(() => expect(mocks.createBudgetPeriod).toHaveBeenCalledWith(monthStart, "NOK"));
     expect(mocks.createBudgetLine).toHaveBeenCalledWith("period-a", "dddddddd-dddd-4ddd-8ddd-dddddddddddd", 100000);
     expect(mocks.createBudgetLine).toHaveBeenCalledWith("period-a", "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee", 100000);
+  });
+
+  it("edits one selected month and replaces a legacy shared limit", async () => {
+    const groceriesId = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+    const miscellaneousId = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
+    mocks.getBudgetWorkspace.mockResolvedValueOnce({
+      periods: [{ id: "period-october", month_start: "2026-10-01", currency: "NOK", status: "planned", notes: null }],
+      lines: [{ id: "shared-line", budget_period_id: "period-october", category_id: null, group_id: "shared-group", budgeted_minor: 550000, rollover: false, notes: null }],
+      groups: [{ id: "shared-group", name: "Groceries + Misc" }],
+      groupCategories: [{ group_id: "shared-group", category_id: groceriesId }, { group_id: "shared-group", category_id: miscellaneousId }],
+      actuals: [], commitments: [], categories: [{ id: groceriesId, name: "Groceries", kind: "expense" }, { id: miscellaneousId, name: "Miscellaneous", kind: "expense" }], currency: "NOK",
+    });
+    mocks.createBudgetLine
+      .mockResolvedValueOnce({ id: "groceries-line", budget_period_id: "period-october", category_id: groceriesId, group_id: null, budgeted_minor: 150000, rollover: false, notes: null })
+      .mockResolvedValueOnce({ id: "misc-line", budget_period_id: "period-october", category_id: miscellaneousId, group_id: null, budgeted_minor: 350000, rollover: false, notes: null });
+    renderWithQuery(<TransactionsRoute />);
+    fireEvent.change(await screen.findByLabelText("Limits month"), { target: { value: "2026-10" } });
+    fireEvent.click(screen.getByRole("button", { name: "Edit monthly limits" }));
+    expect(screen.getByLabelText("Limits start month")).toHaveValue("2026-10");
+    expect(screen.getByLabelText("Limits end month")).toHaveValue("2026-10");
+    fireEvent.change(screen.getByLabelText("Groceries limit"), { target: { value: "1500" } });
+    fireEvent.change(screen.getByLabelText("Miscellaneous limit"), { target: { value: "3500" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save limits for selected months" }));
+    await waitFor(() => expect(mocks.deleteBudgetLine).toHaveBeenCalledWith("shared-line"));
+    expect(mocks.createBudgetLine).toHaveBeenCalledWith("period-october", groceriesId, 150000);
+    expect(mocks.createBudgetLine).toHaveBeenCalledWith("period-october", miscellaneousId, 350000);
   });
 
   it("supports direct links to the expense form", async () => {

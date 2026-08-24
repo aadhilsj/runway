@@ -51,6 +51,7 @@ export default function TransactionsRoute() {
   const [quickDate, setQuickDate] = useState(defaultLocalDate);
   const [quickDescription, setQuickDescription] = useState("");
   const [limitsOpen, setLimitsOpen] = useState(false);
+  const [trackerMonth, setTrackerMonth] = useState(defaultLocalDate().slice(0, 7));
   const [groceriesLimit, setGroceriesLimit] = useState("");
   const [miscellaneousLimit, setMiscellaneousLimit] = useState("");
   const [limitsStart, setLimitsStart] = useState(defaultLocalDate().slice(0, 7));
@@ -132,17 +133,18 @@ export default function TransactionsRoute() {
   const onSubmit = (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); post.mutate(event.currentTarget); };
   const onQuickSubmit = (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); quickSpend.mutate(); };
   const currentMonthStart = monthStart(new Date());
-  const currentPeriod = budgetWorkspace.data?.periods.find((period) => period.month_start === currentMonthStart);
+  const trackerMonthStart = `${trackerMonth}-01`;
+  const trackerPeriod = budgetWorkspace.data?.periods.find((period) => period.month_start === trackerMonthStart);
   const quickTrackers = quickCategories.map((category) => {
-    const spentMinor = (budgetWorkspace.data?.actuals ?? []).filter((row) => row.month_start === currentMonthStart && row.category_id === category.id).reduce((sum, row) => sum + Number(row.actual_minor), 0);
-    const directLine = currentPeriod ? budgetWorkspace.data?.lines.find((line) => line.budget_period_id === currentPeriod.id && line.category_id === category.id) : undefined;
+    const spentMinor = (budgetWorkspace.data?.actuals ?? []).filter((row) => row.month_start === trackerMonthStart && row.category_id === category.id).reduce((sum, row) => sum + Number(row.actual_minor), 0);
+    const directLine = trackerPeriod ? budgetWorkspace.data?.lines.find((line) => line.budget_period_id === trackerPeriod.id && line.category_id === category.id) : undefined;
     const groupIds = (budgetWorkspace.data?.groupCategories ?? []).filter((row) => row.category_id === category.id).map((row) => row.group_id);
-    const groupLine = currentPeriod ? budgetWorkspace.data?.lines.find((line) => line.budget_period_id === currentPeriod.id && Boolean(line.group_id) && groupIds.includes(line.group_id!)) : undefined;
+    const groupLine = trackerPeriod ? budgetWorkspace.data?.lines.find((line) => line.budget_period_id === trackerPeriod.id && Boolean(line.group_id) && groupIds.includes(line.group_id!)) : undefined;
     const line = directLine ?? groupLine;
     const group = groupLine ? budgetWorkspace.data?.groups.find((row) => row.id === groupLine.group_id) : undefined;
     const budgetedMinor = line ? Number(line.budgeted_minor) : null;
     const groupCategoryIds = groupLine ? (budgetWorkspace.data?.groupCategories ?? []).filter((row) => row.group_id === groupLine.group_id).map((row) => row.category_id) : [];
-    const totalSpentMinor = groupLine ? (budgetWorkspace.data?.actuals ?? []).filter((row) => row.month_start === currentMonthStart && groupCategoryIds.includes(row.category_id)).reduce((sum, row) => sum + Number(row.actual_minor), 0) : spentMinor;
+    const totalSpentMinor = groupLine ? (budgetWorkspace.data?.actuals ?? []).filter((row) => row.month_start === trackerMonthStart && groupCategoryIds.includes(row.category_id)).reduce((sum, row) => sum + Number(row.actual_minor), 0) : spentMinor;
     return { category, spentMinor, budgetedMinor, remainingMinor: budgetedMinor === null ? null : budgetedMinor - totalSpentMinor, groupName: group?.name };
   });
   const trackerCurrency = budgetWorkspace.data?.currency ?? "NOK";
@@ -153,8 +155,8 @@ export default function TransactionsRoute() {
     const miscellaneous = quickTrackers.find((tracker) => ["miscellaneous", "misc"].includes(tracker.category.name.toLowerCase()));
     setGroceriesLimit(groceries?.budgetedMinor == null || groceries.groupName ? "" : String(groceries.budgetedMinor / 100));
     setMiscellaneousLimit(miscellaneous?.budgetedMinor == null || miscellaneous.groupName ? "" : String(miscellaneous.budgetedMinor / 100));
-    setLimitsStart(currentMonth);
-    setLimitsEnd(currentMonth);
+    setLimitsStart(trackerMonth);
+    setLimitsEnd(trackerMonth);
     setLimitsOpen(true);
   };
   const saveLimits = useMutation({
@@ -171,9 +173,9 @@ export default function TransactionsRoute() {
       const workspace = budgetWorkspace.data;
       if (!workspace) throw new Error("Monthly limits are still loading.");
       const targetCategoryIds = [groceries.id, miscellaneous.id];
-      const targetGroupIds = workspace.groupCategories.filter((row) => targetCategoryIds.includes(row.category_id)).map((row) => row.group_id);
-      const conflictingPeriod = workspace.periods.find((period) => months.includes(period.month_start) && workspace.lines.some((line) => line.budget_period_id === period.id && line.group_id && targetGroupIds.includes(line.group_id)));
-      if (conflictingPeriod) throw new Error(`${monthLabel(conflictingPeriod.month_start)} already has one shared Groceries and Miscellaneous limit. Split that month on Budgets before replacing it here.`);
+      const targetGroupIds = workspace.groups
+        .filter((group) => targetCategoryIds.every((categoryId) => workspace.groupCategories.some((row) => row.group_id === group.id && row.category_id === categoryId)))
+        .map((group) => group.id);
       const periods = [...workspace.periods];
       const lines = [...workspace.lines];
       for (const targetMonth of months) {
@@ -184,6 +186,11 @@ export default function TransactionsRoute() {
           if (line) { await budgetsRepository.updateLine(line.id, budgetedMinor); line.budgeted_minor = budgetedMinor; }
           else { lines.push(await budgetsRepository.createLine(period.id, categoryId, budgetedMinor)); }
         }
+        const sharedLines = lines.filter((row) => row.budget_period_id === period.id && row.group_id && targetGroupIds.includes(row.group_id));
+        for (const line of sharedLines) {
+          await budgetsRepository.deleteLine(line.id);
+          lines.splice(lines.indexOf(line), 1);
+        }
       }
     },
     onSuccess: async () => { setLimitsOpen(false); await queryClient.invalidateQueries({ queryKey: ["budget-workspace"] }); },
@@ -191,7 +198,7 @@ export default function TransactionsRoute() {
 
   return <Page eyebrow="What really happened" title="Activity" description="Log everyday spending and review money that has actually moved.">
     <section className="money-panel quick-spend-panel activity-spending-panel" aria-labelledby="quick-spend-heading">
-      <div className="panel-heading quick-spend-heading"><div><p className="section-kicker">Everyday spending</p><h2 id="quick-spend-heading">{monthLabel(currentMonthStart)}</h2></div><button className="secondary-button compact-button" type="button" onClick={openLimits}>Set monthly limits</button></div>
+      <div className="panel-heading quick-spend-heading"><div><p className="section-kicker">Everyday spending</p><h2 id="quick-spend-heading">{monthLabel(trackerMonthStart)}</h2></div><div className="row-actions"><label className="standalone-label">Month<input aria-label="Limits month" type="month" min={currentMonth} max={maxRepeatMonth} value={trackerMonth} onChange={(event) => setTrackerMonth(event.target.value)}/></label><button className="secondary-button compact-button" type="button" onClick={openLimits}>{quickTrackers.some((tracker) => tracker.budgetedMinor !== null) ? "Edit monthly limits" : "Set monthly limits"}</button></div></div>
       <div className="quick-spend-trackers" aria-label="This month's variable spending">
         {quickTrackers.map(({ category, spentMinor, budgetedMinor, remainingMinor, groupName }) => <article key={category.id}>
           <span>{category.name}</span><strong>{formatMinorUnits(asMinorUnits(spentMinor), trackerCurrency)} spent</strong>

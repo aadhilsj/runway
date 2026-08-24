@@ -301,7 +301,6 @@ test("captures the Phase 10.5 desktop visual audit", async ({ page }) => {
     ["analytics", "/analytics", "Monthly cash flow"],
     ["transactions", "/money/transactions", "Posted transactions"],
     ["accounts", "/money/accounts", "Your accounts"],
-    ["budgets", "/money/budgets", "Budget lines"],
     ["funds", "/funds", "Review payday plan"],
     ["investments", "/investments", "No investment accounts yet"],
     ["plans", "/plans", "What you are exploring"],
@@ -324,7 +323,7 @@ test("keeps the polished desktop routes collision-free across supported widths",
     { width: 1600, height: 900 },
     { width: 1920, height: 1080 },
   ];
-  const routes = ["/overview", "/forecast", "/analytics", "/money/transactions", "/money/accounts", "/money/budgets", "/funds", "/investments", "/plans"];
+  const routes = ["/overview", "/forecast", "/analytics", "/money/transactions", "/money/accounts", "/funds", "/investments", "/plans"];
   for (const viewport of viewports) {
     await page.setViewportSize(viewport);
     for (const route of routes) {
