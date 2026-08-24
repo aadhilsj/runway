@@ -339,6 +339,9 @@ button:disabled { opacity: .48; cursor: not-allowed; }
 .plan-row { display:grid; grid-template-columns:minmax(0,1fr) auto auto; align-items:center; }
 .plan-row, .assumption-row { gap: var(--space-4); padding: var(--space-3) var(--space-4); border: 1px solid var(--color-line); border-radius: var(--radius-sm); background: var(--color-surface-strong); }
 .assumption-row { display:flex; align-items:center; justify-content:space-between; }
+.plan-item-row { display:grid; grid-template-columns:minmax(0,1fr) minmax(8rem,.28fr) minmax(7rem,auto); align-items:center; }
+.plan-item-row > strong { grid-column:2; justify-self:end; min-width:8rem; text-align:right; font-variant-numeric:tabular-nums; }
+.plan-item-row > .row-actions { grid-column:3; justify-content:flex-end; min-width:7rem; padding:0; }
 .plan-row h3, .plan-row p, .assumption-row p { margin: var(--space-1) 0; }
 .plan-row p, .assumption-row p, .plan-row small { color: var(--color-muted); font-size: .78rem; }
 .plan-status { color: var(--color-accent-strong); text-transform: uppercase; letter-spacing: .09em; font-size: .62rem; font-weight: 800; }
@@ -513,6 +516,9 @@ button:disabled { opacity: .48; cursor: not-allowed; }
   .fund-settings-grid { grid-template-columns:1fr; }
   .compact-plan-details-form { grid-template-columns:1fr; }
   .compact-plan-details-form button { grid-column:auto; }
+  .plan-item-row { grid-template-columns:minmax(0,1fr) auto; }
+  .plan-item-row > strong { grid-column:2; min-width:0; }
+  .plan-item-row > .row-actions { grid-column:1 / -1; justify-content:flex-start; min-width:0; }
   .payday-list { grid-template-columns:1fr; }
   .baseline-period,.paste-baseline,.baseline-summary { grid-template-columns:1fr; }
   .baseline-period > span { display:none; }
