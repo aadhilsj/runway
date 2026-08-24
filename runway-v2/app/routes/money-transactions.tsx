@@ -224,7 +224,10 @@ export default function TransactionsRoute() {
         <p className="form-help">Set the most you want to spend. Expenses logged here will automatically reduce what is left.</p>
         <label>Groceries limit<input aria-label="Groceries limit" value={groceriesLimit} onChange={(event) => setGroceriesLimit(event.target.value)} inputMode="decimal" placeholder="1000" required/></label>
         <label>Miscellaneous limit<input aria-label="Miscellaneous limit" value={miscellaneousLimit} onChange={(event) => setMiscellaneousLimit(event.target.value)} inputMode="decimal" placeholder="1000" required/></label>
-        <label className="check-label"><input type="checkbox" checked={repeatLimits} onChange={(event) => setRepeatLimits(event.target.checked)}/>Use these limits for future months too</label>
+        <label className="check-label limits-repeat-toggle">
+          <input type="checkbox" checked={repeatLimits} onChange={(event) => setRepeatLimits(event.target.checked)}/>
+          <span>Use these limits for future months too</span>
+        </label>
         {repeatLimits ? <label>Repeat through<input aria-label="Repeat through" type="month" min={currentMonth} max={maxRepeatMonth} value={repeatThrough} onChange={(event) => setRepeatThrough(event.target.value)} required/></label> : null}
         <p className="form-help">Existing spending is never erased. Future months remain individually editable later.</p>
         {saveLimits.error ? <p className="field-error" role="alert">{message(saveLimits.error)}</p> : null}
