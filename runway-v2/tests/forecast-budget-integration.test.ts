@@ -122,4 +122,31 @@ describe("monthly budgets in Forecast", () => {
     expect(overview.projection.liquidCashMinor).toBe(screen.summary.projectedBalanceMinor);
     expect(overview.forecast.expenseMinor).toBe(screen.summary.expenseMinor);
   });
+
+  it("uses a Forecast-toggled Plan in every Overview projection calculation", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-24T12:00:00Z"));
+    const planItem = {
+      id: "plan-expense", kind: "expense", expected_date: "2026-08-29", amount_minor: 25_000,
+      source_account_id: "operating", destination_account_id: null, category_id: null,
+      label: "Plan expense", notes: null, confidence: "expected", scenario_id: "plan-a",
+      default_sort_order: 0, status: "expected",
+    };
+    const forecastData = forecastWorkspace(200_000, [planItem]);
+    forecastData.scenarios = [{ id: "plan-a", name: "Plan A", comparison_enabled: true, status: "active" }];
+    const budgets = budgetWorkspace(0);
+    const funds = fundsWorkspace();
+    const forecastWithPlan = buildForecastScreenModel(forecastData, 1, ["plan-a"], "2026-08-24", budgets);
+    const overview = buildOverviewReadModel({
+      forecast: forecastData, funds, budgets, transactions: [],
+      plans: [{ id: "plan-a", name: "Plan A", description: null, status: "active", comparison_enabled: true }],
+      changes: [],
+    } as any, "2026-08-31");
+
+    expect(overview.selectedPlanIds).toEqual(["plan-a"]);
+    expect(overview.projection.liquidCashMinor).toBe(forecastWithPlan.summary.projectedBalanceMinor);
+    expect(overview.forecast.endingOperatingCashMinor).toBe(forecastWithPlan.summary.projectedBalanceMinor);
+    expect(overview.forecast.expenseMinor).toBe(forecastWithPlan.summary.expenseMinor);
+    expect(overview.upcoming.some((item) => item.label === "Plan expense")).toBe(true);
+  });
 });

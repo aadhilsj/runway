@@ -185,7 +185,7 @@ export function buildOverviewReadModel(
       .slice(0, 2)
       .map((row) => row.id),
     comparison = buildPlansComparison(workspace, selectedPlanIds),
-    base = comparison.base,
+    active = comparison.alternatives.at(-1)?.evaluation ?? comparison.base,
     currentFlow = analytics.cashFlow.find(
       (row) => row.month === analytics.currentMonth,
     ) ?? {
@@ -203,25 +203,25 @@ export function buildOverviewReadModel(
     ruleReliability = new Map(
       workspace.forecast.rules.map((row) => [row.id, row.is_reliable_income]),
     );
-  const upcoming = base.result.events
+  const upcoming = active.result.events
       .filter(
         (row) =>
-          row.date >= base.result.asOfDate &&
-          row.date <= shift(base.result.asOfDate, 30) &&
+          row.date >= active.result.asOfDate &&
+          row.date <= shift(active.result.asOfDate, 30) &&
           row.confidence !== "tentative",
       )
       .slice(0, 8),
-    nextReliableIncome = base.result.events.find(
+    nextReliableIncome = active.result.events.find(
       (row) =>
         row.kind === "income" &&
         row.recurrenceRuleId &&
         ruleReliability.get(row.recurrenceRuleId),
     ),
-    fundEnd = base.result.fundSeries.at(-1)?.balancesMinor ?? {},
-    requestedProjectionDate = projectionDate ?? shift(base.result.asOfDate, 30),
-    projectionPoint = base.result.dailySeries.find((point) => point.date === requestedProjectionDate)
-      ?? base.result.dailySeries.findLast((point) => point.date <= requestedProjectionDate)
-      ?? base.result.dailySeries[0];
+    fundEnd = active.result.fundSeries.at(-1)?.balancesMinor ?? {},
+    requestedProjectionDate = projectionDate ?? shift(active.result.asOfDate, 30),
+    projectionPoint = active.result.dailySeries.find((point) => point.date === requestedProjectionDate)
+      ?? active.result.dailySeries.findLast((point) => point.date <= requestedProjectionDate)
+      ?? active.result.dailySeries[0];
   const funds = workspace.funds.funds
       .filter((row) => row.active)
       .map((fund) => {
@@ -250,7 +250,7 @@ export function buildOverviewReadModel(
             : null,
           projectedBalanceMinor: Number(fundEnd[fund.id] ?? balance),
           projectedCompletion: goal
-            ? (base.goalCompletionDates[goal.id] ?? null)
+            ? (active.goalCompletionDates[goal.id] ?? null)
             : null,
           contributionMode: item?.mode ?? null,
           nextContributionMinor: item ? Number(item.amount_minor) : null,
@@ -281,31 +281,31 @@ export function buildOverviewReadModel(
   return {
     analytics,
     position,
-    safeToSpendMinor: base.safeToSpendMinor,
-    safeToSpendTrace: base.safeToSpendTrace,
-    operatingFloorMinor: base.applied.forecast.operatingFloorMinor,
-    safetyWindowDays: base.applied.safetyWindowDays,
+    safeToSpendMinor: active.safeToSpendMinor,
+    safeToSpendTrace: active.safeToSpendTrace,
+    operatingFloorMinor: active.applied.forecast.operatingFloorMinor,
+    safetyWindowDays: active.applied.safetyWindowDays,
     nextReliableIncome,
     projection: {
-      date: projectionPoint?.date ?? base.result.asOfDate,
+      date: projectionPoint?.date ?? active.result.asOfDate,
       liquidCashMinor: projectionPoint?.liquidCashMinor ?? position.totalCashMinor,
-      minDate: base.result.asOfDate,
-      maxDate: base.result.endDate,
+      minDate: active.result.asOfDate,
+      maxDate: active.result.endDate,
     },
     forecast: {
-      endDate: base.result.endDate,
-      endingOperatingCashMinor: base.result.endingOperatingCashMinor,
-      lowest: base.result.lowestOperatingCash,
-      firstBreach: base.result.firstFloorBreach,
-      incomeMinor: base.result.totals.incomeMinor,
-      expenseMinor: base.result.totals.expenseMinor,
-      chart: base.result.dailySeries.filter((_, index) => index % 7 === 0),
+      endDate: active.result.endDate,
+      endingOperatingCashMinor: active.result.endingOperatingCashMinor,
+      lowest: active.result.lowestOperatingCash,
+      firstBreach: active.result.firstFloorBreach,
+      incomeMinor: active.result.totals.incomeMinor,
+      expenseMinor: active.result.totals.expenseMinor,
+      chart: active.result.dailySeries.filter((_, index) => index % 7 === 0),
     },
     funds,
     currentFlow,
     currentBudget,
     upcoming,
-    overdue: base.result.overdueItems,
+    overdue: active.result.overdueItems,
     recent,
     selectedPlanIds,
     planAlternative: comparison.alternatives.at(-1) ?? null,
