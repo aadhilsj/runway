@@ -6,6 +6,7 @@ import { Drawer } from "~/components/drawer";
 import { Page } from "~/components/page";
 import { forecastRepository } from "~/data/repositories/forecast-repository";
 import { budgetsRepository } from "~/data/repositories/budgets-repository";
+import { plansRepository } from "~/data/repositories/plans-repository";
 import { recurringRepository } from "~/data/repositories/recurring-repository";
 import { asMinorUnits, formatMinorUnits, parseDisplayAmountToMinor } from "~/domain/money";
 import { parseForecastQuickEntry } from "~/domain/forecast-quick-entry";
@@ -30,7 +31,7 @@ export default function ForecastRoute() {
   const client = useQueryClient();
   const workspace = useQuery({ queryKey: ["forecast-workspace"], queryFn: () => forecastRepository.getWorkspace() });
   const budgets = useQuery({ queryKey: ["budget-workspace"], queryFn: () => budgetsRepository.getWorkspace() });
-  const [horizon, setHorizon] = useState<number | null>(null); const [selectedScenarios, setSelectedScenarios] = useState<string[]>([]);
+  const [horizon, setHorizon] = useState<number | null>(null); const [planSelectionOverrides, setPlanSelectionOverrides] = useState<Record<string, boolean>>({});
   const [editingId, setEditingId] = useState<string | null>(null); const [kind, setKind] = useState<"income" | "expense" | "transfer">("expense");
   const [label, setLabel] = useState(""); const [amount, setAmount] = useState(""); const [date, setDate] = useState("");
   const [source, setSource] = useState(""); const [destination, setDestination] = useState(""); const [scenario, setScenario] = useState("");
@@ -41,6 +42,7 @@ export default function ForecastRoute() {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const months = horizon ?? workspace.data?.profile.forecast_horizon_months ?? 12;
   const horizonOptions = horizons.includes(months) ? horizons : [...horizons, months].sort((left, right) => left - right);
+  const selectedScenarios = workspace.data?.scenarios.filter((item) => planSelectionOverrides[item.id] ?? item.comparison_enabled).map((item) => item.id) ?? [];
   const model = useMemo(() => workspace.data && budgets.data ? buildForecastScreenModel(workspace.data, months, selectedScenarios, undefined, budgets.data) : null, [workspace.data, budgets.data, months, selectedScenarios]);
   const skippedOccurrences = useMemo(() => workspace.data ? [
     ...workspace.data.items.filter((item) => (item.status === "skipped" || item.status === "canceled") && withinRecoveryWindow(item.updated_at)).map((item) => ({ sourceType: "forecast_item" as const, sourceId: item.id, date: item.expected_date, label: item.label, amountMinor: Number(item.amount_minor), kind: item.kind })),
@@ -50,6 +52,15 @@ export default function ForecastRoute() {
       return rule ? [{ sourceType: "recurring_occurrence" as const, sourceId: rule.id, date: item.occurrence_date, label: rule.label, amountMinor: Number(rule.amount_minor), kind: rule.kind }] : [];
     }),
   ].toSorted((left, right) => left.date.localeCompare(right.date) || left.label.localeCompare(right.label)) : [], [workspace.data]);
+  const togglePlan = useMutation({
+    mutationFn: ({ id, enabled }: { id: string; enabled: boolean }) => plansRepository.updatePlan(id, { comparison_enabled: enabled }),
+    onMutate: ({ id, enabled }) => setPlanSelectionOverrides((current) => ({ ...current, [id]: enabled })),
+    onError: (_error, { id }) => setPlanSelectionOverrides((current) => { const next = { ...current }; delete next[id]; return next; }),
+    onSuccess: async (_data, { id }) => { await Promise.all([
+      client.invalidateQueries({ queryKey: ["forecast-workspace"] }), client.invalidateQueries({ queryKey: ["plans-workspace"] }),
+      client.invalidateQueries({ queryKey: ["analytics-workspace"] }),
+    ]); setPlanSelectionOverrides((current) => { const next = { ...current }; delete next[id]; return next; }); },
+  });
   const invalidate = () => client.invalidateQueries({ queryKey: ["forecast-workspace"] });
   useEffect(() => {
     void forecastRepository.purgeExpiredRecoverableItems().then(() => client.invalidateQueries({ queryKey: ["forecast-workspace"] })).catch(() => undefined);
@@ -115,7 +126,7 @@ export default function ForecastRoute() {
   function settlementState(kind: SettlementDraft["kind"]) { return kind === "income" ? "received" : kind === "expense" ? "paid" : "transferred"; }
   const currency = workspace.data?.profile.base_currency ?? "NOK";
   return <Page eyebrow="What happens next" title="Forecast" description="Start with the cash you have now, then see how planned income and spending could change it. Planned money never changes your actual account balances.">
-    <div className="forecast-toolbar forecast-controls-toolbar" aria-label="Forecast controls"><div><span>Horizon</span><div className="horizon-options">{horizonOptions.map((value) => <button className={months === value ? "active" : ""} key={value} onClick={() => { setHorizon(value); void forecastRepository.saveHorizon(value); }}>{value} months</button>)}</div></div><div><span>Plans</span><div className="scenario-options">{workspace.data?.scenarios.map((item) => <label key={item.id}><input type="checkbox" checked={selectedScenarios.includes(item.id)} onChange={(event) => setSelectedScenarios((current) => event.target.checked ? [...current, item.id] : current.filter((id) => id !== item.id))}/>{item.name}</label>)}</div></div>{model ? <small className="forecast-range"><span>Forecast period</span><strong>{dateLabel(model.result.asOfDate)} – {dateLabel(model.result.endDate)}</strong></small> : null}</div>
+    <div className="forecast-toolbar forecast-controls-toolbar" aria-label="Forecast controls"><div><span>Horizon</span><div className="horizon-options">{horizonOptions.map((value) => <button className={months === value ? "active" : ""} key={value} onClick={() => { setHorizon(value); void forecastRepository.saveHorizon(value); }}>{value} months</button>)}</div></div><div><span>Plans</span><div className="scenario-options">{workspace.data?.scenarios.map((item) => <label key={item.id}><input type="checkbox" checked={selectedScenarios.includes(item.id)} onChange={(event) => togglePlan.mutate({ id: item.id, enabled: event.target.checked })}/>{item.name}</label>)}</div></div>{model ? <small className="forecast-range"><span>Forecast period</span><strong>{dateLabel(model.result.asOfDate)} – {dateLabel(model.result.endDate)}</strong></small> : null}</div>
     {workspace.isLoading || budgets.isLoading ? <p className="muted">Building forecast…</p> : null}{workspace.error || budgets.error ? <p className="field-error" role="alert">{message(workspace.error ?? budgets.error)}</p> : null}
     {model ? <><section className="forecast-mental-model" aria-label="How this forecast is calculated"><div><span>Starting cash</span><strong>{money(model.summary.startingCashMinor, currency)}</strong><small>Actual money now</small></div><span aria-hidden="true">+</span><a href={`/forecast/assumptions?type=income&horizon=${months}`}><span>Planned income</span><strong>{money(model.summary.incomeMinor, currency)}</strong><small>Review what is included</small></a><span aria-hidden="true">−</span><a href={`/forecast/assumptions?type=expense&horizon=${months}`}><span>Planned spending</span><strong>{money(model.summary.expenseMinor, currency)}</strong><small>Review what is included</small></a><span aria-hidden="true">=</span><div><span>Cash in {months} months</span><strong>{money(model.summary.projectedBalanceMinor, currency)}</strong><small>{dateLabel(model.result.endDate)}</small></div></section>
       <section className="forecast-balance-strip" aria-label="Lowest expected cash balance"><div><p>Lowest cash balance</p><small>The least cash you are projected to have</small></div><strong className={model.result.firstFloorBreach ? "negative" : ""}>{money(model.summary.lowestOperatingMinor, currency)}</strong><span>on {dateLabel(model.result.lowestOperatingCash.date)}</span></section>

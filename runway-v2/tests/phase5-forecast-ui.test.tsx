@@ -11,15 +11,17 @@ const mocks = vi.hoisted(() => {
   items: [{ id: "base", kind: "expense", expected_date: "2026-09-01", amount_minor: 100000, source_account_id: account.id, destination_account_id: null, category_id: null, label: "Base expense", notes: null, confidence: "expected", scenario_id: null, default_sort_order: null, status: "expected", updated_at: "2026-08-24T20:00:00Z" },
     { id: "scenario-item", kind: "expense", expected_date: "2026-09-02", amount_minor: 200000, source_account_id: account.id, destination_account_id: null, category_id: null, label: "Scenario expense", notes: null, confidence: "expected", scenario_id: "scenario-a", default_sort_order: null, status: "expected" }],
   rules: [{ id: "rule-a", kind: "expense", label: "Monthly fixture", notes: null, source_account_id: account.id, destination_account_id: null, category_id: null, amount_minor: 5000, frequency: "monthly", interval_count: 1, day_of_month: 10, day_of_week: null, start_on: "2026-09-10", end_on: null, default_sort_order: null, confidence: "expected", scenario_id: null, active: true, archived_at: null }],
-    occurrences: [], scenarios: [{ id: "scenario-a", name: "Optional plan", archived_at: null }], categories: [], transactions: [] } as any;
-  return { createItem: vi.fn(), createRule: vi.fn(), settleItem: vi.fn(), settleOccurrence: vi.fn(), restoreException: vi.fn(), saveMonthlyBaseline: vi.fn(), saveHorizon: vi.fn(), setActive: vi.fn(), archive: vi.fn(), account, workspace };
+    occurrences: [], scenarios: [{ id: "scenario-a", name: "Optional plan", archived_at: null, comparison_enabled: false }], categories: [], transactions: [] } as any;
+  const updatePlan = vi.fn(async (id: string, values: { comparison_enabled?: boolean }) => { const plan = workspace.scenarios.find((item: { id: string }) => item.id === id); if (plan && values.comparison_enabled !== undefined) plan.comparison_enabled = values.comparison_enabled; });
+  return { createItem: vi.fn(), createRule: vi.fn(), settleItem: vi.fn(), settleOccurrence: vi.fn(), restoreException: vi.fn(), saveMonthlyBaseline: vi.fn(), saveHorizon: vi.fn(), setActive: vi.fn(), archive: vi.fn(), updatePlan, account, workspace };
 });
 
 vi.mock("~/data/repositories/forecast-repository", () => ({ forecastRepository: { getWorkspace: vi.fn().mockResolvedValue(mocks.workspace), saveHorizon: mocks.saveHorizon, createItem: mocks.createItem, updateItem: vi.fn(), purgeExpiredRecoverableItems: vi.fn().mockResolvedValue(undefined), matchItem: vi.fn(), settleItem: mocks.settleItem } }));
 vi.mock("~/data/repositories/budgets-repository", () => ({ budgetsRepository: { getWorkspace: vi.fn().mockResolvedValue({ periods: [], lines: [], groups: [], groupCategories: [], actuals: [], commitments: [], categories: [], currency: "NOK" }) } }));
 vi.mock("~/data/repositories/recurring-repository", () => ({ recurringRepository: { create: mocks.createRule, update: vi.fn(), setActive: mocks.setActive, archive: mocks.archive, setException: vi.fn(), restoreException: mocks.restoreException, settleOccurrence: mocks.settleOccurrence, saveMonthlyBaseline: mocks.saveMonthlyBaseline } }));
+vi.mock("~/data/repositories/plans-repository", () => ({ plansRepository: { updatePlan: mocks.updatePlan } }));
 function show(ui: React.ReactNode) { const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } }); return render(<MemoryRouter><QueryClientProvider client={client}>{ui}</QueryClientProvider></MemoryRouter>); }
-afterEach(() => { cleanup(); mocks.workspace.occurrences = []; vi.clearAllMocks(); });
+afterEach(() => { cleanup(); mocks.workspace.occurrences = []; mocks.workspace.scenarios[0].comparison_enabled = false; vi.clearAllMocks(); });
 
 describe("Phase 5 forecast UI", () => {
   it("extends a forecast horizon through the entire selected end month", () => {
@@ -27,12 +29,16 @@ describe("Phase 5 forecast UI", () => {
     expect(forecastHorizonThroughMonth("2027-02", "2026-08-24")).toBe(7);
   });
 
-  it("changes horizon and includes selected scenarios without mutating base input", async () => {
-    show(<ForecastRoute/>); expect(await screen.findByText("Base expense")).toBeVisible(); expect(screen.queryByText("Scenario expense")).not.toBeInTheDocument();
+  it("changes horizon and persists selected scenarios across remounts without mutating base input", async () => {
+    const first = show(<ForecastRoute/>); expect(await screen.findByText("Base expense")).toBeVisible(); expect(screen.queryByText("Scenario expense")).not.toBeInTheDocument();
     expect(screen.getByText("Forecast period")).toBeVisible();
     const range = screen.getByText(/\d{2} \w{3} \d{4} – \d{2} \w{3} \d{4}/); expect(range).toBeVisible(); expect(range).not.toHaveTextContent(/As of|through/);
     fireEvent.click(screen.getByRole("button", { name: "24 months" })); expect(mocks.saveHorizon).toHaveBeenCalledWith(24);
     fireEvent.click(screen.getByLabelText("Optional plan")); expect(await screen.findByText("Scenario expense")).toBeVisible(); expect(mocks.workspace.items).toHaveLength(2);
+    await waitFor(() => expect(mocks.updatePlan).toHaveBeenCalledWith("scenario-a", { comparison_enabled: true }));
+    first.unmount(); show(<ForecastRoute/>);
+    expect(await screen.findByLabelText("Optional plan")).toBeChecked();
+    expect(screen.getByText("Scenario expense")).toBeVisible();
   });
 
   it("adds a planned expense from one line using Operating Cash defaults", async () => {
