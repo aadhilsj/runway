@@ -53,8 +53,8 @@ export default function TransactionsRoute() {
   const [limitsOpen, setLimitsOpen] = useState(false);
   const [groceriesLimit, setGroceriesLimit] = useState("");
   const [miscellaneousLimit, setMiscellaneousLimit] = useState("");
-  const [repeatLimits, setRepeatLimits] = useState(false);
-  const [repeatThrough, setRepeatThrough] = useState(defaultLocalDate().slice(0, 7));
+  const [limitsStart, setLimitsStart] = useState(defaultLocalDate().slice(0, 7));
+  const [limitsEnd, setLimitsEnd] = useState(defaultLocalDate().slice(0, 7));
   const [pendingReversal, setPendingReversal] = useState<Transaction | null>(null);
   const transactions = useQuery({ queryKey: ["transactions"], queryFn: () => transactionsRepository.listTransactions({ limit: 250 }) });
   const accounts = useQuery({ queryKey: ["accounts", "balances"], queryFn: () => accountsRepository.listAccountsWithBalances() });
@@ -153,8 +153,8 @@ export default function TransactionsRoute() {
     const miscellaneous = quickTrackers.find((tracker) => ["miscellaneous", "misc"].includes(tracker.category.name.toLowerCase()));
     setGroceriesLimit(groceries?.budgetedMinor == null || groceries.groupName ? "" : String(groceries.budgetedMinor / 100));
     setMiscellaneousLimit(miscellaneous?.budgetedMinor == null || miscellaneous.groupName ? "" : String(miscellaneous.budgetedMinor / 100));
-    setRepeatLimits(false);
-    setRepeatThrough(currentMonth);
+    setLimitsStart(currentMonth);
+    setLimitsEnd(currentMonth);
     setLimitsOpen(true);
   };
   const saveLimits = useMutation({
@@ -166,9 +166,8 @@ export default function TransactionsRoute() {
       const groceries = quickCategories.find((category) => category.name.toLowerCase() === "groceries");
       const miscellaneous = quickCategories.find((category) => ["miscellaneous", "misc"].includes(category.name.toLowerCase()));
       if (!groceries || !miscellaneous) throw new Error("Groceries and Miscellaneous categories are not available.");
-      const endMonth = repeatLimits ? repeatThrough : currentMonth;
-      if (endMonth < currentMonth || endMonth > maxRepeatMonth) throw new Error("Choose a month within the next two years.");
-      const months = monthStartsBetween(currentMonthStart, `${endMonth}-01`);
+      if (limitsStart < currentMonth || limitsStart > maxRepeatMonth || limitsEnd < limitsStart || limitsEnd > maxRepeatMonth) throw new Error("Choose a valid range within the next two years.");
+      const months = monthStartsBetween(`${limitsStart}-01`, `${limitsEnd}-01`);
       const workspace = budgetWorkspace.data;
       if (!workspace) throw new Error("Monthly limits are still loading.");
       const targetCategoryIds = [groceries.id, miscellaneous.id];
@@ -235,19 +234,18 @@ export default function TransactionsRoute() {
         <div className="button-row"><button className="secondary-button" type="button" onClick={() => setPendingReversal(null)}>Keep transaction</button><button className="primary-button" type="button" disabled={reverse.isPending} onClick={() => reverse.mutate(pendingReversal.id)}>{reverse.isPending ? "Reversing…" : "Reverse transaction"}</button></div>
       </div> : null}
     </Drawer>
-    <Drawer open={limitsOpen} onClose={() => setLimitsOpen(false)} eyebrow="Everyday spending" title={`Set ${monthLabel(currentMonthStart)} limits`}>
+    <Drawer open={limitsOpen} onClose={() => setLimitsOpen(false)} eyebrow="Everyday spending" title="Set monthly limits">
       <form className="money-form" onSubmit={(event) => { event.preventDefault(); saveLimits.mutate(); }}>
-        <p className="form-help">Set the most you want to spend. Expenses logged here will automatically reduce what is left.</p>
+        <p className="form-help">Choose exactly which months these limits should apply to. Starting in a future month leaves {monthLabel(currentMonthStart)} unchanged.</p>
+        <div className="form-grid two-columns">
+          <label>Starts<input aria-label="Limits start month" type="month" min={currentMonth} max={maxRepeatMonth} value={limitsStart} onChange={(event) => { const value = event.target.value; setLimitsStart(value); if (limitsEnd < value) setLimitsEnd(value); }} required/></label>
+          <label>Ends<input aria-label="Limits end month" type="month" min={limitsStart} max={maxRepeatMonth} value={limitsEnd} onChange={(event) => setLimitsEnd(event.target.value)} required/></label>
+        </div>
         <label>Groceries limit<input aria-label="Groceries limit" value={groceriesLimit} onChange={(event) => setGroceriesLimit(event.target.value)} inputMode="decimal" placeholder="1000" required/></label>
         <label>Miscellaneous limit<input aria-label="Miscellaneous limit" value={miscellaneousLimit} onChange={(event) => setMiscellaneousLimit(event.target.value)} inputMode="decimal" placeholder="1000" required/></label>
-        <label className="check-label limits-repeat-toggle">
-          <input type="checkbox" checked={repeatLimits} onChange={(event) => setRepeatLimits(event.target.checked)}/>
-          <span>Use these limits for future months too</span>
-        </label>
-        {repeatLimits ? <label>Repeat through<input aria-label="Repeat through" type="month" min={currentMonth} max={maxRepeatMonth} value={repeatThrough} onChange={(event) => setRepeatThrough(event.target.value)} required/></label> : null}
         <p className="form-help">Existing spending is never erased. Future months remain individually editable later.</p>
         {saveLimits.error ? <p className="field-error" role="alert">{message(saveLimits.error)}</p> : null}
-        <button className="primary-button" type="submit" disabled={saveLimits.isPending}>{saveLimits.isPending ? "Saving…" : repeatLimits ? "Save limits through selected month" : "Save monthly limits"}</button>
+        <button className="primary-button" type="submit" disabled={saveLimits.isPending}>{saveLimits.isPending ? "Saving…" : limitsStart === currentMonth && limitsEnd === currentMonth ? "Save monthly limits" : "Save limits for selected months"}</button>
       </form>
     </Drawer>
     <Drawer open={createOpen} onClose={() => setCreateOpen(false)} eyebrow="Update your real balance" title="Record activity">

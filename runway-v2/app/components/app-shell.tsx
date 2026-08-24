@@ -12,17 +12,21 @@ import { plansRepository } from "~/data/repositories/plans-repository";
 import { transactionsRepository } from "~/data/repositories/transactions-repository";
 import { MarkIcon, SyncIcon } from "./icons";
 
-const primary = [
+const money = [
   ["Overview", "/overview"],
+  ["Activity", "/money/transactions"],
   ["Forecast", "/forecast"],
   ["Funds", "/funds"],
+] as const;
+const planning = [
+  ["Budgets", "/money/budgets"],
   ["Plans", "/plans"],
+] as const;
+const investing = [
   ["Investments", "/investments"],
 ] as const;
-const money = [
-  ["Activity", "/money/transactions"],
+const records = [
   ["Accounts", "/money/accounts"],
-  ["Budgets", "/money/budgets"],
   ["Analytics", "/analytics"],
 ] as const;
 
@@ -86,8 +90,10 @@ export function AppShell() {
           <span>Runway</span>
         </NavLink>
         <nav aria-label="Primary navigation">
-          <NavigationGroup label="Plan your money" items={primary} />
-          <NavigationGroup label="Money records" items={money} />
+          <NavigationGroup label="Money" items={money} />
+          <NavigationGroup label="Planning" items={planning} />
+          <NavigationGroup label="Investing" items={investing} />
+          <NavigationGroup label="Records & insights" items={records} />
         </nav>
         <NavLink className="settings-link" to="/settings" prefetch="render">
           Settings
@@ -132,8 +138,10 @@ function titleForPath(path: string): string {
   if (path === "/funds/payday") return "Payday plan";
   if (path.startsWith("/funds/")) return "Fund detail";
   const match = [
-    ...primary,
     ...money,
+    ...planning,
+    ...investing,
+    ...records,
     ["Settings", "/settings"] as const,
   ].find(([, href]) => path === href);
   return match?.[0] ?? "Runway";

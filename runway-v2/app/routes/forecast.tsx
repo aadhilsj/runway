@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from "react";
+import { Fragment, useMemo, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router";
 import { ConfirmationDialog } from "~/components/confirmation-dialog";
@@ -22,6 +22,7 @@ type SettlementDraft = {
 function message(error: unknown): string { return userFacingError(error, "Forecast could not be loaded."); }
 function money(value: number, currency: string): string { return formatMinorUnits(asMinorUnits(value), currency); }
 function dateLabel(value: string): string { return new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(`${value}T00:00:00Z`)); }
+function monthLabel(value: string): string { return new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${value.slice(0, 7)}-01T00:00:00Z`)); }
 function defaultLocalDate(): string { const value = new Date(); value.setMinutes(value.getMinutes() - value.getTimezoneOffset()); return value.toISOString().slice(0, 10); }
 
 export default function ForecastRoute() {
@@ -102,7 +103,7 @@ export default function ForecastRoute() {
       <section className="money-panel timeline-panel">
         <div className="panel-heading"><div><p className="section-kicker">What creates your forecast</p><h2>Upcoming timeline</h2><span className="muted">Expected items only. Mark an item paid or received when it happens.</span></div><div className="timeline-heading-actions"><Link className="secondary-button compact-button" to="/forecast/monthly">{workspace.data?.rules.some((rule) => rule.frequency === "monthly" && rule.interval_count === 1 && !rule.scenario_id) ? "Manage monthly forecast" : "Set up monthly forecast"}</Link><button className="primary-button compact-button" type="button" onClick={openCreate}>Add planned item</button></div></div>
         {model.result.scenario.conflicts.length ? <p className="field-error">Conflicting Plan changes were excluded: {model.result.scenario.conflicts.length}.</p> : null}
-        <div className="forecast-list timeline-list">{model.timeline.map((item) => { const planName=workspace.data?.scenarios.find(plan=>plan.id===item.scenarioId)?.name; return <article className={`forecast-row forecast-row-detailed${item.scenarioId?" plan-timeline-item":""}`} key={item.id}>
+        <div className="forecast-list timeline-list">{model.timeline.map((item, index) => { const planName=workspace.data?.scenarios.find(plan=>plan.id===item.scenarioId)?.name; const startsMonth = index === 0 || model.timeline[index - 1]!.date.slice(0, 7) !== item.date.slice(0, 7); return <Fragment key={item.id}>{startsMonth ? <div className="timeline-month-divider"><span>{monthLabel(item.date)}</span></div> : null}<article className={`forecast-row forecast-row-detailed${item.scenarioId?" plan-timeline-item":""}`}>
           <time dateTime={item.date}>{dateLabel(item.date)}</time>
           <div><strong>{item.label}</strong>{planName?<small className="plan-origin">Plan · {planName}</small>:null}</div>
           <div className="timeline-money"><strong className={item.kind === "expense" ? "negative" : item.kind === "income" ? "positive" : ""}>{item.kind === "expense" ? "−" : item.kind === "income" ? "+" : "↔"}{money(item.amountMinor, currency)}</strong><small className="after-event-balance">After event: {money(item.runningBalanceMinor, currency)}</small></div>
@@ -119,7 +120,7 @@ export default function ForecastRoute() {
               <button onClick={() => occurrence.mutate({ ruleId: item.recurrenceRuleId!, date: item.canonicalDate })}>Skip this occurrence</button>
             </div></details>
           </div> : null}
-        </article>})}</div>
+        </article></Fragment>})}</div>
       </section>
       <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} eyebrow="One-off plan" title={editingId ? "Edit planned item" : "Add planned item"}>
         {!editingId && !showDetails ? <form className="money-form quick-plan-form" onSubmit={(event) => { event.preventDefault(); quickSave.mutate(); }}>

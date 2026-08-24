@@ -517,6 +517,66 @@ export type Database = {
           },
         ]
       }
+      forecast_group_aliases: {
+        Row: {
+          created_at: string
+          group_key: string
+          id: string
+          kind: Database["public"]["Enums"]["runway_planned_kind"]
+          label_key: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          group_key: string
+          id?: string
+          kind: Database["public"]["Enums"]["runway_planned_kind"]
+          label_key: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          group_key?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["runway_planned_kind"]
+          label_key?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      forecast_group_names: {
+        Row: {
+          created_at: string
+          display_name: string
+          group_key: string
+          id: string
+          kind: Database["public"]["Enums"]["runway_planned_kind"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          display_name: string
+          group_key: string
+          id?: string
+          kind: Database["public"]["Enums"]["runway_planned_kind"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string
+          group_key?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["runway_planned_kind"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       forecast_items: {
         Row: {
           amount_minor: number
