@@ -86,6 +86,9 @@ h1, h2 { font-family: var(--font-display); text-wrap: balance; }
 .money-form textarea { min-height: 5.5rem; resize: vertical; }
 .money-form button, .inline-form button, .primary-button { border: 1px solid var(--color-line); border-radius: var(--radius-sm); padding: .76rem 1rem; background: var(--color-surface-strong); color: var(--color-ink); font-weight: 750; cursor: pointer; }
 .money-form .primary-button, .primary-button { background: var(--color-accent); color: white; border-color: var(--color-accent); }
+.quick-plan-form .form-help { margin:calc(var(--space-2) * -1) 0 0; }
+.quick-plan-form .form-help strong { color:var(--color-ink); }
+.reversal-confirmation .button-row { justify-content:flex-end; }
 .primary-button { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
 .secondary-button { display:inline-flex; align-items:center; justify-content:center; padding:.76rem 1rem; border:1px solid var(--color-line); border-radius:var(--radius-sm); background:var(--color-surface); color:var(--color-ink); font-weight:750; text-decoration:none; }
 .button-row { display:flex; align-items:center; gap:var(--space-2); }

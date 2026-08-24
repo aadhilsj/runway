@@ -127,15 +127,15 @@ test("signed-in Phase 4 money flow uses only invented fixture data", async ({ pa
   await page.goto("/money/transactions");
   await page.getByRole("button", { name: "Add transaction" }).click();
   await page.getByRole("button", { name: "Income" }).click();
-  await page.getByLabel("Amount").fill("30000");
-  await page.getByLabel("Description").fill("Invented salary");
+  await page.getByLabel("Amount", { exact: true }).fill("30000");
+  await page.getByLabel("Description", { exact: true }).fill("Invented salary");
   await page.getByRole("button", { name: "Post income" }).click();
   await expect(page.getByText("Invented salary")).toBeVisible();
 
   await page.getByRole("button", { name: "Add transaction" }).click();
-  await page.getByRole("button", { name: "Expense" }).click();
-  await page.getByLabel("Amount").fill("10000");
-  await page.getByLabel("Description").fill("Invented rent");
+  await page.getByRole("button", { name: "Expense", exact: true }).click();
+  await page.getByLabel("Amount", { exact: true }).fill("10000");
+  await page.getByLabel("Description", { exact: true }).fill("Invented rent");
   await page.getByRole("button", { name: "Post expense" }).click();
   await expect(page.getByText("Invented rent")).toBeVisible();
 
@@ -149,9 +149,9 @@ test("signed-in Phase 4 money flow uses only invented fixture data", async ({ pa
   await page.goto("/money/transactions");
   await page.getByRole("button", { name: "Add transaction" }).click();
   await page.getByRole("button", { name: "Transfer" }).click();
-  await page.getByLabel("Amount").fill("5000");
+  await page.getByLabel("Amount", { exact: true }).fill("5000");
   await page.getByLabel("To account").selectOption(SAVINGS_ID);
-  await page.getByLabel("Description").fill("Invented savings transfer");
+  await page.getByLabel("Description", { exact: true }).fill("Invented savings transfer");
   await page.getByRole("button", { name: "Post transfer" }).click();
   await expect(page.getByText("Invented savings transfer")).toBeVisible();
   await page.goto("/money/accounts");
@@ -159,8 +159,9 @@ test("signed-in Phase 4 money flow uses only invented fixture data", async ({ pa
 
   await page.goto("/money/transactions");
   const rent = page.getByText("Invented rent").locator("../..");
-  page.once("dialog", (dialog) => dialog.accept());
-  await rent.getByRole("button", { name: "Reverse transaction" }).click();
+  await rent.getByRole("button", { name: /Reverse transaction/ }).click();
+  await expect(page.getByRole("heading", { name: "Reverse transaction?" })).toBeVisible();
+  await page.getByRole("button", { name: "Reverse transaction", exact: true }).click();
   await expect(page.getByText("Reversal: Invented rent")).toBeVisible();
 
   await page.goto("/money/accounts");

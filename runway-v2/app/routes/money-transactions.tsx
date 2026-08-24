@@ -54,6 +54,7 @@ export default function TransactionsRoute() {
   const [miscellaneousLimit, setMiscellaneousLimit] = useState("");
   const [repeatLimits, setRepeatLimits] = useState(false);
   const [repeatThrough, setRepeatThrough] = useState(defaultLocalDate().slice(0, 7));
+  const [pendingReversal, setPendingReversal] = useState<Transaction | null>(null);
   const transactions = useQuery({ queryKey: ["transactions"], queryFn: () => transactionsRepository.listTransactions({ limit: 250 }) });
   const accounts = useQuery({ queryKey: ["accounts", "balances"], queryFn: () => accountsRepository.listAccountsWithBalances() });
   const categories = useQuery({ queryKey: ["categories"], queryFn: () => categoriesRepository.listCategories() });
@@ -89,7 +90,7 @@ export default function TransactionsRoute() {
   });
   const reverse = useMutation({
     mutationFn: (transactionId: string) => transactionsRepository.reverseTransaction({ transactionId, occurredAt: new Date().toISOString(), notes: "User-requested correction", idempotencyKey: newKey("reversal") }),
-    onSuccess: invalidateMoney,
+    onSuccess: async () => { setPendingReversal(null); await invalidateMoney(); },
   });
   const accountRows = (accounts.data ?? []).filter((account) => !account.archived_at);
   const assets = accountRows.filter((account) => account.class === "asset");
@@ -216,9 +217,17 @@ export default function TransactionsRoute() {
           const display = transactionDisplay(transaction, accountRows, categoryNames);
           const isReversal = Boolean(transaction.reverses_transaction_id);
           const reversed = (transactions.data ?? []).some((candidate) => candidate.reverses_transaction_id === transaction.id);
-          return <article className="transaction-row activity-transaction-row" key={transaction.id}><div className="transaction-icon" data-kind={transaction.kind}>{transaction.kind === "income" ? "+" : transaction.kind === "expense" ? "−" : "↔"}</div><div><strong>{transaction.description}</strong><p>{new Date(transaction.occurred_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} · {transaction.kind.replace("_", " ")}</p><small>{[display.category, ...display.accountNames].filter(Boolean).join(" · ")}</small></div><div className="transaction-amount"><strong>{formatMinorUnits(asMinorUnits(display.amount), "NOK")}</strong>{isReversal ? <span>Correction</span> : reversed ? <span>Reversed</span> : transaction.kind !== "opening_balance" ? <button type="button" disabled={reverse.isPending} onClick={() => { if (confirm("Reverse this transaction? Runway will keep the original and create a correction.")) reverse.mutate(transaction.id); }}>Reverse</button> : <span>Opening state</span>}</div></article>;
+          return <article className="transaction-row activity-transaction-row" key={transaction.id}><div className="transaction-icon" data-kind={transaction.kind}>{transaction.kind === "income" ? "+" : transaction.kind === "expense" ? "−" : "↔"}</div><div><strong>{transaction.description}</strong><p>{new Date(transaction.occurred_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} · {transaction.kind.replace("_", " ")}</p><small>{[display.category, ...display.accountNames].filter(Boolean).join(" · ")}</small></div><div className="transaction-amount"><strong>{formatMinorUnits(asMinorUnits(display.amount), "NOK")}</strong>{isReversal ? <span>Correction</span> : reversed ? <span>Reversed</span> : transaction.kind !== "opening_balance" ? <button type="button" aria-label={`Reverse transaction: ${transaction.description}`} disabled={reverse.isPending} onClick={() => setPendingReversal(transaction)}>Reverse</button> : <span>Opening state</span>}</div></article>;
         })}{!transactions.isLoading && filtered.length === 0 ? <p className="muted">No matching posted transactions.</p> : null}</div>
       </section>
+    <Drawer open={Boolean(pendingReversal)} onClose={() => setPendingReversal(null)} eyebrow="Confirm correction" title="Reverse transaction?">
+      {pendingReversal ? <div className="money-form reversal-confirmation">
+        <div className="settlement-expected"><span>Transaction</span><strong>{pendingReversal.description}</strong><small>{new Date(pendingReversal.occurred_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</small></div>
+        <p className="form-help">Runway will keep the original transaction for your records and create an equal correction. Your balances and spending totals will update automatically.</p>
+        {reverse.error ? <p className="field-error" role="alert">{message(reverse.error)}</p> : null}
+        <div className="button-row"><button className="secondary-button" type="button" onClick={() => setPendingReversal(null)}>Keep transaction</button><button className="primary-button" type="button" disabled={reverse.isPending} onClick={() => reverse.mutate(pendingReversal.id)}>{reverse.isPending ? "Reversing…" : "Reverse transaction"}</button></div>
+      </div> : null}
+    </Drawer>
     <Drawer open={limitsOpen} onClose={() => setLimitsOpen(false)} eyebrow="Everyday spending" title={`Set ${monthLabel(currentMonthStart)} limits`}>
       <form className="money-form" onSubmit={(event) => { event.preventDefault(); saveLimits.mutate(); }}>
         <p className="form-help">Set the most you want to spend. Expenses logged here will automatically reduce what is left.</p>

@@ -6,6 +6,7 @@ import { forecastRepository } from "~/data/repositories/forecast-repository";
 import { budgetsRepository } from "~/data/repositories/budgets-repository";
 import { recurringRepository } from "~/data/repositories/recurring-repository";
 import { asMinorUnits, formatMinorUnits, parseDisplayAmountToMinor } from "~/domain/money";
+import { parseForecastQuickEntry } from "~/domain/forecast-quick-entry";
 import { buildForecastScreenModel } from "~/read-models/forecast";
 import { userFacingError } from "~/user-facing-error";
 
@@ -18,6 +19,7 @@ type SettlementDraft = {
 function message(error: unknown): string { return userFacingError(error, "Forecast could not be loaded."); }
 function money(value: number, currency: string): string { return formatMinorUnits(asMinorUnits(value), currency); }
 function dateLabel(value: string): string { return new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(`${value}T00:00:00Z`)); }
+function defaultLocalDate(): string { const value = new Date(); value.setMinutes(value.getMinutes() - value.getTimezoneOffset()); return value.toISOString().slice(0, 10); }
 
 export default function ForecastRoute() {
   const client = useQueryClient();
@@ -29,6 +31,7 @@ export default function ForecastRoute() {
   const [source, setSource] = useState(""); const [destination, setDestination] = useState(""); const [scenario, setScenario] = useState("");
   const [confidence, setConfidence] = useState<"committed" | "expected" | "tentative">("expected"); const [formError, setFormError] = useState("");
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [quickEntry, setQuickEntry] = useState(""); const [showDetails, setShowDetails] = useState(false);
   const [settlement, setSettlement] = useState<SettlementDraft | null>(null);
   const [actualAmount, setActualAmount] = useState(""); const [actualDate, setActualDate] = useState("");
   const [actualSource, setActualSource] = useState(""); const [actualDestination, setActualDestination] = useState("");
@@ -44,6 +47,18 @@ export default function ForecastRoute() {
     if (!payload.label || !date) throw new Error("Label and date are required.");
     if (editingId) await forecastRepository.updateItem(editingId, payload); else await forecastRepository.createItem(payload);
   }, onSuccess: () => { setEditingId(null); setLabel(""); setAmount(""); setDate(""); setFormError(""); setDrawerOpen(false); void invalidate(); }, onError: (error) => setFormError(message(error)) });
+  const quickSave = useMutation({ mutationFn: async () => {
+    const parsed = parseForecastQuickEntry(quickEntry);
+    const operatingAccount = workspace.data?.accounts.find((account) => !account.is_system && account.liquidity_class === "operating")
+      ?? workspace.data?.accounts.find((account) => !account.is_system && account.name.toLowerCase().includes("operating"));
+    if (!operatingAccount) throw new Error("Operating Cash is not available.");
+    await forecastRepository.createItem({
+      kind: parsed.kind, label: parsed.label, amount_minor: parsed.amountMinor, expected_date: parsed.expectedDate,
+      confidence: "expected", scenario_id: null,
+      source_account_id: parsed.kind === "expense" ? operatingAccount.id : null,
+      destination_account_id: parsed.kind === "income" ? operatingAccount.id : null,
+    });
+  }, onSuccess: () => { setQuickEntry(""); setFormError(""); setDrawerOpen(false); void invalidate(); }, onError: (error) => setFormError(message(error)) });
   const update = useMutation({ mutationFn: ({ id, values }: { id: string; values: Parameters<typeof forecastRepository.updateItem>[1] }) => forecastRepository.updateItem(id, values), onSuccess: () => void invalidate() });
   const occurrence = useMutation({ mutationFn: (command: { ruleId: string; date: string }) => recurringRepository.setException(command.ruleId, command.date, { status: "skipped" }), onSuccess: () => void invalidate() });
   const settle = useMutation({ mutationFn: async () => {
@@ -62,7 +77,13 @@ export default function ForecastRoute() {
     client.invalidateQueries({ queryKey: ["transactions"] }), client.invalidateQueries({ queryKey: ["accounts"] }),
     client.invalidateQueries({ queryKey: ["budget-workspace"] }),
   ]); }, onError: (error) => setSettlementError(userFacingError(error, "This payment could not be recorded.")) });
-  function beginEdit(id: string) { const item = workspace.data?.items.find((candidate) => candidate.id === id); if (!item) return; setEditingId(id); setKind(item.kind); setLabel(item.label); setAmount((Number(item.amount_minor) / 100).toFixed(2)); setDate(item.expected_date); setSource(item.source_account_id ?? ""); setDestination(item.destination_account_id ?? ""); setScenario(item.scenario_id ?? ""); setConfidence(item.confidence); setDrawerOpen(true); }
+  function openCreate() {
+    const operatingId = workspace.data?.accounts.find((account) => !account.is_system && account.liquidity_class === "operating")?.id
+      ?? workspace.data?.accounts.find((account) => !account.is_system && account.name.toLowerCase().includes("operating"))?.id ?? "";
+    setEditingId(null); setQuickEntry(""); setShowDetails(false); setFormError(""); setKind("expense"); setLabel(""); setAmount("");
+    setDate(defaultLocalDate()); setSource(operatingId); setDestination(operatingId); setScenario(""); setConfidence("expected"); setDrawerOpen(true);
+  }
+  function beginEdit(id: string) { const item = workspace.data?.items.find((candidate) => candidate.id === id); if (!item) return; setEditingId(id); setShowDetails(true); setKind(item.kind); setLabel(item.label); setAmount((Number(item.amount_minor) / 100).toFixed(2)); setDate(item.expected_date); setSource(item.source_account_id ?? ""); setDestination(item.destination_account_id ?? ""); setScenario(item.scenario_id ?? ""); setConfidence(item.confidence); setDrawerOpen(true); }
   function submit(event: FormEvent) { event.preventDefault(); save.mutate(); }
   function beginSettlement(item: NonNullable<typeof model>["timeline"][number]) {
     if (item.sourceType !== "forecast_item" && item.sourceType !== "recurring_occurrence") return;
@@ -81,7 +102,7 @@ export default function ForecastRoute() {
       <section className="forecast-balance-strip" aria-label="Lowest expected cash balance"><div><p>Lowest cash balance</p><small>The least cash you are projected to have</small></div><strong className={model.result.firstFloorBreach ? "negative" : ""}>{money(model.summary.lowestOperatingMinor, currency)}</strong><span>on {dateLabel(model.result.lowestOperatingCash.date)}</span></section>
       {model.result.overdueItems.length ? <section className="money-panel attention-panel"><div className="panel-heading"><div><p className="section-kicker">Needs attention</p><h2>Overdue plans</h2></div><strong>{model.result.overdueItems.length}</strong></div>{model.result.overdueItems.map((item) => <div className="attention-row" key={item.id}><div><strong>{item.label}</strong><span>{dateLabel(item.date)} · {money(item.amountMinor, currency)}</span></div>{item.sourceType === "forecast_item" ? <div className="row-actions"><button onClick={() => update.mutate({ id: item.sourceId, values: { status: "skipped" } })}>Mark skipped</button><button onClick={() => beginEdit(item.sourceId)}>Reschedule</button></div> : null}</div>)}</section> : null}
       <section className="money-panel timeline-panel">
-        <div className="panel-heading"><div><p className="section-kicker">What creates your forecast</p><h2>Upcoming timeline</h2><span className="muted">Expected items only. Mark an item paid or received when it happens.</span></div><div className="timeline-heading-actions"><button className="primary-button compact-button" type="button" onClick={() => { setEditingId(null); setDrawerOpen(true); }}>Add planned item</button></div></div>
+        <div className="panel-heading"><div><p className="section-kicker">What creates your forecast</p><h2>Upcoming timeline</h2><span className="muted">Expected items only. Mark an item paid or received when it happens.</span></div><div className="timeline-heading-actions"><button className="primary-button compact-button" type="button" onClick={openCreate}>Add planned item</button></div></div>
         {model.result.scenario.conflicts.length ? <p className="field-error">Conflicting Plan changes were excluded: {model.result.scenario.conflicts.length}.</p> : null}
         <div className="forecast-list timeline-list">{model.timeline.map((item) => { const planName=workspace.data?.scenarios.find(plan=>plan.id===item.scenarioId)?.name; return <article className={`forecast-row forecast-row-detailed${item.scenarioId?" plan-timeline-item":""}`} key={item.id}>
           <time dateTime={item.date}>{dateLabel(item.date)}</time>
@@ -102,7 +123,15 @@ export default function ForecastRoute() {
           </div> : null}
         </article>})}</div>
       </section>
-      <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} eyebrow="One-off plan" title={editingId ? "Edit planned item" : "Add planned item"}><form className="money-form" onSubmit={submit}><label>Type<select value={kind} onChange={(event) => setKind(event.target.value as typeof kind)}><option value="income">Income</option><option value="expense">Expense</option><option value="transfer">Transfer</option></select></label><label>Label<input value={label} onChange={(event) => setLabel(event.target.value)} required/></label><label>Amount<input value={amount} inputMode="decimal" onChange={(event) => setAmount(event.target.value)} required/></label><label>Date<input type="date" value={date} onChange={(event) => setDate(event.target.value)} required/></label>{kind !== "income" ? <label>From account<select value={source} onChange={(event) => setSource(event.target.value)} required><option value="">Choose account</option>{workspace.data?.accounts.filter((account) => !account.is_system).map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}</select></label> : null}{kind !== "expense" ? <label>To account<select value={destination} onChange={(event) => setDestination(event.target.value)} required><option value="">Choose account</option>{workspace.data?.accounts.filter((account) => !account.is_system).map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}</select></label> : null}<label>Confidence<select value={confidence} onChange={(event) => setConfidence(event.target.value as typeof confidence)}><option value="committed">Committed</option><option value="expected">Expected</option><option value="tentative">Tentative</option></select></label><label>Plan <span className="optional">optional</span><select value={scenario} onChange={(event) => setScenario(event.target.value)}><option value="">Base forecast</option>{workspace.data?.scenarios.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>{formError ? <p className="field-error" role="alert">{formError}</p> : null}<button className="primary-button" disabled={save.isPending}>{editingId ? "Save changes" : "Add to forecast"}</button></form></Drawer>
+      <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} eyebrow="One-off plan" title={editingId ? "Edit planned item" : "Add planned item"}>
+        {!editingId && !showDetails ? <form className="money-form quick-plan-form" onSubmit={(event) => { event.preventDefault(); quickSave.mutate(); }}>
+          <label>Describe the planned item<input autoFocus value={quickEntry} onChange={(event) => setQuickEntry(event.target.value)} placeholder="Phone bill 568 on 15 Sep" required/></label>
+          <p className="form-help">Use <strong>+</strong> for income. For example: “Salary +23000 on 20 Sep”. Expenses use Operating Cash automatically.</p>
+          {formError ? <p className="field-error" role="alert">{formError}</p> : null}
+          <button className="primary-button" disabled={quickSave.isPending}>{quickSave.isPending ? "Adding…" : "Add to forecast"}</button>
+          <button className="secondary-button" type="button" onClick={() => { setShowDetails(true); setFormError(""); }}>More options</button>
+        </form> : <form className="money-form" onSubmit={submit}><label>Type<select value={kind} onChange={(event) => setKind(event.target.value as typeof kind)}><option value="income">Income</option><option value="expense">Expense</option><option value="transfer">Transfer</option></select></label><label>Label<input value={label} onChange={(event) => setLabel(event.target.value)} required/></label><label>Amount<input value={amount} inputMode="decimal" onChange={(event) => setAmount(event.target.value)} required/></label><label>Date<input type="date" value={date} onChange={(event) => setDate(event.target.value)} required/></label>{kind !== "income" ? <label>From account<select value={source} onChange={(event) => setSource(event.target.value)} required><option value="">Choose account</option>{workspace.data?.accounts.filter((account) => !account.is_system).map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}</select></label> : null}{kind !== "expense" ? <label>To account<select value={destination} onChange={(event) => setDestination(event.target.value)} required><option value="">Choose account</option>{workspace.data?.accounts.filter((account) => !account.is_system).map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}</select></label> : null}<label>Confidence<select value={confidence} onChange={(event) => setConfidence(event.target.value as typeof confidence)}><option value="committed">Committed</option><option value="expected">Expected</option><option value="tentative">Tentative</option></select></label><label>Plan <span className="optional">optional</span><select value={scenario} onChange={(event) => setScenario(event.target.value)}><option value="">Base forecast</option>{workspace.data?.scenarios.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>{formError ? <p className="field-error" role="alert">{formError}</p> : null}<button className="primary-button" disabled={save.isPending}>{editingId ? "Save changes" : "Add to forecast"}</button>{!editingId ? <button className="secondary-button" type="button" onClick={() => { setShowDetails(false); setFormError(""); }}>Use quick entry</button> : null}</form>}
+      </Drawer>
       <Drawer open={Boolean(settlement)} onClose={() => setSettlement(null)} eyebrow="Record actual money" title={settlement ? settlementAction(settlement.kind) : "Record payment"}>
         {settlement ? <form className="money-form" onSubmit={(event) => { event.preventDefault(); settle.mutate(); }}>
           <div className="settlement-expected"><span>Forecast</span><strong>{settlement.label}</strong><small>{money(settlement.expectedAmountMinor, currency)} expected on {dateLabel(settlement.expectedDate)}</small></div>
