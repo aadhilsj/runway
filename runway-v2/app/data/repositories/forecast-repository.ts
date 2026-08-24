@@ -50,6 +50,11 @@ export const forecastRepository = {
     const client = requireSupabase(); const userId = await requireAuthenticatedUserId(client);
     const { error } = await client.from("forecast_items").delete().eq("id", id).eq("user_id", userId).is("legacy_source_id", null); if (error) throw error;
   },
+  async purgeExpiredRecoverableItems(): Promise<void> {
+    const client = requireSupabase(); const userId = await requireAuthenticatedUserId(client);
+    const cutoff = new Date(Date.now() - 30 * 86_400_000).toISOString();
+    const { error } = await client.from("forecast_items").delete().eq("user_id", userId).in("status", ["skipped", "canceled"]).lt("updated_at", cutoff).is("legacy_source_id", null); if (error) throw error;
+  },
   async matchItem(itemId: string, transactionId: string): Promise<void> {
     const client = requireSupabase(); const { error } = await client.rpc("match_forecast_item", { p_forecast_item_id: itemId, p_transaction_id: transactionId }); if (error) throw error;
   },

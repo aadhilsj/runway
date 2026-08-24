@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState, type FormEvent } from "react";
+import { Fragment, useEffect, useMemo, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router";
 import { ConfirmationDialog } from "~/components/confirmation-dialog";
@@ -24,6 +24,7 @@ function money(value: number, currency: string): string { return formatMinorUnit
 function dateLabel(value: string): string { return new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(`${value}T00:00:00Z`)); }
 function monthLabel(value: string): string { return new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${value.slice(0, 7)}-01T00:00:00Z`)); }
 function defaultLocalDate(): string { const value = new Date(); value.setMinutes(value.getMinutes() - value.getTimezoneOffset()); return value.toISOString().slice(0, 10); }
+function withinRecoveryWindow(updatedAt: string): boolean { return Date.parse(updatedAt) >= Date.now() - 30 * 86_400_000; }
 
 export default function ForecastRoute() {
   const client = useQueryClient();
@@ -37,18 +38,28 @@ export default function ForecastRoute() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [quickEntry, setQuickEntry] = useState(""); const [showDetails, setShowDetails] = useState(false);
   const [settlement, setSettlement] = useState<SettlementDraft | null>(null);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const months = horizon ?? workspace.data?.profile.forecast_horizon_months ?? 12;
   const horizonOptions = horizons.includes(months) ? horizons : [...horizons, months].sort((left, right) => left - right);
   const model = useMemo(() => workspace.data && budgets.data ? buildForecastScreenModel(workspace.data, months, selectedScenarios, undefined, budgets.data) : null, [workspace.data, budgets.data, months, selectedScenarios]);
   const skippedOccurrences = useMemo(() => workspace.data ? [
-    ...workspace.data.items.filter((item) => item.status === "skipped").map((item) => ({ sourceType: "forecast_item" as const, sourceId: item.id, date: item.expected_date, label: item.label, amountMinor: Number(item.amount_minor), kind: item.kind })),
+    ...workspace.data.items.filter((item) => (item.status === "skipped" || item.status === "canceled") && withinRecoveryWindow(item.updated_at)).map((item) => ({ sourceType: "forecast_item" as const, sourceId: item.id, date: item.expected_date, label: item.label, amountMinor: Number(item.amount_minor), kind: item.kind })),
     ...workspace.data.occurrences.flatMap((item) => {
-      if (item.status !== "skipped") return [];
+      if (item.status !== "skipped" || !withinRecoveryWindow(item.updated_at)) return [];
       const rule = workspace.data.rules.find((candidate) => candidate.id === item.recurring_rule_id);
       return rule ? [{ sourceType: "recurring_occurrence" as const, sourceId: rule.id, date: item.occurrence_date, label: rule.label, amountMinor: Number(rule.amount_minor), kind: rule.kind }] : [];
     }),
   ].toSorted((left, right) => left.date.localeCompare(right.date) || left.label.localeCompare(right.label)) : [], [workspace.data]);
   const invalidate = () => client.invalidateQueries({ queryKey: ["forecast-workspace"] });
+  useEffect(() => {
+    void forecastRepository.purgeExpiredRecoverableItems().then(() => client.invalidateQueries({ queryKey: ["forecast-workspace"] })).catch(() => undefined);
+  }, [client]);
+  useEffect(() => {
+    const dismiss = (event: PointerEvent) => { if (!(event.target instanceof Element) || !event.target.closest("[data-forecast-menu]")) setOpenMenuId(null); };
+    const escape = (event: KeyboardEvent) => { if (event.key === "Escape") setOpenMenuId(null); };
+    document.addEventListener("pointerdown", dismiss); document.addEventListener("keydown", escape);
+    return () => { document.removeEventListener("pointerdown", dismiss); document.removeEventListener("keydown", escape); };
+  }, []);
   const save = useMutation({ mutationFn: async () => {
     const amountMinor = Number(parseDisplayAmountToMinor(amount)); if (amountMinor <= 0) throw new Error("Amount must be positive.");
     const payload = { kind, label: label.trim(), amount_minor: amountMinor, expected_date: date, confidence: "expected" as const, scenario_id: scenario || null,
@@ -112,26 +123,26 @@ export default function ForecastRoute() {
       <section className="money-panel timeline-panel">
         <div className="panel-heading"><div><p className="section-kicker">What creates your forecast</p><h2>Upcoming timeline</h2><span className="muted">Expected items only. Mark an item paid or received when it happens.</span></div><div className="timeline-heading-actions"><Link className="secondary-button compact-button" to="/forecast/monthly">{workspace.data?.rules.some((rule) => rule.frequency === "monthly" && rule.interval_count === 1 && !rule.scenario_id) ? "Manage monthly forecast" : "Set up monthly forecast"}</Link><button className="primary-button compact-button" type="button" onClick={openCreate}>Add planned item</button></div></div>
         {model.result.scenario.conflicts.length ? <p className="field-error">Conflicting Plan changes were excluded: {model.result.scenario.conflicts.length}.</p> : null}
-        <div className="forecast-list timeline-list">{model.timeline.map((item, index) => { const planName=workspace.data?.scenarios.find(plan=>plan.id===item.scenarioId)?.name; const startsMonth = index === 0 || model.timeline[index - 1]!.date.slice(0, 7) !== item.date.slice(0, 7); return <Fragment key={item.id}>{startsMonth ? <div className="timeline-month-divider"><span>{monthLabel(item.date)}</span></div> : null}<article className={`forecast-row forecast-row-detailed${item.scenarioId?" plan-timeline-item":""}`}>
+        <div className="forecast-list timeline-list">{model.timeline.map((item, index) => { const planName=workspace.data?.scenarios.find(plan=>plan.id===item.scenarioId)?.name; const startsMonth = index === 0 || model.timeline[index - 1]!.date.slice(0, 7) !== item.date.slice(0, 7); return <Fragment key={item.id}>{startsMonth ? <div className="timeline-month-divider"><span>{monthLabel(item.date)}</span></div> : null}<article className={`forecast-row forecast-row-detailed forecast-row-${item.kind}${item.scenarioId?" plan-timeline-item":""}`}>
           <time dateTime={item.date}>{dateLabel(item.date)}</time>
           <div><strong>{item.label}</strong>{planName?<small className="plan-origin">Plan · {planName}</small>:null}</div>
           <div className="timeline-money"><strong className={item.kind === "expense" ? "negative" : item.kind === "income" ? "positive" : ""}>{item.kind === "expense" ? "−" : item.kind === "income" ? "+" : "↔"}{money(item.amountMinor, currency)}</strong><small className="after-event-balance">After event: {money(item.runningBalanceMinor, currency)}</small></div>
           {item.sourceType === "forecast_item" ? <div className="timeline-actions">
             <button className="timeline-settle-action" type="button" onClick={() => beginSettlement(item)}>{settlementAction(item.kind)}</button>
-            <details className="timeline-overflow"><summary aria-label={`More actions for ${item.label}`}>⋯</summary><div>
-              <button onClick={() => beginEdit(item.sourceId)}>Edit</button>
-              <button onClick={() => update.mutate({ id: item.sourceId, values: { status: "skipped" } })}>Skip</button>
-              <button onClick={() => update.mutate({ id: item.sourceId, values: { status: "canceled" } })}>Cancel</button>
-            </div></details>
+            <div className="timeline-overflow" data-forecast-menu><button className="timeline-overflow-trigger" type="button" aria-label={`More actions for ${item.label}`} aria-expanded={openMenuId === item.id} onClick={() => setOpenMenuId((current) => current === item.id ? null : item.id)}>⋯</button>{openMenuId === item.id ? <div className="timeline-overflow-menu">
+              <button onClick={() => { setOpenMenuId(null); beginEdit(item.sourceId); }}>Edit</button>
+              <button onClick={() => { setOpenMenuId(null); update.mutate({ id: item.sourceId, values: { status: "skipped" } }); }}>Skip</button>
+              <button className="delete-action" onClick={() => { setOpenMenuId(null); update.mutate({ id: item.sourceId, values: { status: "canceled" } }); }}>Delete</button>
+            </div> : null}</div>
           </div> : item.recurrenceRuleId ? <div className="timeline-actions">
             <button className="timeline-settle-action" type="button" onClick={() => beginSettlement(item)}>{settlementAction(item.kind)}</button>
-            <details className="timeline-overflow"><summary aria-label={`More actions for ${item.label}`}>⋯</summary><div>
-              <button onClick={() => occurrence.mutate({ ruleId: item.recurrenceRuleId!, date: item.canonicalDate })}>Skip this occurrence</button>
-            </div></details>
+            <div className="timeline-overflow" data-forecast-menu><button className="timeline-overflow-trigger" type="button" aria-label={`More actions for ${item.label}`} aria-expanded={openMenuId === item.id} onClick={() => setOpenMenuId((current) => current === item.id ? null : item.id)}>⋯</button>{openMenuId === item.id ? <div className="timeline-overflow-menu">
+              <button onClick={() => { setOpenMenuId(null); occurrence.mutate({ ruleId: item.recurrenceRuleId!, date: item.canonicalDate }); }}>Skip this occurrence</button>
+            </div> : null}</div>
           </div> : null}
         </article></Fragment>})}</div>
       </section>
-      {skippedOccurrences.length ? <details className="skipped-occurrences-panel"><summary><span>Skipped occurrences</span><small>{skippedOccurrences.length}</small></summary><div className="skipped-occurrences-list">{skippedOccurrences.map((item) => <div className="skipped-occurrence-row" key={`${item.sourceType}:${item.sourceId}:${item.date}`}><div><strong>{item.label}</strong><span>{dateLabel(item.date)} · {item.kind === "expense" ? "−" : item.kind === "income" ? "+" : "↔"}{money(item.amountMinor, currency)}</span></div><button type="button" disabled={restoreOccurrence.isPending} onClick={() => restoreOccurrence.mutate({ sourceType: item.sourceType, sourceId: item.sourceId, date: item.date })}>Restore</button></div>)}{restoreOccurrence.error ? <p className="field-error" role="alert">This occurrence could not be restored.</p> : null}</div></details> : null}
+      {skippedOccurrences.length ? <details className="skipped-occurrences-panel"><summary><span>Skipped and deleted occurrences</span><small>{skippedOccurrences.length}</small></summary><div className="skipped-occurrences-list"><p className="muted">Available to restore for 30 days.</p>{skippedOccurrences.map((item) => <div className="skipped-occurrence-row" key={`${item.sourceType}:${item.sourceId}:${item.date}`}><div><strong>{item.label}</strong><span>{dateLabel(item.date)} · {item.kind === "expense" ? "−" : item.kind === "income" ? "+" : "↔"}{money(item.amountMinor, currency)}</span></div><button type="button" disabled={restoreOccurrence.isPending} onClick={() => restoreOccurrence.mutate({ sourceType: item.sourceType, sourceId: item.sourceId, date: item.date })}>Restore</button></div>)}{restoreOccurrence.error ? <p className="field-error" role="alert">This occurrence could not be restored.</p> : null}</div></details> : null}
       <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} eyebrow="One-off plan" title={editingId ? "Edit planned item" : "Add planned item"}>
         {!editingId && !showDetails ? <form className="money-form quick-plan-form" onSubmit={(event) => { event.preventDefault(); quickSave.mutate(); }}>
           <label>Describe the planned item<input autoFocus value={quickEntry} onChange={(event) => setQuickEntry(event.target.value)} placeholder="Phone bill 568 15 September" required/></label>

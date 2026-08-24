@@ -8,14 +8,14 @@ import MonthlyForecastRoute, { forecastHorizonThroughMonth } from "~/routes/fore
 const mocks = vi.hoisted(() => {
   const account = { id: "account-a", user_id: "owner", name: "Operating Cash", class: "asset", subtype: "checking", currency: "NOK", is_system: false, system_key: null, include_in_net_worth: true, liquidity_class: "operating", valuation_mode: "ledger", archived_at: null, created_at: "2026-01-01", updated_at: "2026-01-01", opened_on: null, creation_idempotency_key: null, creation_payload: null } as const;
   const workspace = { profile: { base_currency: "NOK", timezone: "Europe/Oslo", operating_floor_minor: 500000, forecast_horizon_months: 12 }, accounts: [account], balances: [{ account_id: account.id, display_balance_minor: 1000000 }],
-  items: [{ id: "base", kind: "expense", expected_date: "2026-09-01", amount_minor: 100000, source_account_id: account.id, destination_account_id: null, category_id: null, label: "Base expense", notes: null, confidence: "expected", scenario_id: null, default_sort_order: null, status: "expected" },
+  items: [{ id: "base", kind: "expense", expected_date: "2026-09-01", amount_minor: 100000, source_account_id: account.id, destination_account_id: null, category_id: null, label: "Base expense", notes: null, confidence: "expected", scenario_id: null, default_sort_order: null, status: "expected", updated_at: "2026-08-24T20:00:00Z" },
     { id: "scenario-item", kind: "expense", expected_date: "2026-09-02", amount_minor: 200000, source_account_id: account.id, destination_account_id: null, category_id: null, label: "Scenario expense", notes: null, confidence: "expected", scenario_id: "scenario-a", default_sort_order: null, status: "expected" }],
   rules: [{ id: "rule-a", kind: "expense", label: "Monthly fixture", notes: null, source_account_id: account.id, destination_account_id: null, category_id: null, amount_minor: 5000, frequency: "monthly", interval_count: 1, day_of_month: 10, day_of_week: null, start_on: "2026-09-10", end_on: null, default_sort_order: null, confidence: "expected", scenario_id: null, active: true, archived_at: null }],
     occurrences: [], scenarios: [{ id: "scenario-a", name: "Optional plan", archived_at: null }], categories: [], transactions: [] } as any;
   return { createItem: vi.fn(), createRule: vi.fn(), settleItem: vi.fn(), settleOccurrence: vi.fn(), restoreException: vi.fn(), saveMonthlyBaseline: vi.fn(), saveHorizon: vi.fn(), setActive: vi.fn(), archive: vi.fn(), account, workspace };
 });
 
-vi.mock("~/data/repositories/forecast-repository", () => ({ forecastRepository: { getWorkspace: vi.fn().mockResolvedValue(mocks.workspace), saveHorizon: mocks.saveHorizon, createItem: mocks.createItem, updateItem: vi.fn(), matchItem: vi.fn(), settleItem: mocks.settleItem } }));
+vi.mock("~/data/repositories/forecast-repository", () => ({ forecastRepository: { getWorkspace: vi.fn().mockResolvedValue(mocks.workspace), saveHorizon: mocks.saveHorizon, createItem: mocks.createItem, updateItem: vi.fn(), purgeExpiredRecoverableItems: vi.fn().mockResolvedValue(undefined), matchItem: vi.fn(), settleItem: mocks.settleItem } }));
 vi.mock("~/data/repositories/budgets-repository", () => ({ budgetsRepository: { getWorkspace: vi.fn().mockResolvedValue({ periods: [], lines: [], groups: [], groupCategories: [], actuals: [], commitments: [], categories: [], currency: "NOK" }) } }));
 vi.mock("~/data/repositories/recurring-repository", () => ({ recurringRepository: { create: mocks.createRule, update: vi.fn(), setActive: mocks.setActive, archive: mocks.archive, setException: vi.fn(), restoreException: mocks.restoreException, settleOccurrence: mocks.settleOccurrence, saveMonthlyBaseline: mocks.saveMonthlyBaseline } }));
 function show(ui: React.ReactNode) { const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } }); return render(<MemoryRouter><QueryClientProvider client={client}>{ui}</QueryClientProvider></MemoryRouter>); }
@@ -63,17 +63,27 @@ describe("Phase 5 forecast UI", () => {
   });
 
   it("lists skipped recurring occurrences and restores one date without changing the rule", async () => {
-    mocks.workspace.occurrences = [{ recurring_rule_id: "rule-a", occurrence_date: "2027-08-10", status: "skipped" }];
+    mocks.workspace.occurrences = [{ recurring_rule_id: "rule-a", occurrence_date: "2027-08-10", status: "skipped", updated_at: new Date().toISOString() }];
     mocks.restoreException.mockResolvedValue(undefined);
     show(<ForecastRoute/>);
 
-    const skipped = await screen.findByText("Skipped occurrences");
+    const skipped = await screen.findByText("Skipped and deleted occurrences");
     expect(skipped).toBeVisible();
     expect(screen.queryByText("10 Aug 2027 · −50 kr")).not.toBeVisible();
     fireEvent.click(skipped);
     expect(screen.getByText("10 Aug 2027 · −50 kr")).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: "Restore" }));
     await waitFor(() => expect(mocks.restoreException).toHaveBeenCalledWith("rule-a", "2027-08-10"));
+  });
+
+  it("closes the forecast action menu when clicking elsewhere and labels removal as Delete", async () => {
+    show(<ForecastRoute/>); await screen.findByText("Base expense");
+    fireEvent.click(screen.getByRole("button", { name: "More actions for Base expense" }));
+    expect(screen.getByRole("button", { name: "Delete" })).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Cancel" })).not.toBeInTheDocument();
+
+    fireEvent.pointerDown(screen.getByRole("heading", { name: "Forecast" }));
+    expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
   });
 
   it("builds a monthly baseline in bulk and preserves existing monthly rules", async () => {

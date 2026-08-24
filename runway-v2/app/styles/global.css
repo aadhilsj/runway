@@ -230,6 +230,8 @@ button:disabled { opacity: .48; cursor: not-allowed; }
 .timeline-month-divider { display:flex; align-items:center; gap:var(--space-3); margin:.65rem 0 .1rem; color:var(--color-accent-strong); font-size:.7rem; font-weight:800; letter-spacing:.11em; text-transform:uppercase; }
 .timeline-month-divider::after { content:""; height:1px; flex:1; background:color-mix(in srgb, var(--color-accent) 22%, var(--color-line)); }
 .timeline-list .forecast-row-detailed { grid-template-columns:6.75rem minmax(9rem,1fr) auto auto; gap:var(--space-3); padding:.65rem .8rem; }
+.timeline-list .forecast-row-expense { background:linear-gradient(105deg,color-mix(in srgb,#b74435 5%,var(--color-surface-strong)),var(--color-surface-strong) 62%); }
+.timeline-list .forecast-row-income { background:linear-gradient(105deg,color-mix(in srgb,#43855e 5%,var(--color-surface-strong)),var(--color-surface-strong) 62%); }
 .timeline-list .forecast-row-detailed > div:nth-of-type(1) { gap:.1rem; }
 .timeline-list .forecast-row-detailed > div:nth-of-type(1) > span,
 .timeline-list .forecast-row-detailed > div:nth-of-type(1) > small { line-height:1.25; }
@@ -241,15 +243,16 @@ button:disabled { opacity: .48; cursor: not-allowed; }
 .timeline-list .timeline-actions { grid-column:auto; grid-template-columns:auto 1.35rem; gap:.35rem; }
 .timeline-list .timeline-actions .timeline-settle-action { border:0; border-radius:var(--radius-xs); padding:.28rem .4rem; color:var(--color-muted); font-size:.69rem; font-weight:560; text-decoration:underline; text-decoration-color:var(--color-line); text-underline-offset:3px; }
 .timeline-list .timeline-actions .timeline-settle-action:hover { background:var(--color-surface); text-decoration-color:var(--color-muted); }
-.timeline-list .timeline-overflow summary { display:grid; width:1.35rem; min-width:0; height:1.35rem; place-items:center; border:0; border-radius:50%; padding:0 0 .35rem; color:var(--color-muted); font-size:1rem; line-height:1; letter-spacing:0; text-align:center; }
+.timeline-list .timeline-overflow-trigger { display:grid; width:1.35rem; min-width:0; height:1.35rem; place-items:center; border:0; border-radius:50%; padding:0 0 .35rem; color:var(--color-muted); font-size:1rem; line-height:1; letter-spacing:0; text-align:center; }
 .timeline-actions select { border: 1px solid var(--color-line); background: var(--color-surface); border-radius: var(--radius-sm); padding: .4rem; color: var(--color-muted); font-size: .75rem; }
 .timeline-actions a { color: var(--color-accent-strong); font-size: .75rem; font-weight: 720; }
 .timeline-overflow { position: relative; }
-.timeline-overflow summary { list-style: none; }
-.timeline-overflow summary::-webkit-details-marker { display: none; }
-.timeline-overflow[open] summary { border-color: var(--color-accent); color: var(--color-accent-strong); }
+.timeline-overflow-trigger[aria-expanded="true"] { border-color:var(--color-accent); color:var(--color-accent-strong); background:var(--color-surface); }
 .timeline-overflow > div { position: absolute; z-index: 4; right: 0; top: calc(100% + var(--space-2)); min-width: 13rem; padding: var(--space-2); border: 1px solid var(--color-line); border-radius: var(--radius-sm); background: var(--color-surface); box-shadow: var(--shadow-soft); }
 .timeline-overflow > div button, .timeline-overflow > div select { width: 100%; border-radius: var(--radius-xs); text-align: left; }
+.timeline-overflow-menu button { transition:background-color .15s ease,color .15s ease,transform .15s ease; }
+.timeline-overflow-menu button:hover,.timeline-overflow-menu button:focus-visible { background:color-mix(in srgb,var(--color-accent) 10%,transparent); color:var(--color-ink); transform:translateX(2px); }
+.timeline-overflow-menu .delete-action:hover,.timeline-overflow-menu .delete-action:focus-visible { background:color-mix(in srgb,#b74435 10%,transparent); color:#9b3429; }
 .recurring-list { display: grid; gap: var(--space-3); }
 .recurring-row { display: flex; justify-content: space-between; gap: var(--space-4); align-items: center; padding: var(--space-4); border: 1px solid var(--color-line); border-radius: var(--radius-sm); background: var(--color-surface-strong); }
 .recurring-row.paused { opacity: .58; }

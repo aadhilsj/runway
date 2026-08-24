@@ -58,7 +58,7 @@ vi.mock("~/data/repositories/forecast-repository", () => ({ forecastRepository: 
       scenario_id: null, default_sort_order: null, status: "expected" }],
     rules: [], occurrences: [], scenarios: [], categories: [{ id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc", name: "Income", kind: "income" }], transactions: [], funds: [], fundBalances: [], portfolioSnapshots: [],
   }),
-  saveHorizon: vi.fn(), createItem: vi.fn(), updateItem: vi.fn(), matchItem: vi.fn(), settleItem: mocks.settleItem,
+  saveHorizon: vi.fn(), createItem: vi.fn(), updateItem: vi.fn(), purgeExpiredRecoverableItems: vi.fn().mockResolvedValue(undefined), matchItem: vi.fn(), settleItem: mocks.settleItem,
 } }));
 vi.mock("~/data/repositories/recurring-repository", () => ({ recurringRepository: { matchOccurrence: vi.fn(), setException: vi.fn(), settleOccurrence: vi.fn() } }));
 
@@ -158,7 +158,7 @@ describe("Phase 4 actual-money workflows", () => {
     fireEvent.click(more);
     expect(screen.getByRole("button", { name: "Edit" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Skip" })).toBeVisible();
-    expect(screen.getByRole("button", { name: "Cancel" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Delete" })).toBeVisible();
     expect(screen.queryByText("Match transaction…")).not.toBeInTheDocument();
   });
 });
