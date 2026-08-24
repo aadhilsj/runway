@@ -83,7 +83,7 @@ describe("monthly budgets in Forecast", () => {
     expect(breakdown.totals.expenseMinor).toBe(screen.summary.expenseMinor);
   });
 
-  it("does not count a categorized planned expense twice as both a commitment and remaining budget", () => {
+  it("keeps the visible monthly limit aligned with Activity even when categorized commitments exist", () => {
     const groceriesItem = {
       id: "planned-groceries", kind: "expense", expected_date: "2026-08-28", amount_minor: 10_000,
       source_account_id: "operating", destination_account_id: null, category_id: groceriesId,
@@ -96,11 +96,11 @@ describe("monthly budgets in Forecast", () => {
 
     expect(screen.timeline.map((item) => ({ label: item.label, amountMinor: item.amountMinor }))).toEqual([
       { label: "Groceries", amountMinor: 10_000 },
-      { label: "Groceries budget", amountMinor: 30_000 },
+      { label: "Groceries budget", amountMinor: 40_000 },
       { label: "Miscellaneous budget", amountMinor: 50_000 },
     ]);
-    expect(screen.summary.expenseMinor).toBe(90_000);
-    expect(screen.summary.projectedBalanceMinor).toBe(10_000);
+    expect(screen.summary.expenseMinor).toBe(100_000);
+    expect(screen.summary.projectedBalanceMinor).toBe(0);
   });
 
   it("keeps Forecast, Overview, and plan comparisons on the same projected-balance path", () => {
