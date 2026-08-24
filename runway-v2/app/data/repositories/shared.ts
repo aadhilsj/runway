@@ -9,10 +9,10 @@ export function requireSupabase(): SupabaseClient<Database> {
 }
 
 export async function requireAuthenticatedUserId(client: SupabaseClient<Database>): Promise<string> {
-  const { data, error } = await client.auth.getUser();
+  const { data, error } = await client.auth.getSession();
   if (error) throw error;
-  if (!data.user) throw new Error("Authentication required");
-  return data.user.id;
+  if (!data.session?.user) throw new Error("Authentication required");
+  return data.session.user.id;
 }
 
 // Generated PostgREST function args do not include null even when the SQL parameter accepts it.

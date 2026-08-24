@@ -50,6 +50,10 @@ export const recurringRepository = {
     const client = requireSupabase(); const userId = await requireAuthenticatedUserId(client);
     const { error } = await client.from("recurring_occurrences").upsert({ user_id: userId, recurring_rule_id: ruleId, occurrence_date: occurrenceDate, ...input }, { onConflict: "recurring_rule_id,occurrence_date" }); if (error) throw error;
   },
+  async restoreException(ruleId: string, occurrenceDate: string): Promise<void> {
+    const client = requireSupabase(); const userId = await requireAuthenticatedUserId(client);
+    const { error } = await client.from("recurring_occurrences").delete().eq("user_id", userId).eq("recurring_rule_id", ruleId).eq("occurrence_date", occurrenceDate).eq("status", "skipped"); if (error) throw error;
+  },
   async matchOccurrence(ruleId: string, occurrenceDate: string, transactionId: string): Promise<void> { const client = requireSupabase(); const { error } = await client.rpc("match_recurring_occurrence", { p_recurring_rule_id: ruleId, p_occurrence_date: occurrenceDate, p_transaction_id: transactionId }); if (error) throw error; },
   async settleOccurrence(command: SettleRecurringOccurrenceCommand): Promise<string> {
     const client = requireSupabase();
