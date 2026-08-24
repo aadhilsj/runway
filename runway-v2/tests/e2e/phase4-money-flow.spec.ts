@@ -76,7 +76,12 @@ export async function installFixtureBackend(page: Page) {
     if (url.pathname === "/rest/v1/portfolio_value_snapshots" && request.method() === "GET") return json(route, []);
     if (["/rest/v1/goals","/rest/v1/fund_movements","/rest/v1/allocation_plans","/rest/v1/allocation_plan_items","/rest/v1/fund_backing_summary","/rest/v1/scenario_applications","/rest/v1/budget_periods","/rest/v1/budget_lines","/rest/v1/budget_groups","/rest/v1/budget_group_categories","/rest/v1/budget_actuals","/rest/v1/budget_commitments"].includes(url.pathname)) return json(route, []);
     if (url.pathname === "/rest/v1/recurring_rules" && request.method() === "GET") return json(route, recurringRules);
-    if (url.pathname === "/rest/v1/recurring_rules" && request.method() === "POST") { recurringRules.push({ id: newId(), active: true, archived_at: null, confidence: "expected", scenario_id: null, default_sort_order: null, ...request.postDataJSON() }); return json(route, [], 201); }
+    if (url.pathname === "/rest/v1/recurring_rules" && request.method() === "POST") {
+      const body = request.postDataJSON();
+      const inserted = (Array.isArray(body) ? body : [body]).map((input) => ({ id: newId(), active: true, archived_at: null, confidence: "expected", scenario_id: null, default_sort_order: null, created_at: now, updated_at: now, ...input }));
+      recurringRules.push(...inserted);
+      return json(route, inserted, 201);
+    }
     if (url.pathname === "/rest/v1/recurring_rules" && request.method() === "PATCH") { const id = url.searchParams.get("id")?.replace("eq.", ""); const rule = recurringRules.find((row) => row.id === id); if (rule) Object.assign(rule, request.postDataJSON()); return json(route, []); }
     if (url.pathname === "/rest/v1/recurring_occurrences") return json(route, []);
     if (url.pathname === "/rest/v1/scenarios" && request.method() === "GET") return json(route, scenarios);
@@ -206,21 +211,27 @@ test("keeps primary money screens warm across navigation and refresh", async ({ 
   await expect(page.getByRole("heading", { name: "Set each amount" })).toBeVisible();
 });
 
-test("creates recurring plans and projects horizon and scenario changes", async ({ page }) => {
+test("creates a monthly forecast in one pass and projects its horizon", async ({ page }) => {
   await installFixtureBackend(page);
-  await page.goto("/settings/recurring");
-  await expect(page.getByRole("heading", { name: "Recurring rules", level: 1 })).toBeVisible();
-  await page.getByLabel("Type").selectOption("income"); await page.getByLabel("Label").fill("Invented recurring salary"); await page.getByLabel("Amount").fill("30000"); await page.getByLabel("Starts").fill("2026-09-01"); await page.getByLabel("To account").selectOption(OPERATING_ID); await page.getByRole("button", { name: "Create recurring rule" }).click();
-  await expect(page.getByText("Invented recurring salary")).toBeVisible();
-  await page.getByLabel("Type").selectOption("expense"); await page.getByLabel("Label").fill("Invented recurring rent"); await page.getByLabel("Amount").fill("10000"); await page.getByLabel("Starts").fill("2026-09-02"); await page.getByLabel("From account").selectOption(OPERATING_ID); await page.getByRole("button", { name: "Create recurring rule" }).click();
-  await expect(page.getByText("Invented recurring rent")).toBeVisible();
-  await page.goto("/forecast"); await expect(page.getByText("Invented recurring salary").first()).toBeVisible(); await expect(page.getByText("Invented scenario cost")).toHaveCount(0);
-  await page.getByRole("button", { name: "24 months" }).click(); await page.getByRole("checkbox", { name: "Invented plan" }).check(); await expect(page.getByText("Invented scenario cost")).toBeVisible(); await expect(page.getByLabel("Projected operating and liquid cash chart")).toBeVisible();
+  await page.goto("/forecast");
+  await page.getByRole("link", { name: "Set up monthly forecast" }).click();
+  await expect(page.getByRole("heading", { name: "Monthly forecast", level: 1 })).toBeVisible();
+  await page.getByRole("button", { name: "Paste a list" }).click();
+  await page.getByLabel("Monthly items to import").fill("+ Invented recurring salary 30000 on 1\n- Invented recurring rent 10000 on 2");
+  await page.getByRole("button", { name: "Add these items" }).click();
+  await page.getByLabel("Monthly forecast starts").fill("2026-09");
+  await page.getByLabel("Monthly forecast ends").fill("2027-09");
+  await expect(page.getByText("20 000 kr net each month")).toBeVisible();
+  await page.getByRole("button", { name: "Save monthly forecast" }).click();
+  await expect(page).toHaveURL(/\/forecast$/);
+  await expect(page.getByText("Invented recurring salary").first()).toBeVisible();
+  await expect(page.getByText("Invented recurring rent").first()).toBeVisible();
+  await expect(page.getByText("Invented scenario cost")).toHaveCount(0);
+  await page.getByRole("button", { name: "24 months" }).click(); await page.getByRole("checkbox", { name: "Invented plan" }).check(); await expect(page.getByText("Invented scenario cost")).toBeVisible();
   const recurringRow = page.locator(".forecast-row").filter({ hasText: "Invented recurring salary" }).first();
-  await expect(recurringRow.getByRole("link", { name: "Post actual" })).toBeVisible();
-  await recurringRow.getByText("More").click();
+  await expect(recurringRow.getByRole("button", { name: "Mark received" })).toBeVisible();
+  await recurringRow.getByLabel("More actions for Invented recurring salary").click();
   await expect(recurringRow.getByRole("button", { name: "Skip this occurrence" })).toBeVisible();
-  await expect(recurringRow.getByLabel("Match recurring Invented recurring salary")).toBeVisible();
 });
 
 test("creates, compares, previews, cancels, and confirms a what-if Plan", async ({ page }) => {

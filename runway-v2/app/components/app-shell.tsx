@@ -127,6 +127,7 @@ function titleForPath(path: string): string {
   if (path === "/plans/compare") return "Compare Plans";
   if (path.startsWith("/plans/")) return "Plan detail";
   if (path === "/settings/recurring") return "Recurring rules";
+  if (path === "/forecast/monthly") return "Monthly forecast";
   if (path === "/forecast/assumptions") return "Forecast assumptions";
   if (path === "/funds/payday") return "Payday plan";
   if (path.startsWith("/funds/")) return "Fund detail";

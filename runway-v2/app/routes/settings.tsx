@@ -1,6 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "react-router";
 import { RUNWAY_BUILD_SHA, RUNWAY_VERSION } from "~/build-info";
 import { Page } from "~/components/page";
 import { fundsRepository } from "~/data/repositories/funds-repository";
@@ -84,17 +83,6 @@ export default function SettingsRoute() {
             operating cash in this window. The current floor is editable and was
             not replaced by a hard-coded default.
           </p>
-        </section>
-        <section className="money-panel settings-card">
-          <p className="section-kicker">Forecast</p>
-          <h2>Recurring rules</h2>
-          <p className="muted">
-            Manage repeating income, expenses, and transfers without generating
-            permanent future rows.
-          </p>
-          <Link className="primary-button" to="/settings/recurring">
-            Manage recurring rules
-          </Link>
         </section>
         <section className="money-panel settings-card">
           <p className="section-kicker">About</p>
