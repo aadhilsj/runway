@@ -33,6 +33,9 @@ describe("Phase 5 forecast UI", () => {
     show(<ForecastRoute/>); await screen.findByText("Base expense");
     fireEvent.click(screen.getByRole("button", { name: "Add planned item" }));
     expect(screen.queryByLabelText("Confidence")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "More options" }));
+    expect(screen.queryByLabelText("Confidence")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Use quick entry" }));
     fireEvent.change(screen.getByLabelText("Describe the planned item"), { target: { value: "Phone bill 568 on 15 Sep 2026" } });
     fireEvent.click(screen.getByRole("button", { name: "Add to forecast" }));
     await waitFor(() => expect(mocks.createItem).toHaveBeenCalledWith(expect.objectContaining({ kind: "expense", label: "Phone bill", amount_minor: 56800, expected_date: "2026-09-15", confidence: "expected", source_account_id: mocks.account.id, destination_account_id: null })));

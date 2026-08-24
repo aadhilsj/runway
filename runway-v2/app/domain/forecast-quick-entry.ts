@@ -35,7 +35,7 @@ function inferredDate(raw: string, now: Date): { date: string; matchedText: stri
     return { date: localDate(value), matchedText: relative[0] };
   }
 
-  const named = raw.match(new RegExp(`\\b(?:(\\d{1,2})(?:st|nd|rd|th)?\\s+(${MONTH_PATTERN})|(${MONTH_PATTERN})\\s+(\\d{1,2})(?:st|nd|rd|th)?)(?:\\s+(\\d{4}))?\\b`, "i"));
+  const named = raw.match(new RegExp(`\\b(?:(\\d{1,2})(?:st|nd|rd|th)?(?:\\s+(?:on|in))?\\s+(${MONTH_PATTERN})|(${MONTH_PATTERN})(?:\\s+(?:on|in))?\\s+(\\d{1,2})(?:st|nd|rd|th)?)(?:\\s+(\\d{4}))?\\b`, "i"));
   if (named) {
     const day = Number(named[1] ?? named[4]);
     const month = monthNumber(named[2] ?? named[3] ?? "");
