@@ -67,9 +67,12 @@ describe("Phase 5 forecast UI", () => {
     mocks.restoreException.mockResolvedValue(undefined);
     show(<ForecastRoute/>);
 
-    expect(await screen.findByRole("heading", { name: "Skipped occurrences" })).toBeVisible();
+    const skipped = await screen.findByText("Skipped occurrences");
+    expect(skipped).toBeVisible();
+    expect(screen.queryByText("10 Aug 2027 · −50 kr")).not.toBeVisible();
+    fireEvent.click(skipped);
     expect(screen.getByText("10 Aug 2027 · −50 kr")).toBeVisible();
-    fireEvent.click(screen.getByRole("button", { name: "Restore to forecast" }));
+    fireEvent.click(screen.getByRole("button", { name: "Restore" }));
     await waitFor(() => expect(mocks.restoreException).toHaveBeenCalledWith("rule-a", "2027-08-10"));
   });
 
