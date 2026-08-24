@@ -6,7 +6,7 @@ export interface ForecastGroupingOccurrence {
   kind: GroupableForecastKind;
   date: string;
   amountMinor: number;
-  sourceType: "forecast_item" | "recurring_occurrence";
+  sourceType: "forecast_item" | "recurring_occurrence" | "budget_remaining";
   sourceId: string;
 }
 

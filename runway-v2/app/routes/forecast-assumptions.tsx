@@ -5,6 +5,7 @@ import { Drawer } from "~/components/drawer";
 import { Page } from "~/components/page";
 import { forecastGroupingRepository } from "~/data/repositories/forecast-grouping-repository";
 import { forecastRepository } from "~/data/repositories/forecast-repository";
+import { budgetsRepository } from "~/data/repositories/budgets-repository";
 import { groupForecastOccurrences, type ForecastOccurrenceGroup } from "~/domain/forecast-grouping";
 import { forecast } from "~/domain/forecast";
 import { asMinorUnits, formatMinorUnits, parseDisplayAmountToMinor } from "~/domain/money";
@@ -24,6 +25,7 @@ function groupAmountLabel(group: ForecastOccurrenceGroup, currency: string): str
 export default function ForecastAssumptionsRoute() {
   const client = useQueryClient();
   const query = useQuery({ queryKey: ["forecast-workspace"], queryFn: () => forecastRepository.getWorkspace() });
+  const budgets = useQuery({ queryKey: ["budget-workspace"], queryFn: () => budgetsRepository.getWorkspace() });
   const grouping = useQuery({ queryKey: ["forecast-grouping"], queryFn: () => forecastGroupingRepository.list() });
   const [params, setParams] = useSearchParams();
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -34,14 +36,14 @@ export default function ForecastAssumptionsRoute() {
   const kind: AssumptionKind = params.get("type") === "income" ? "income" : "expense";
   const months = Math.max(1, Number(params.get("horizon") ?? query.data?.profile.forecast_horizon_months ?? 12));
   const data = query.data;
-  const result = useMemo(() => data ? forecast(toForecastInput(data, months, [])) : null, [data, months]);
+  const result = useMemo(() => data && budgets.data ? forecast(toForecastInput(data, months, [], undefined, budgets.data)) : null, [data, budgets.data, months]);
   const occurrences = useMemo(() => result?.events.filter((item) => item.kind === kind).map((item) => ({
     id: item.id,
     label: item.label,
     kind,
     date: item.date,
     amountMinor: item.amountMinor,
-    sourceType: item.sourceType === "recurring_occurrence" ? "recurring_occurrence" as const : "forecast_item" as const,
+    sourceType: item.sourceType === "recurring_occurrence" ? "recurring_occurrence" as const : item.sourceType === "budget_remaining" ? "budget_remaining" as const : "forecast_item" as const,
     sourceId: item.sourceId,
   })) ?? [], [result, kind]);
   const groups = useMemo(() => groupForecastOccurrences(occurrences, grouping.data?.aliases ?? [], grouping.data?.names ?? []), [occurrences, grouping.data]);
@@ -60,18 +62,12 @@ export default function ForecastAssumptionsRoute() {
   function edit(id: string) { const item = data?.items.find((row) => row.id === id); if (!item) return; setEditingId(id); setLabel(item.label); setAmount((Number(item.amount_minor) / 100).toFixed(2)); setDate(item.expected_date); setConfidence(item.confidence); }
   function submit(event: FormEvent) { event.preventDefault(); save.mutate(); }
   const currency = data?.profile.base_currency ?? "NOK";
-  const total = occurrences.reduce((sum, item) => sum + item.amountMinor, 0);
-  const today = result?.asOfDate ?? new Date().toISOString().slice(0, 10);
-  const end = result?.endDate ?? "";
-
-  return <Page eyebrow="What the forecast assumes" title="Forecast assumptions" description="Review the planned income and spending behind your chart. Similar names are grouped together even when their dates or amounts differ.">
-    <div className="panel-heading"><Link to="/forecast">← Back to Forecast</Link><span className="muted">{dateLabel(today)} to {end ? dateLabel(end) : "…"}</span></div>
-    <div className="horizon-options" role="tablist" aria-label="Assumption type"><button className={kind === "income" ? "active" : ""} onClick={() => setParams({ type: "income", horizon: String(months) })}>Income</button><button className={kind === "expense" ? "active" : ""} onClick={() => setParams({ type: "expense", horizon: String(months) })}>Spending</button></div>
-    {query.isLoading || grouping.isLoading ? <p className="muted">Loading assumptions…</p> : null}
-    {query.error || grouping.error ? <p className="field-error">Assumptions could not be loaded.</p> : null}
+  return <Page className="forecast-breakdown-page" eyebrow="Planned money" title="Forecast breakdown" description="Review the income and spending included in your forecast.">
+    <div className="assumption-view-switcher"><Link to="/forecast">← Back to Forecast</Link><div className="horizon-options" role="tablist" aria-label="Breakdown type"><button className={kind === "income" ? "active" : ""} onClick={() => setParams({ type: "income", horizon: String(months) })}>Income</button><button className={kind === "expense" ? "active" : ""} onClick={() => setParams({ type: "expense", horizon: String(months) })}>Spending</button></div><span aria-hidden="true"/></div>
+    {query.isLoading || budgets.isLoading || grouping.isLoading ? <p className="muted">Loading breakdown…</p> : null}
+    {query.error || budgets.error || grouping.error ? <p className="field-error">The forecast breakdown could not be loaded.</p> : null}
     {data && result ? <>
-      <section className="actual-planned-strip"><div><strong>{occurrences.length} planned {kind === "income" ? "payments in" : "payments out"}</strong><span>{money(total, currency)} over the next {months} months</span></div><div><strong>Not actual yet</strong><span>These amounts do not change Total Cash until you record them in Activity.</span></div></section>
-      <section className="money-panel"><div className="panel-heading"><div><p className="section-kicker">Base forecast</p><h2>{kind === "income" ? "Expected income" : "Expected spending"}</h2></div><Link to="/forecast/monthly">Manage monthly forecast →</Link></div>
+      <section className="money-panel"><div className="panel-heading"><div><p className="section-kicker">Included in Forecast</p><h2>{kind === "income" ? "Expected income" : "Expected spending"}</h2></div><Link to="/forecast/monthly">Manage monthly forecast →</Link></div>
         <div className="assumption-list">{groups.map((group) => <article className="assumption-group" key={`${kind}:${group.key}`}>
           <div><strong>{group.name}</strong><span>{groupAmountLabel(group, currency)}</span></div>
           <details><summary>Review dates</summary><div className="assumption-occurrences">{group.occurrences.map((item) => item.sourceType === "forecast_item" ? <button key={item.id} onClick={() => edit(item.sourceId)}><span>{dateLabel(item.date)}</span><strong>{money(item.amountMinor, currency)}</strong></button> : <div className="assumption-occurrence" key={item.id}><span>{dateLabel(item.date)}</span><strong>{money(item.amountMinor, currency)}</strong></div>)}</div></details>

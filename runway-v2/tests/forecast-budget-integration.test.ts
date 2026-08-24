@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { buildForecastScreenModel } from "~/read-models/forecast";
+import { forecast } from "~/domain/forecast";
+import { buildForecastScreenModel, toForecastInput } from "~/read-models/forecast";
 
 const groceriesId = "category-groceries";
 const miscellaneousId = "category-miscellaneous";
@@ -53,5 +54,15 @@ describe("monthly budgets in Forecast", () => {
     expect(afterSpend.timeline.every((item) => item.sourceType === "budget_remaining")).toBe(true);
     expect(beforeSpend.summary.projectedBalanceMinor).toBe(10_000);
     expect(afterSpend.summary.projectedBalanceMinor).toBe(10_000);
+  });
+
+  it("uses the same budget-aware spending total in the forecast and its breakdown", () => {
+    const workspace = forecastWorkspace(100_000);
+    const budgets = budgetWorkspace(0);
+    const screen = buildForecastScreenModel(workspace, 1, [], "2026-08-24", budgets);
+    const breakdown = forecast(toForecastInput(workspace, 1, [], "2026-08-24", budgets));
+
+    expect(breakdown.totals.expenseMinor).toBe(90_000);
+    expect(breakdown.totals.expenseMinor).toBe(screen.summary.expenseMinor);
   });
 });
