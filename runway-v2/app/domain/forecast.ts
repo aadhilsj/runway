@@ -13,6 +13,7 @@ export interface OneOffForecastInput {
   sourceAccountId?: string | null; destinationAccountId?: string | null; categoryId?: string | null;
   label: string; notes?: string | null; confidence?: PlannedConfidence; scenarioId?: string | null;
   sortOrder?: number | null; status: "expected" | "skipped" | "canceled" | "matched" | "realized";
+  sourceType?: "forecast_item" | "budget_remaining";
 }
 export interface RecurringRuleInput {
   id: string; kind: PlannedKind; label: string; notes?: string | null;
@@ -43,7 +44,7 @@ export interface ForecastInput {
   funds?: readonly ForecastFundInput[]; projectedFundActions?: readonly ProjectedFundActionInput[];
 }
 export interface ProjectedEvent {
-  id: string; logicalId: string; sourceType: "forecast_item" | "recurring_occurrence" | "scenario_item";
+  id: string; logicalId: string; sourceType: "forecast_item" | "recurring_occurrence" | "scenario_item" | "budget_remaining";
   sourceId: string; kind: PlannedKind; date: CalendarDate; canonicalDate: CalendarDate; amountMinor: number;
   sourceAccountId: string | null; destinationAccountId: string | null; categoryId: string | null;
   label: string; notes: string | null; confidence: PlannedConfidence; scenarioId: string | null;
@@ -134,7 +135,7 @@ function accountTotals(accounts: readonly ForecastAccountInput[], balances: Reco
   return { operatingCashMinor, liquidCashMinor, totalAssetsMinor, liabilitiesMinor, netWorthMinor };
 }
 function toOneOff(item: OneOffForecastInput): ProjectedEvent { return { id: `forecast:${item.id}`, logicalId: item.id,
-  sourceType: item.scenarioId ? "scenario_item" : "forecast_item", sourceId: item.id, kind: item.kind, date: item.date,
+  sourceType: item.scenarioId ? "scenario_item" : item.sourceType ?? "forecast_item", sourceId: item.id, kind: item.kind, date: item.date,
   canonicalDate: item.date, amountMinor: item.amountMinor, sourceAccountId: item.sourceAccountId ?? null,
   destinationAccountId: item.destinationAccountId ?? null, categoryId: item.categoryId ?? null, label: item.label,
   notes: item.notes ?? null, confidence: item.confidence ?? "expected", scenarioId: item.scenarioId ?? null,

@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Drawer } from "~/components/drawer";
 import { Page } from "~/components/page";
 import { forecastRepository } from "~/data/repositories/forecast-repository";
+import { budgetsRepository } from "~/data/repositories/budgets-repository";
 import { recurringRepository } from "~/data/repositories/recurring-repository";
 import { asMinorUnits, formatMinorUnits, parseDisplayAmountToMinor } from "~/domain/money";
 import { buildForecastScreenModel } from "~/read-models/forecast";
@@ -21,6 +22,7 @@ function dateLabel(value: string): string { return new Intl.DateTimeFormat("en-G
 export default function ForecastRoute() {
   const client = useQueryClient();
   const workspace = useQuery({ queryKey: ["forecast-workspace"], queryFn: () => forecastRepository.getWorkspace() });
+  const budgets = useQuery({ queryKey: ["budget-workspace"], queryFn: () => budgetsRepository.getWorkspace() });
   const [horizon, setHorizon] = useState<number | null>(null); const [selectedScenarios, setSelectedScenarios] = useState<string[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null); const [kind, setKind] = useState<"income" | "expense" | "transfer">("expense");
   const [label, setLabel] = useState(""); const [amount, setAmount] = useState(""); const [date, setDate] = useState("");
@@ -33,7 +35,7 @@ export default function ForecastRoute() {
   const [actualCategory, setActualCategory] = useState(""); const [actualNotes, setActualNotes] = useState("");
   const [settlementError, setSettlementError] = useState("");
   const months = horizon ?? workspace.data?.profile.forecast_horizon_months ?? 12;
-  const model = useMemo(() => workspace.data ? buildForecastScreenModel(workspace.data, months, selectedScenarios) : null, [workspace.data, months, selectedScenarios]);
+  const model = useMemo(() => workspace.data && budgets.data ? buildForecastScreenModel(workspace.data, months, selectedScenarios, undefined, budgets.data) : null, [workspace.data, budgets.data, months, selectedScenarios]);
   const invalidate = () => client.invalidateQueries({ queryKey: ["forecast-workspace"] });
   const save = useMutation({ mutationFn: async () => {
     const amountMinor = Number(parseDisplayAmountToMinor(amount)); if (amountMinor <= 0) throw new Error("Amount must be positive.");
@@ -58,11 +60,12 @@ export default function ForecastRoute() {
   }, onSuccess: () => { setSettlement(null); setSettlementError(""); void Promise.all([
     client.invalidateQueries({ queryKey: ["forecast-workspace"] }), client.invalidateQueries({ queryKey: ["analytics-workspace"] }),
     client.invalidateQueries({ queryKey: ["transactions"] }), client.invalidateQueries({ queryKey: ["accounts"] }),
+    client.invalidateQueries({ queryKey: ["budget-workspace"] }),
   ]); }, onError: (error) => setSettlementError(userFacingError(error, "This payment could not be recorded.")) });
   function beginEdit(id: string) { const item = workspace.data?.items.find((candidate) => candidate.id === id); if (!item) return; setEditingId(id); setKind(item.kind); setLabel(item.label); setAmount((Number(item.amount_minor) / 100).toFixed(2)); setDate(item.expected_date); setSource(item.source_account_id ?? ""); setDestination(item.destination_account_id ?? ""); setScenario(item.scenario_id ?? ""); setConfidence(item.confidence); setDrawerOpen(true); }
   function submit(event: FormEvent) { event.preventDefault(); save.mutate(); }
   function beginSettlement(item: NonNullable<typeof model>["timeline"][number]) {
-    if (item.sourceType === "scenario_item") return;
+    if (item.sourceType !== "forecast_item" && item.sourceType !== "recurring_occurrence") return;
     setSettlement({ sourceType: item.sourceType, sourceId: item.sourceId, occurrenceDate: item.recurrenceRuleId ? item.canonicalDate : null,
       label: item.label, kind: item.kind, expectedAmountMinor: item.amountMinor, expectedDate: item.date,
       sourceAccountId: item.sourceAccountId, destinationAccountId: item.destinationAccountId, categoryId: item.categoryId });
@@ -73,7 +76,7 @@ export default function ForecastRoute() {
   const currency = workspace.data?.profile.base_currency ?? "NOK";
   return <Page eyebrow="What happens next" title="Forecast" description="Start with the cash you have now, then see how planned income and spending could change it. Planned money never changes your actual account balances.">
     <div className="forecast-toolbar forecast-controls-toolbar" aria-label="Forecast controls"><div><span>Horizon</span><div className="horizon-options">{horizons.map((value) => <button className={months === value ? "active" : ""} key={value} onClick={() => { setHorizon(value); void forecastRepository.saveHorizon(value); }}>{value} months</button>)}</div></div><div><span>Plans</span><div className="scenario-options">{workspace.data?.scenarios.map((item) => <label key={item.id}><input type="checkbox" checked={selectedScenarios.includes(item.id)} onChange={(event) => setSelectedScenarios((current) => event.target.checked ? [...current, item.id] : current.filter((id) => id !== item.id))}/>{item.name}</label>)}</div></div>{model ? <small className="forecast-range"><span>Forecast period</span><strong>{dateLabel(model.result.asOfDate)} – {dateLabel(model.result.endDate)}</strong></small> : null}</div>
-    {workspace.isLoading ? <p className="muted">Building forecast…</p> : null}{workspace.error ? <p className="field-error" role="alert">{message(workspace.error)}</p> : null}
+    {workspace.isLoading || budgets.isLoading ? <p className="muted">Building forecast…</p> : null}{workspace.error || budgets.error ? <p className="field-error" role="alert">{message(workspace.error ?? budgets.error)}</p> : null}
     {model ? <><section className="forecast-mental-model" aria-label="How this forecast is calculated"><div><span>Starting cash</span><strong>{money(model.summary.startingCashMinor, currency)}</strong><small>Actual money now</small></div><span aria-hidden="true">+</span><a href={`/forecast/assumptions?type=income&horizon=${months}`}><span>Planned income</span><strong>{money(model.summary.incomeMinor, currency)}</strong><small>Review what is included</small></a><span aria-hidden="true">−</span><a href={`/forecast/assumptions?type=expense&horizon=${months}`}><span>Planned spending</span><strong>{money(model.summary.expenseMinor, currency)}</strong><small>Review what is included</small></a><span aria-hidden="true">=</span><div><span>Cash in {months} months</span><strong>{money(model.summary.projectedBalanceMinor, currency)}</strong><small>{dateLabel(model.result.endDate)}</small></div></section>
       <section className="forecast-balance-strip" aria-label="Lowest expected cash balance"><div><p>Lowest cash balance</p><small>The least cash you are projected to have</small></div><strong className={model.result.firstFloorBreach ? "negative" : ""}>{money(model.summary.lowestOperatingMinor, currency)}</strong><span>on {dateLabel(model.result.lowestOperatingCash.date)}</span></section>
       {model.result.overdueItems.length ? <section className="money-panel attention-panel"><div className="panel-heading"><div><p className="section-kicker">Needs attention</p><h2>Overdue plans</h2></div><strong>{model.result.overdueItems.length}</strong></div>{model.result.overdueItems.map((item) => <div className="attention-row" key={item.id}><div><strong>{item.label}</strong><span>{dateLabel(item.date)} · {money(item.amountMinor, currency)}</span></div>{item.sourceType === "forecast_item" ? <div className="row-actions"><button onClick={() => update.mutate({ id: item.sourceId, values: { status: "skipped" } })}>Mark skipped</button><button onClick={() => beginEdit(item.sourceId)}>Reschedule</button></div> : null}</div>)}</section> : null}
