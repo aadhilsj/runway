@@ -3,17 +3,14 @@ import type { Budget, MinorUnits } from "./types";
 export function remainingBudget(budget: Budget, spentMinor: MinorUnits): MinorUnits {
   return (budget.limitMinor - spentMinor) as MinorUnits;
 }
-export interface BudgetLineCalculationInput { budgetedMinor: number; expenseMinor: number; refundMinor?: number; committedForecastMinor?: number }
+export interface BudgetLineCalculationInput { budgetedMinor: number; expenseMinor: number; refundMinor?: number }
 export interface BudgetLineCalculation {
-  budgetedMinor: number; actualMinor: number; committedMinor: number; remainingMinor: number;
-  uncommittedMinor: number; varianceMinor: number; utilization: number;
+  budgetedMinor: number; actualMinor: number; remainingMinor: number; varianceMinor: number; utilization: number;
 }
 export function calculateBudgetLine(input: BudgetLineCalculationInput): BudgetLineCalculation {
   const budgetedMinor = Math.max(0, Math.trunc(input.budgetedMinor));
   const actualMinor = Math.max(0, Math.trunc(input.expenseMinor) - Math.max(0, Math.trunc(input.refundMinor ?? 0)));
-  const committedMinor = Math.max(0, Math.trunc(input.committedForecastMinor ?? 0));
-  return { budgetedMinor, actualMinor, committedMinor, remainingMinor: budgetedMinor - actualMinor,
-    uncommittedMinor: budgetedMinor - actualMinor - committedMinor, varianceMinor: budgetedMinor - actualMinor,
+  return { budgetedMinor, actualMinor, remainingMinor: budgetedMinor - actualMinor, varianceMinor: budgetedMinor - actualMinor,
     utilization: budgetedMinor === 0 ? (actualMinor === 0 ? 0 : 1) : actualMinor / budgetedMinor };
 }
 export interface BudgetTransactionInput {

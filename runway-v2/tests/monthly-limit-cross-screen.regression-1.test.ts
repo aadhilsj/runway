@@ -33,11 +33,6 @@ function budgets() {
       { id: `misc-${index}`, budget_period_id: `period-${index}`, category_id: miscellaneousId, group_id: null, budgeted_minor: 350_000, rollover: false, notes: null },
     ]),
     actuals: [], groups: [], groupCategories: [],
-    commitments: [
-      { category_id: miscellaneousId, month_start: "2026-09-01", committed_minor: 147_700 },
-      { category_id: miscellaneousId, month_start: "2026-10-01", committed_minor: 50_000 },
-      { category_id: miscellaneousId, month_start: "2026-11-01", committed_minor: 400_000 },
-    ],
   } as any;
 }
 

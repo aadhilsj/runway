@@ -75,7 +75,7 @@ export async function installFixtureBackend(page: Page) {
     if (url.pathname === "/rest/v1/funds" && request.method() === "GET") return json(route, []);
     if (url.pathname === "/rest/v1/fund_balances" && request.method() === "GET") return json(route, []);
     if (url.pathname === "/rest/v1/portfolio_value_snapshots" && request.method() === "GET") return json(route, []);
-    if (["/rest/v1/goals","/rest/v1/fund_movements","/rest/v1/allocation_plans","/rest/v1/allocation_plan_items","/rest/v1/fund_backing_summary","/rest/v1/scenario_applications","/rest/v1/budget_periods","/rest/v1/budget_lines","/rest/v1/budget_groups","/rest/v1/budget_group_categories","/rest/v1/budget_actuals","/rest/v1/budget_commitments"].includes(url.pathname)) return json(route, []);
+    if (["/rest/v1/goals","/rest/v1/fund_movements","/rest/v1/allocation_plans","/rest/v1/allocation_plan_items","/rest/v1/fund_backing_summary","/rest/v1/scenario_applications","/rest/v1/budget_periods","/rest/v1/budget_lines","/rest/v1/budget_groups","/rest/v1/budget_group_categories","/rest/v1/budget_actuals"].includes(url.pathname)) return json(route, []);
     if (url.pathname === "/rest/v1/recurring_rules" && request.method() === "GET") return json(route, recurringRules);
     if (url.pathname === "/rest/v1/recurring_rules" && request.method() === "POST") {
       const body = request.postDataJSON();

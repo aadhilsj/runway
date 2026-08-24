@@ -50,8 +50,8 @@ describe("Phase 6 cash and budget invariants", () => {
       { categoryId: "food", kind: "expense", amountMinor: 2_000, status: "draft" },
     ], new Set(["food"]));
     expect(actual).toBe(4_000);
-    expect(calculateBudgetLine({ budgetedMinor: 10_000, expenseMinor: 5_000, refundMinor: 1_000, committedForecastMinor: 2_500 }))
-      .toMatchObject({ actualMinor: 4_000, remainingMinor: 6_000, uncommittedMinor: 3_500 });
+    expect(calculateBudgetLine({ budgetedMinor: 10_000, expenseMinor: 5_000, refundMinor: 1_000 }))
+      .toMatchObject({ actualMinor: 4_000, remainingMinor: 6_000 });
   });
 });
 

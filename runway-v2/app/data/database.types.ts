@@ -1922,23 +1922,6 @@ export type Database = {
           },
         ]
       }
-      budget_commitments: {
-        Row: {
-          category_id: string | null
-          committed_minor: number | null
-          month_start: string | null
-          user_id: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "forecast_items_category_owner_fkey"
-            columns: ["category_id", "user_id"]
-            isOneToOne: false
-            referencedRelation: "categories"
-            referencedColumns: ["id", "user_id"]
-          },
-        ]
-      }
       current_net_worth: {
         Row: {
           currency: string | null

@@ -20,7 +20,7 @@ function forecastWorkspace(balanceMinor: number, items: any[] = []) {
   } as any;
 }
 
-function budgetWorkspace(groceriesSpentMinor: number, groceriesCommittedMinor = 0) {
+function budgetWorkspace(groceriesSpentMinor: number) {
   return {
     currency: "NOK",
     periods: [{ id: "august", month_start: "2026-08-01", currency: "NOK", status: "open" }],
@@ -36,9 +36,7 @@ function budgetWorkspace(groceriesSpentMinor: number, groceriesCommittedMinor = 
       { category_id: groceriesId, month_start: "2026-08-01", actual_minor: groceriesSpentMinor },
       { category_id: miscellaneousId, month_start: "2026-08-01", actual_minor: 0 },
     ],
-    groups: [], groupCategories: [], commitments: groceriesCommittedMinor ? [
-      { category_id: groceriesId, month_start: "2026-08-01", committed_minor: groceriesCommittedMinor },
-    ] : [],
+    groups: [], groupCategories: [],
   } as any;
 }
 
@@ -83,7 +81,7 @@ describe("monthly budgets in Forecast", () => {
     expect(breakdown.totals.expenseMinor).toBe(screen.summary.expenseMinor);
   });
 
-  it("keeps the visible monthly limit aligned with Activity even when categorized commitments exist", () => {
+  it("keeps a categorized planned expense separate from the monthly limit", () => {
     const groceriesItem = {
       id: "planned-groceries", kind: "expense", expected_date: "2026-08-28", amount_minor: 10_000,
       source_account_id: "operating", destination_account_id: null, category_id: groceriesId,
@@ -91,7 +89,7 @@ describe("monthly budgets in Forecast", () => {
       default_sort_order: 0, status: "expected",
     };
     const screen = buildForecastScreenModel(
-      forecastWorkspace(100_000, [groceriesItem]), 1, [], "2026-08-24", budgetWorkspace(0, 10_000),
+      forecastWorkspace(100_000, [groceriesItem]), 1, [], "2026-08-24", budgetWorkspace(0),
     );
 
     expect(screen.timeline.map((item) => ({ label: item.label, amountMinor: item.amountMinor }))).toEqual([
@@ -174,7 +172,7 @@ describe("monthly budgets in Forecast", () => {
       change("lanka-cost", "lanka", "add_one_off_expense", 1_650_000, "Lanka costs", "2026-11-01"),
       change("visa-cost", "visa", "add_one_off_expense", 600_000, "UK Visa costs", "2026-11-15"),
     ];
-    const budgets = { ...budgetWorkspace(0), periods: [], lines: [], actuals: [], commitments: [] };
+    const budgets = { ...budgetWorkspace(0), periods: [], lines: [], actuals: [] };
     const workspace = { forecast: forecastData, funds: fundsWorkspace(), budgets, plans, changes } as any;
     const selected = plans.map((plan) => plan.id);
     const evaluation = buildSelectedPlansEvaluation(workspace, selected, "2026-08-24", 18);

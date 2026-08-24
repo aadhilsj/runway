@@ -37,7 +37,7 @@ vi.mock("~/data/repositories/categories-repository", () => ({ categoriesReposito
 } }));
 vi.mock("~/data/repositories/budgets-repository", () => ({ budgetsRepository: {
   getWorkspace: mocks.getBudgetWorkspace.mockResolvedValue({
-    periods: [], lines: [], groups: [], groupCategories: [], actuals: [], commitments: [],
+    periods: [], lines: [], groups: [], groupCategories: [], actuals: [],
     categories: [
       { id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd", name: "Groceries", kind: "expense" },
       { id: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee", name: "Miscellaneous", kind: "expense" },
@@ -141,7 +141,7 @@ describe("Phase 4 actual-money workflows", () => {
       lines: [{ id: "shared-line", budget_period_id: "period-october", category_id: null, group_id: "shared-group", budgeted_minor: 550000, rollover: false, notes: null }],
       groups: [{ id: "shared-group", name: "Groceries + Misc" }],
       groupCategories: [{ group_id: "shared-group", category_id: groceriesId }, { group_id: "shared-group", category_id: miscellaneousId }],
-      actuals: [], commitments: [], categories: [{ id: groceriesId, name: "Groceries", kind: "expense" }, { id: miscellaneousId, name: "Miscellaneous", kind: "expense" }], currency: "NOK",
+      actuals: [], categories: [{ id: groceriesId, name: "Groceries", kind: "expense" }, { id: miscellaneousId, name: "Miscellaneous", kind: "expense" }], currency: "NOK",
     });
     mocks.createBudgetLine
       .mockResolvedValueOnce({ id: "groceries-line", budget_period_id: "period-october", category_id: groceriesId, group_id: null, budgeted_minor: 150000, rollover: false, notes: null })

@@ -224,7 +224,6 @@ export default function AnalyticsRoute() {
                     <th>Line</th>
                     <th>Budget</th>
                     <th>Actual</th>
-                    <th>Committed</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -233,7 +232,6 @@ export default function AnalyticsRoute() {
                       <td>{row.label}</td>
                       <td>{money(row.budgetedMinor, model.currency)}</td>
                       <td>{money(row.actualMinor, model.currency)}</td>
-                      <td>{money(row.committedMinor, model.currency)}</td>
                     </tr>
                   ))}
                 </tbody>

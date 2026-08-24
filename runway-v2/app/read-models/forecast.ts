@@ -40,10 +40,8 @@ function remainingBudgetItems(
       const category = trackedCategories.get(line.category_id);
       if (!category) return [];
       const spentMinor = actuals.get(`${category.id}:${period.month_start}`) ?? 0;
-      // Activity defines "remaining" as the monthly limit less money actually
-      // spent. Forecast must use that same quantity. Planned commitments remain
-      // available as a separate analytics measure, but must not silently shrink
-      // (or entirely hide) the monthly-limit event shown in Forecast.
+      // Activity and Forecast share one definition: the monthly limit less money
+      // actually spent. Planned items stay as separate forecast events.
       const remainingMinor = Math.max(0, Number(line.budgeted_minor ?? 0) - spentMinor);
       if (remainingMinor === 0) return [];
       return [{

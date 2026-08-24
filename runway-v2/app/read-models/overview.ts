@@ -104,14 +104,7 @@ export function buildAnalyticsReadModel(
                 row.month_start === period.month_start &&
                 categoryIds.includes(row.category_id),
             )
-            .reduce((sum, row) => sum + Number(row.actual_minor), 0),
-          committed = workspace.budgets.commitments
-            .filter(
-              (row) =>
-                row.month_start === period.month_start &&
-                categoryIds.includes(row.category_id),
-            )
-            .reduce((sum, row) => sum + Number(row.committed_minor), 0);
+            .reduce((sum, row) => sum + Number(row.actual_minor), 0);
         return {
           label: line.category_id
             ? (categories.get(line.category_id) ?? "Budget line")
@@ -120,7 +113,6 @@ export function buildAnalyticsReadModel(
           ...calculateBudgetLine({
             budgetedMinor: Number(line.budgeted_minor),
             expenseMinor: actual,
-            committedForecastMinor: committed,
           }),
         };
       });
@@ -131,16 +123,12 @@ export function buildAnalyticsReadModel(
         (sum, row) => ({
           budgetedMinor: sum.budgetedMinor + row.budgetedMinor,
           actualMinor: sum.actualMinor + row.actualMinor,
-          committedMinor: sum.committedMinor + row.committedMinor,
           remainingMinor: sum.remainingMinor + row.remainingMinor,
-          uncommittedMinor: sum.uncommittedMinor + row.uncommittedMinor,
         }),
         {
           budgetedMinor: 0,
           actualMinor: 0,
-          committedMinor: 0,
           remainingMinor: 0,
-          uncommittedMinor: 0,
         },
       ),
     };
