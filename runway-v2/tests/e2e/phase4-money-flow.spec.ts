@@ -180,6 +180,32 @@ test("signed-in Phase 4 money flow uses only invented fixture data", async ({ pa
   await expect(reconciliation.locator(".transaction-amount strong")).toContainText("−");
 });
 
+test("keeps primary money screens warm across navigation and refresh", async ({ page }) => {
+  await installFixtureBackend(page);
+  await page.goto("/overview");
+  await expect(page.getByRole("heading", { name: "Overview", level: 1 })).toBeVisible();
+
+  await page.getByRole("link", { name: "Forecast" }).click();
+  await expect(page.getByText("Building forecast…")).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Upcoming timeline" })).toBeVisible();
+
+  await page.reload();
+  await expect(page.getByText("Building forecast…")).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Upcoming timeline" })).toBeVisible();
+
+  await page.getByRole("link", { name: "Funds", exact: true }).click();
+  await expect(page.getByText("Loading funds…")).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Funds", level: 1 })).toBeVisible();
+
+  await page.getByRole("link", { name: "Plans", exact: true }).click();
+  await expect(page.getByText("Loading Plans…")).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Plans", level: 1 })).toBeVisible();
+
+  await page.goto("/funds/payday");
+  await expect(page.getByText("Loading payday plan…")).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Set each amount" })).toBeVisible();
+});
+
 test("creates recurring plans and projects horizon and scenario changes", async ({ page }) => {
   await installFixtureBackend(page);
   await page.goto("/settings/recurring");
