@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import ForecastRoute from "~/routes/forecast";
-import MonthlyForecastRoute from "~/routes/forecast-monthly";
+import MonthlyForecastRoute, { forecastHorizonThroughMonth } from "~/routes/forecast-monthly";
 
 const mocks = vi.hoisted(() => {
   const account = { id: "account-a", user_id: "owner", name: "Operating Cash", class: "asset", subtype: "checking", currency: "NOK", is_system: false, system_key: null, include_in_net_worth: true, liquidity_class: "operating", valuation_mode: "ledger", archived_at: null, created_at: "2026-01-01", updated_at: "2026-01-01", opened_on: null, creation_idempotency_key: null, creation_payload: null } as const;
@@ -22,6 +22,11 @@ function show(ui: React.ReactNode) { const client = new QueryClient({ defaultOpt
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
 describe("Phase 5 forecast UI", () => {
+  it("extends a forecast horizon through the entire selected end month", () => {
+    expect(forecastHorizonThroughMonth("2027-08", "2026-08-24")).toBe(13);
+    expect(forecastHorizonThroughMonth("2027-02", "2026-08-24")).toBe(7);
+  });
+
   it("changes horizon and includes selected scenarios without mutating base input", async () => {
     show(<ForecastRoute/>); expect(await screen.findByText("Base expense")).toBeVisible(); expect(screen.queryByText("Scenario expense")).not.toBeInTheDocument();
     expect(screen.getByText("Forecast period")).toBeVisible();
@@ -66,11 +71,12 @@ describe("Phase 5 forecast UI", () => {
     expect(screen.getByDisplayValue("Salary")).toBeVisible(); expect(screen.getByDisplayValue("Rent")).toBeVisible();
     fireEvent.change(screen.getByLabelText("Monthly forecast starts"), { target: { value: "2026-09" } });
     fireEvent.change(screen.getByLabelText("Monthly forecast ends"), { target: { value: "2027-09" } });
-    fireEvent.click(screen.getByRole("button", { name: "Save monthly forecast" }));
+    fireEvent.click(screen.getByRole("button", { name: "Apply to forecast" }));
     await waitFor(() => expect(mocks.saveMonthlyBaseline).toHaveBeenCalledWith(expect.arrayContaining([
       expect.objectContaining({ id: "rule-a", kind: "expense", amount_minor: 5000, start_on: "2026-09-01", end_on: "2027-09-30" }),
       expect.objectContaining({ kind: "income", label: "Salary", amount_minor: 4000000, day_of_month: 20, destination_account_id: mocks.account.id }),
       expect.objectContaining({ kind: "expense", label: "Rent", amount_minor: 1200000, day_of_month: 1, source_account_id: mocks.account.id }),
     ]), []));
+    expect(mocks.saveHorizon).toHaveBeenCalled();
   });
 });

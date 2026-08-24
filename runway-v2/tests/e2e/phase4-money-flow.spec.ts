@@ -35,6 +35,7 @@ export async function installFixtureBackend(page: Page) {
   }];
   const snapshots: Array<Record<string, unknown>> = [];
   const recurringRules: Array<Record<string, unknown>> = [];
+  let forecastHorizonMonths = 12;
   const forecastItems: Array<Record<string, unknown>> = [{ id: "forecast-scenario", user_id: USER_ID, kind: "expense", expected_date: "2026-10-15", amount_minor: 250000, source_account_id: OPERATING_ID, destination_account_id: null, category_id: CATEGORY_ID, label: "Invented scenario cost", notes: null, confidence: "expected", status: "expected", scenario_id: "scenario-fixture", default_sort_order: null }];
   const scenarios: Array<Record<string, unknown>> = [{ id: "scenario-fixture", user_id: USER_ID, name: "Invented plan", description: "Fixture", status: "active", comparison_enabled: false, legacy_source_id: "legacy-fixture", migration_metadata: {}, start_on: null, end_on: null, archived_at: null, applied_at: null, created_at: now, updated_at: now }];
   const scenarioChanges: Array<Record<string, unknown>> = [];
@@ -64,8 +65,8 @@ export async function installFixtureBackend(page: Page) {
     const url = new URL(request.url());
     if (url.pathname.startsWith("/auth/v1/")) return json(route, user);
     if (url.pathname === "/rest/v1/accounts" && request.method() === "GET") return json(route, accounts);
-    if (url.pathname === "/rest/v1/profiles" && request.method() === "GET") return json(route, { user_id: USER_ID, base_currency: "NOK", timezone: "Europe/Oslo", operating_floor_minor: 900000, forecast_horizon_months: 12, safety_window_days: 30, schema_version: 7 });
-    if (url.pathname === "/rest/v1/profiles" && request.method() === "PATCH") return json(route, []);
+    if (url.pathname === "/rest/v1/profiles" && request.method() === "GET") return json(route, { user_id: USER_ID, base_currency: "NOK", timezone: "Europe/Oslo", operating_floor_minor: 900000, forecast_horizon_months: forecastHorizonMonths, safety_window_days: 30, schema_version: 7 });
+    if (url.pathname === "/rest/v1/profiles" && request.method() === "PATCH") { const body = request.postDataJSON(); if (body.forecast_horizon_months) forecastHorizonMonths = body.forecast_horizon_months; return json(route, []); }
     if (url.pathname === "/rest/v1/account_balances") return json(route, accounts.map((row) => ({ user_id: USER_ID, account_id: row.id, currency: "NOK", ledger_balance_minor: balances.get(row.id) ?? 0, display_balance_minor: balances.get(row.id) ?? 0 })));
     if (url.pathname === "/rest/v1/current_net_worth") return json(route, [{ user_id: USER_ID, currency: "NOK", net_worth_minor: netWorth() }]);
     if (url.pathname === "/rest/v1/categories") return json(route, [{ id: CATEGORY_ID, user_id: USER_ID, name: "Housing", kind: "expense", archived_at: null, sort_order: 10 }]);
@@ -222,10 +223,11 @@ test("creates a monthly forecast in one pass and projects its horizon", async ({
   await page.getByLabel("Monthly forecast starts").fill("2026-09");
   await page.getByLabel("Monthly forecast ends").fill("2027-09");
   await expect(page.getByText("20 000 kr net each month")).toBeVisible();
-  await page.getByRole("button", { name: "Save monthly forecast" }).click();
+  await page.getByRole("button", { name: "Apply to forecast" }).click();
   await expect(page).toHaveURL(/\/forecast$/);
   await expect(page.getByText("Invented recurring salary").first()).toBeVisible();
   await expect(page.getByText("Invented recurring rent").first()).toBeVisible();
+  await expect(page.locator(".forecast-row").filter({ hasText: "01 Sept 2027" }).filter({ hasText: "Invented recurring salary" })).toBeVisible();
   await expect(page.getByText("Invented scenario cost")).toHaveCount(0);
   await page.getByRole("button", { name: "24 months" }).click(); await page.getByRole("checkbox", { name: "Invented plan" }).check(); await expect(page.getByText("Invented scenario cost")).toBeVisible();
   const recurringRow = page.locator(".forecast-row").filter({ hasText: "Invented recurring salary" }).first();

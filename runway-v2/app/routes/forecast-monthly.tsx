@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router";
 import { Page } from "~/components/page";
 import { forecastRepository } from "~/data/repositories/forecast-repository";
 import { recurringRepository, type MonthlyBaselineRule } from "~/data/repositories/recurring-repository";
+import { addMonthsClamped } from "~/domain/forecast";
 import { asMinorUnits, formatMinorUnits, parseDisplayAmountToMinor } from "~/domain/money";
 import { userFacingError } from "~/user-facing-error";
 
@@ -39,6 +40,15 @@ function endOfMonth(value: string): string {
   const date = new Date(`${value}-01T12:00:00`);
   date.setMonth(date.getMonth() + 1, 0);
   return `${value}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+export function forecastHorizonThroughMonth(endMonth: string, today: string): number {
+  const current = new Date(`${today}T12:00:00Z`);
+  const target = endOfMonth(endMonth);
+  let months = (Number(endMonth.slice(0, 4)) - current.getUTCFullYear()) * 12
+    + Number(endMonth.slice(5, 7)) - (current.getUTCMonth() + 1);
+  if (addMonthsClamped(today, months) < target) months += 1;
+  return Math.max(1, months);
 }
 
 function inclusiveMonths(first: string, last: string): number {
@@ -138,6 +148,10 @@ function MonthlyForecastEditor({ workspace }: { workspace: Workspace }) {
     });
     const retainedIds = new Set(rules.flatMap((rule) => rule.id ? [rule.id] : []));
     await recurringRepository.saveMonthlyBaseline(rules, initial.originalIds.filter((id) => !retainedIds.has(id)));
+    const today = new Intl.DateTimeFormat("en-CA", { timeZone: workspace.profile.timezone, year: "numeric", month: "2-digit", day: "2-digit" })
+      .format(new Date());
+    const requiredHorizon = forecastHorizonThroughMonth(endMonth, today);
+    if (Number(workspace.profile.forecast_horizon_months ?? 12) < requiredHorizon) await forecastRepository.saveHorizon(requiredHorizon);
   }, onSuccess: async () => {
     await Promise.all([queryClient.invalidateQueries({ queryKey: ["forecast-workspace"] }), queryClient.invalidateQueries({ queryKey: ["analytics-workspace"] })]);
     navigate("/forecast");
@@ -166,7 +180,7 @@ function MonthlyForecastEditor({ workspace }: { workspace: Workspace }) {
     <section className="money-panel baseline-period"><div><p className="section-kicker">Forecast period</p><h2>Choose the months</h2><p className="muted">This shared range applies to every item below.</p></div><label>Starts<input aria-label="Monthly forecast starts" type="month" value={startMonth} onChange={(event) => setStartMonth(event.target.value)}/></label><span aria-hidden="true">→</span><label>Ends<input aria-label="Monthly forecast ends" type="month" min={startMonth} value={endMonth} onChange={(event) => setEndMonth(event.target.value)}/></label></section>
     <BaselineTable kind="income" rows={rows.filter((row) => row.kind === "income")} onChange={updateRow} onAdd={() => addRow("income")} onRemove={removeRow}/>
     <BaselineTable kind="expense" rows={rows.filter((row) => row.kind === "expense")} onChange={updateRow} onAdd={() => addRow("expense")} onRemove={removeRow}/>
-    <section className="money-panel baseline-summary"><div><p className="section-kicker">Monthly picture</p><h2>{formatMinorUnits(asMinorUnits(incomeMinor - expenseMinor), currency)} net each month</h2><p className="muted">{inclusiveMonths(startMonth, endMonth)} months · {populated.filter((row) => row.kind === "income").length} income item{populated.filter((row) => row.kind === "income").length === 1 ? "" : "s"} · {populated.filter((row) => row.kind === "expense").length} expense item{populated.filter((row) => row.kind === "expense").length === 1 ? "" : "s"}</p></div><dl><div><dt>Income</dt><dd className="positive">+{formatMinorUnits(asMinorUnits(incomeMinor), currency)}</dd></div><div><dt>Expenses</dt><dd className="negative">−{formatMinorUnits(asMinorUnits(expenseMinor), currency)}</dd></div></dl><button className="primary-button" disabled={save.isPending}>{save.isPending ? "Saving…" : "Save monthly forecast"}</button></section>
+    <section className="money-panel baseline-summary"><div><p className="section-kicker">Monthly picture</p><h2>{formatMinorUnits(asMinorUnits(incomeMinor - expenseMinor), currency)} net each month</h2><p className="muted">{inclusiveMonths(startMonth, endMonth)} months · {populated.filter((row) => row.kind === "income").length} income item{populated.filter((row) => row.kind === "income").length === 1 ? "" : "s"} · {populated.filter((row) => row.kind === "expense").length} expense item{populated.filter((row) => row.kind === "expense").length === 1 ? "" : "s"}</p></div><dl><div><dt>Income</dt><dd className="positive">+{formatMinorUnits(asMinorUnits(incomeMinor), currency)}</dd></div><div><dt>Expenses</dt><dd className="negative">−{formatMinorUnits(asMinorUnits(expenseMinor), currency)}</dd></div></dl><div><button className="primary-button" disabled={save.isPending}>{save.isPending ? "Applying…" : "Apply to forecast"}</button><p className="muted">Saves these items and makes the full period visible in Forecast.</p></div></section>
     {save.error ? <p className="field-error" role="alert">{userFacingError(save.error, "Your monthly forecast could not be saved.")}</p> : null}
   </form>;
 }
