@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { forecast } from "~/domain/forecast";
-import { buildForecastScreenModel, toForecastInput } from "~/read-models/forecast";
+import { buildForecastScreenModel, buildForecastScreenModelFromResult, toForecastInput } from "~/read-models/forecast";
 import { buildOverviewReadModel } from "~/read-models/overview";
-import { buildPlansComparison } from "~/read-models/plans";
+import { buildPlansComparison, buildSelectedPlansEvaluation } from "~/read-models/plans";
 
 const groceriesId = "category-groceries";
 const miscellaneousId = "category-miscellaneous";
@@ -148,5 +148,43 @@ describe("monthly budgets in Forecast", () => {
     expect(overview.forecast.endingOperatingCashMinor).toBe(forecastWithPlan.summary.projectedBalanceMinor);
     expect(overview.forecast.expenseMinor).toBe(forecastWithPlan.summary.expenseMinor);
     expect(overview.upcoming.some((item) => item.label === "Plan expense")).toBe(true);
+  });
+
+  it("combines every selected modern Plan identically in Forecast and Overview", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-24T12:00:00Z"));
+    const forecastData = forecastWorkspace(30_000_000);
+    forecastData.profile.forecast_horizon_months = 18;
+    const plans = [
+      { id: "ai", name: "AI Tool Expense", status: "active", comparison_enabled: true },
+      { id: "lanka", name: "Lanka '26", status: "active", comparison_enabled: true },
+      { id: "visa", name: "UK Visa + Nov Trip", status: "active", comparison_enabled: true },
+    ];
+    forecastData.scenarios = plans;
+    const change = (id: string, scenarioId: string, type: string, amountMinor: number, label: string, date: string) => ({
+      id, scenario_id: scenarioId, change_type: type, amount_minor: amountMinor, label, effective_on: date,
+      source_account_id: type === "add_one_off_expense" ? "operating" : null,
+      destination_account_id: type === "add_one_off_income" ? "operating" : null,
+      target_forecast_item_id: null, target_recurring_rule_id: null, target_allocation_item_id: null, target_goal_id: null,
+      category_id: null, fund_id: null, effective_until: null, confidence: "expected", target_field: null,
+      boolean_value: null, frequency: null, interval_count: null, day_of_month: null, day_of_week: null, payload_json: {}, sort_order: 0,
+    });
+    const changes = [
+      change("ai-income", "ai", "add_one_off_income", 150_000, "AI income", "2026-10-01"),
+      change("lanka-cost", "lanka", "add_one_off_expense", 1_650_000, "Lanka costs", "2026-11-01"),
+      change("visa-cost", "visa", "add_one_off_expense", 600_000, "UK Visa costs", "2026-11-15"),
+    ];
+    const budgets = { ...budgetWorkspace(0), periods: [], lines: [], actuals: [], commitments: [] };
+    const workspace = { forecast: forecastData, funds: fundsWorkspace(), budgets, plans, changes } as any;
+    const selected = plans.map((plan) => plan.id);
+    const evaluation = buildSelectedPlansEvaluation(workspace, selected, "2026-08-24", 18);
+    const screen = buildForecastScreenModelFromResult(forecastData, evaluation.applied.forecast, evaluation.result);
+    const overview = buildOverviewReadModel({ ...workspace, transactions: [] } as any, "2027-08-31");
+
+    expect(screen.timeline.filter((item) => item.sourceId.startsWith("plan:")).map((item) => item.label)).toEqual(["AI income", "Lanka costs", "UK Visa costs"]);
+    expect(screen.summary.projectedBalanceMinor).toBe(27_900_000);
+    expect(overview.selectedPlanIds).toEqual(selected);
+    expect(overview.projection.liquidCashMinor).toBe(27_900_000);
+    expect(overview.forecast.endingOperatingCashMinor).toBe(screen.summary.projectedBalanceMinor);
   });
 });

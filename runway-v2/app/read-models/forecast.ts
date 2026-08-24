@@ -117,9 +117,7 @@ export interface ForecastScreenModel {
   timeline: Array<ForecastResult["events"][number] & { accountImpact: string; runningBalanceMinor: number }>;
 }
 
-export function buildForecastScreenModel(workspace: ForecastWorkspace, horizonMonths: number, selectedScenarioIds: string[], asOfDate?: string, budgetWorkspace?: BudgetWorkspace): ForecastScreenModel {
-  const input = toForecastInput(workspace, horizonMonths, selectedScenarioIds, asOfDate, budgetWorkspace);
-  const result = forecast(input);
+export function buildForecastScreenModelFromResult(workspace: ForecastWorkspace, input: ForecastInput, result: ForecastResult): ForecastScreenModel {
   const accountNames = new Map(workspace.accounts.map((account) => [account.id, account.name]));
   const startingCashMinor = input.accounts.filter((account) => account.class === "asset" && account.liquidityClass === "operating").reduce((sum, account) => sum + account.balanceMinor, 0);
   return { result, summary: { startingCashMinor, projectedBalanceMinor: result.endingOperatingCashMinor, lowestOperatingMinor: result.lowestOperatingCash.balanceMinor,
@@ -128,4 +126,9 @@ export function buildForecastScreenModel(workspace: ForecastWorkspace, horizonMo
     timeline: result.events.map((event) => ({ ...event, accountImpact: event.kind === "income" ? `Into ${accountNames.get(event.destinationAccountId ?? "") ?? "account"}` : event.kind === "expense" ? `From ${accountNames.get(event.sourceAccountId ?? "") ?? "account"}` : `${accountNames.get(event.sourceAccountId ?? "") ?? "account"} → ${accountNames.get(event.destinationAccountId ?? "") ?? "account"}`,
       runningBalanceMinor: event.operatingCashMinor })),
   };
+}
+
+export function buildForecastScreenModel(workspace: ForecastWorkspace, horizonMonths: number, selectedScenarioIds: string[], asOfDate?: string, budgetWorkspace?: BudgetWorkspace): ForecastScreenModel {
+  const input = toForecastInput(workspace, horizonMonths, selectedScenarioIds, asOfDate, budgetWorkspace);
+  return buildForecastScreenModelFromResult(workspace, input, forecast(input));
 }

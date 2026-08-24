@@ -12,7 +12,7 @@ import {
   applyPortfolioValuationsToNetWorth,
   type PortfolioSnapshot,
 } from "~/domain/investments";
-import { buildPlansComparison } from "./plans";
+import { buildSelectedPlansEvaluation } from "./plans";
 
 export type AnalyticsWorkspace = Awaited<
   ReturnType<typeof analyticsRepository.getWorkspace>
@@ -182,10 +182,8 @@ export function buildOverviewReadModel(
           row.comparison_enabled &&
           (row.status === "active" || row.status === "draft"),
       )
-      .slice(0, 2)
       .map((row) => row.id),
-    comparison = buildPlansComparison(workspace, selectedPlanIds),
-    active = comparison.alternatives.at(-1)?.evaluation ?? comparison.base,
+    active = buildSelectedPlansEvaluation(workspace, selectedPlanIds),
     currentFlow = analytics.cashFlow.find(
       (row) => row.month === analytics.currentMonth,
     ) ?? {
@@ -308,7 +306,7 @@ export function buildOverviewReadModel(
     overdue: active.result.overdueItems,
     recent,
     selectedPlanIds,
-    planAlternative: comparison.alternatives.at(-1) ?? null,
+    planAlternative: null,
     currency: analytics.currency,
   };
 }

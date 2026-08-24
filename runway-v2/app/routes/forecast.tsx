@@ -10,7 +10,8 @@ import { plansRepository } from "~/data/repositories/plans-repository";
 import { recurringRepository } from "~/data/repositories/recurring-repository";
 import { asMinorUnits, formatMinorUnits, parseDisplayAmountToMinor } from "~/domain/money";
 import { parseForecastQuickEntry } from "~/domain/forecast-quick-entry";
-import { buildForecastScreenModel } from "~/read-models/forecast";
+import { buildForecastScreenModel, buildForecastScreenModelFromResult } from "~/read-models/forecast";
+import { buildSelectedPlansEvaluation } from "~/read-models/plans";
 import { userFacingError } from "~/user-facing-error";
 
 const horizons = [6, 12, 18, 24];
@@ -43,7 +44,14 @@ export default function ForecastRoute() {
   const months = horizon ?? workspace.data?.profile.forecast_horizon_months ?? 12;
   const horizonOptions = horizons.includes(months) ? horizons : [...horizons, months].sort((left, right) => left - right);
   const selectedScenarios = workspace.data?.scenarios.filter((item) => planSelectionOverrides[item.id] ?? item.comparison_enabled).map((item) => item.id) ?? [];
-  const model = useMemo(() => workspace.data && budgets.data ? buildForecastScreenModel(workspace.data, months, selectedScenarios, undefined, budgets.data) : null, [workspace.data, budgets.data, months, selectedScenarios]);
+  const plansWorkspace = useQuery({ queryKey: ["plans-workspace"], queryFn: () => plansRepository.getWorkspace(), enabled: selectedScenarios.length > 0 });
+  const model = useMemo(() => {
+    if (!workspace.data || !budgets.data) return null;
+    if (!selectedScenarios.length) return buildForecastScreenModel(workspace.data, months, [], undefined, budgets.data);
+    if (!plansWorkspace.data) return null;
+    const evaluation = buildSelectedPlansEvaluation({ ...plansWorkspace.data, forecast: workspace.data, budgets: budgets.data }, selectedScenarios, undefined, months);
+    return buildForecastScreenModelFromResult(workspace.data, evaluation.applied.forecast, evaluation.result);
+  }, [workspace.data, budgets.data, plansWorkspace.data, months, selectedScenarios]);
   const skippedOccurrences = useMemo(() => workspace.data ? [
     ...workspace.data.items.filter((item) => (item.status === "skipped" || item.status === "canceled") && withinRecoveryWindow(item.updated_at)).map((item) => ({ sourceType: "forecast_item" as const, sourceId: item.id, date: item.expected_date, label: item.label, amountMinor: Number(item.amount_minor), kind: item.kind })),
     ...workspace.data.occurrences.flatMap((item) => {
@@ -127,7 +135,7 @@ export default function ForecastRoute() {
   const currency = workspace.data?.profile.base_currency ?? "NOK";
   return <Page eyebrow="What happens next" title="Forecast" description="Start with the cash you have now, then see how planned income and spending could change it. Planned money never changes your actual account balances.">
     <div className="forecast-toolbar forecast-controls-toolbar" aria-label="Forecast controls"><div><span>Horizon</span><div className="horizon-options">{horizonOptions.map((value) => <button className={months === value ? "active" : ""} key={value} onClick={() => { setHorizon(value); void forecastRepository.saveHorizon(value); }}>{value} months</button>)}</div></div><div><span>Plans</span><div className="scenario-options">{workspace.data?.scenarios.map((item) => <label key={item.id}><input type="checkbox" checked={selectedScenarios.includes(item.id)} onChange={(event) => togglePlan.mutate({ id: item.id, enabled: event.target.checked })}/>{item.name}</label>)}</div></div>{model ? <small className="forecast-range"><span>Forecast period</span><strong>{dateLabel(model.result.asOfDate)} – {dateLabel(model.result.endDate)}</strong></small> : null}</div>
-    {workspace.isLoading || budgets.isLoading ? <p className="muted">Building forecast…</p> : null}{workspace.error || budgets.error ? <p className="field-error" role="alert">{message(workspace.error ?? budgets.error)}</p> : null}
+    {workspace.isLoading || budgets.isLoading || (selectedScenarios.length > 0 && plansWorkspace.isLoading) ? <p className="muted">Building forecast…</p> : null}{workspace.error || budgets.error || plansWorkspace.error ? <p className="field-error" role="alert">{message(workspace.error ?? budgets.error ?? plansWorkspace.error)}</p> : null}
     {model ? <><section className="forecast-mental-model" aria-label="How this forecast is calculated"><div><span>Starting cash</span><strong>{money(model.summary.startingCashMinor, currency)}</strong><small>Actual money now</small></div><span aria-hidden="true">+</span><a href={`/forecast/assumptions?type=income&horizon=${months}`}><span>Planned income</span><strong>{money(model.summary.incomeMinor, currency)}</strong><small>Review what is included</small></a><span aria-hidden="true">−</span><a href={`/forecast/assumptions?type=expense&horizon=${months}`}><span>Planned spending</span><strong>{money(model.summary.expenseMinor, currency)}</strong><small>Review what is included</small></a><span aria-hidden="true">=</span><div><span>Cash in {months} months</span><strong>{money(model.summary.projectedBalanceMinor, currency)}</strong><small>{dateLabel(model.result.endDate)}</small></div></section>
       <section className="forecast-balance-strip" aria-label="Lowest expected cash balance"><div><p>Lowest cash balance</p><small>The least cash you are projected to have</small></div><strong className={model.result.firstFloorBreach ? "negative" : ""}>{money(model.summary.lowestOperatingMinor, currency)}</strong><span>on {dateLabel(model.result.lowestOperatingCash.date)}</span></section>
       {model.result.overdueItems.length ? <section className="money-panel attention-panel"><div className="panel-heading"><div><p className="section-kicker">Needs attention</p><h2>Overdue plans</h2></div><strong>{model.result.overdueItems.length}</strong></div>{model.result.overdueItems.map((item) => <div className="attention-row" key={item.id}><div><strong>{item.label}</strong><span>{dateLabel(item.date)} · {money(item.amountMinor, currency)}</span></div>{item.sourceType === "forecast_item" ? <div className="row-actions"><button onClick={() => update.mutate({ id: item.sourceId, values: { status: "skipped" } })}>Mark skipped</button><button onClick={() => beginEdit(item.sourceId)}>Reschedule</button></div> : null}</div>)}</section> : null}

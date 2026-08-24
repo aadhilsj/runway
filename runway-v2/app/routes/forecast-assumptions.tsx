@@ -6,10 +6,12 @@ import { Page } from "~/components/page";
 import { forecastGroupingRepository } from "~/data/repositories/forecast-grouping-repository";
 import { forecastRepository } from "~/data/repositories/forecast-repository";
 import { budgetsRepository } from "~/data/repositories/budgets-repository";
+import { plansRepository } from "~/data/repositories/plans-repository";
 import { groupForecastOccurrences, type ForecastOccurrenceGroup } from "~/domain/forecast-grouping";
 import { forecast } from "~/domain/forecast";
 import { asMinorUnits, formatMinorUnits, parseDisplayAmountToMinor } from "~/domain/money";
 import { toForecastInput } from "~/read-models/forecast";
+import { buildSelectedPlansEvaluation } from "~/read-models/plans";
 import { userFacingError } from "~/user-facing-error";
 
 type AssumptionKind = "income" | "expense";
@@ -36,7 +38,14 @@ export default function ForecastAssumptionsRoute() {
   const kind: AssumptionKind = params.get("type") === "income" ? "income" : "expense";
   const months = Math.max(1, Number(params.get("horizon") ?? query.data?.profile.forecast_horizon_months ?? 12));
   const data = query.data;
-  const result = useMemo(() => data && budgets.data ? forecast(toForecastInput(data, months, [], undefined, budgets.data)) : null, [data, budgets.data, months]);
+  const selectedPlanIds = data?.scenarios.filter((plan) => plan.comparison_enabled && (plan.status === "active" || plan.status === "draft")).map((plan) => plan.id) ?? [];
+  const plansWorkspace = useQuery({ queryKey: ["plans-workspace"], queryFn: () => plansRepository.getWorkspace(), enabled: selectedPlanIds.length > 0 });
+  const result = useMemo(() => {
+    if (!data || !budgets.data) return null;
+    if (!selectedPlanIds.length) return forecast(toForecastInput(data, months, [], undefined, budgets.data));
+    if (!plansWorkspace.data) return null;
+    return buildSelectedPlansEvaluation({ ...plansWorkspace.data, forecast: data, budgets: budgets.data }, selectedPlanIds, undefined, months).result;
+  }, [data, budgets.data, months, plansWorkspace.data, selectedPlanIds]);
   const occurrences = useMemo(() => result?.events.filter((item) => item.kind === kind).map((item) => ({
     id: item.id,
     label: item.label,
@@ -64,8 +73,8 @@ export default function ForecastAssumptionsRoute() {
   const currency = data?.profile.base_currency ?? "NOK";
   return <Page className="forecast-breakdown-page" eyebrow="Planned money" title="Forecast breakdown" description="Review the income and spending included in your forecast.">
     <div className="assumption-view-switcher"><Link to="/forecast">← Back to Forecast</Link><div className="horizon-options" role="tablist" aria-label="Breakdown type"><button className={kind === "income" ? "active" : ""} onClick={() => setParams({ type: "income", horizon: String(months) })}>Income</button><button className={kind === "expense" ? "active" : ""} onClick={() => setParams({ type: "expense", horizon: String(months) })}>Spending</button></div><span aria-hidden="true"/></div>
-    {query.isLoading || budgets.isLoading || grouping.isLoading ? <p className="muted">Loading breakdown…</p> : null}
-    {query.error || budgets.error || grouping.error ? <p className="field-error">The forecast breakdown could not be loaded.</p> : null}
+    {query.isLoading || budgets.isLoading || grouping.isLoading || (selectedPlanIds.length > 0 && plansWorkspace.isLoading) ? <p className="muted">Loading breakdown…</p> : null}
+    {query.error || budgets.error || grouping.error || plansWorkspace.error ? <p className="field-error">The forecast breakdown could not be loaded.</p> : null}
     {data && result ? <>
       <section className="money-panel"><div className="panel-heading"><div><p className="section-kicker">Included in Forecast</p><h2>{kind === "income" ? "Expected income" : "Expected spending"}</h2></div><Link to="/forecast/monthly">Manage monthly forecast →</Link></div>
         <div className="assumption-list">{groups.map((group) => <article className="assumption-group" key={`${kind}:${group.key}`}>
