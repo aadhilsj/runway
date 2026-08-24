@@ -134,7 +134,7 @@ export default function ForecastRoute() {
             <div><strong>{settlement.label}</strong><small>{dateLabel(settlement.expectedDate)}</small></div>
             <strong className={settlement.kind === "expense" ? "negative" : settlement.kind === "income" ? "positive" : ""}>{settlement.kind === "expense" ? "−" : settlement.kind === "income" ? "+" : "↔"}{money(settlement.expectedAmountMinor, currency)}</strong>
           </div>
-          <p className="muted">This records the planned item in Activity and removes it from your active forecast.</p>
+          <p className="muted">This records it in Activity and removes it from your forecast.</p>
           {settle.error ? <p className="field-error" role="alert">{userFacingError(settle.error, "This payment could not be recorded.")}</p> : null}
           <div className="confirmation-actions">
             <button className="secondary-button" type="button" onClick={() => setSettlement(null)} disabled={settle.isPending}>Cancel</button>
