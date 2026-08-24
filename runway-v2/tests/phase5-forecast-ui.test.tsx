@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import ForecastRoute from "~/routes/forecast";
 import RecurringSettingsRoute from "~/routes/settings-recurring";
@@ -11,12 +11,12 @@ const mocks = vi.hoisted(() => {
     { id: "scenario-item", kind: "expense", expected_date: "2026-09-02", amount_minor: 200000, source_account_id: account.id, destination_account_id: null, category_id: null, label: "Scenario expense", notes: null, confidence: "expected", scenario_id: "scenario-a", default_sort_order: null, status: "expected" }],
   rules: [{ id: "rule-a", kind: "expense", label: "Monthly fixture", notes: null, source_account_id: account.id, destination_account_id: null, category_id: null, amount_minor: 5000, frequency: "monthly", interval_count: 1, day_of_month: 10, day_of_week: null, start_on: "2026-09-10", end_on: null, default_sort_order: null, confidence: "expected", scenario_id: null, active: true, archived_at: null }],
     occurrences: [], scenarios: [{ id: "scenario-a", name: "Optional plan", archived_at: null }], categories: [], transactions: [] } as any;
-  return { createItem: vi.fn(), createRule: vi.fn(), saveHorizon: vi.fn(), setActive: vi.fn(), archive: vi.fn(), account, workspace };
+  return { createItem: vi.fn(), createRule: vi.fn(), settleItem: vi.fn(), settleOccurrence: vi.fn(), saveHorizon: vi.fn(), setActive: vi.fn(), archive: vi.fn(), account, workspace };
 });
 
-vi.mock("~/data/repositories/forecast-repository", () => ({ forecastRepository: { getWorkspace: vi.fn().mockResolvedValue(mocks.workspace), saveHorizon: mocks.saveHorizon, createItem: mocks.createItem, updateItem: vi.fn(), matchItem: vi.fn() } }));
+vi.mock("~/data/repositories/forecast-repository", () => ({ forecastRepository: { getWorkspace: vi.fn().mockResolvedValue(mocks.workspace), saveHorizon: mocks.saveHorizon, createItem: mocks.createItem, updateItem: vi.fn(), matchItem: vi.fn(), settleItem: mocks.settleItem } }));
 vi.mock("~/data/repositories/budgets-repository", () => ({ budgetsRepository: { getWorkspace: vi.fn().mockResolvedValue({ periods: [], lines: [], groups: [], groupCategories: [], actuals: [], commitments: [], categories: [], currency: "NOK" }) } }));
-vi.mock("~/data/repositories/recurring-repository", () => ({ recurringRepository: { create: mocks.createRule, update: vi.fn(), setActive: mocks.setActive, archive: mocks.archive } }));
+vi.mock("~/data/repositories/recurring-repository", () => ({ recurringRepository: { create: mocks.createRule, update: vi.fn(), setActive: mocks.setActive, archive: mocks.archive, setException: vi.fn(), settleOccurrence: mocks.settleOccurrence } }));
 function show(ui: React.ReactNode) { const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } }); return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>); }
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
@@ -39,6 +39,21 @@ describe("Phase 5 forecast UI", () => {
     fireEvent.change(screen.getByLabelText("Describe the planned item"), { target: { value: "Phone bill 568 on 15 Sep 2026" } });
     fireEvent.click(screen.getByRole("button", { name: "Add to forecast" }));
     await waitFor(() => expect(mocks.createItem).toHaveBeenCalledWith(expect.objectContaining({ kind: "expense", label: "Phone bill", amount_minor: 56800, expected_date: "2026-09-15", confidence: "expected", source_account_id: mocks.account.id, destination_account_id: null })));
+  });
+
+  it("confirms a planned expense in a compact dialog without asking for the fields again", async () => {
+    mocks.settleItem.mockResolvedValue(undefined); show(<ForecastRoute/>); await screen.findByText("Base expense");
+    fireEvent.click(screen.getAllByRole("button", { name: "Mark paid" }).at(0)!);
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByRole("heading", { name: "Mark this item as paid?" })).toBeVisible();
+    expect(screen.queryByLabelText("Exact amount")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Actual date")).not.toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Cancel" })).toBeVisible();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Mark paid" }));
+    await waitFor(() => expect(mocks.settleItem).toHaveBeenCalledWith(expect.objectContaining({
+      itemId: "base", actualAmountMinor: 100000, occurredAt: "2026-09-01T12:00:00.000Z",
+      sourceAccountId: mocks.account.id, destinationAccountId: null, categoryId: null, notes: null,
+    })));
   });
 
   it("creates, pauses, and archives recurring rules through product controls", async () => {

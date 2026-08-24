@@ -146,9 +146,13 @@ describe("Phase 4 actual-money workflows", () => {
     expect(screen.getByText((_, element) => element?.textContent?.replace(/\s/g, "") === "+2000kr", { selector: "strong" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Mark received" })).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: "Mark received" }));
-    expect(screen.getByLabelText("Exact amount")).toHaveValue("2000.00");
-    expect(screen.getByLabelText("Actual date")).toHaveValue("2026-09-01");
-    expect(screen.getByText(/records the real transaction once/i)).toBeVisible();
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByRole("heading", { name: "Mark this item as received?" })).toBeVisible();
+    expect(within(dialog).getByText((_, element) => element?.textContent?.replace(/\s/g, "") === "+2000kr", { selector: "strong" })).toBeVisible();
+    expect(screen.queryByLabelText("Exact amount")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Actual date")).not.toBeInTheDocument();
+    expect(within(dialog).getByText(/records the planned item in Activity/i)).toBeVisible();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
     const more = screen.getByLabelText("More actions for Invented future income");
     expect(more).toHaveAttribute("aria-label", "More actions for Invented future income");
     fireEvent.click(more);

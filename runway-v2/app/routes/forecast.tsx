@@ -1,5 +1,6 @@
 import { useMemo, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ConfirmationDialog } from "~/components/confirmation-dialog";
 import { Drawer } from "~/components/drawer";
 import { Page } from "~/components/page";
 import { forecastRepository } from "~/data/repositories/forecast-repository";
@@ -15,6 +16,7 @@ type SettlementDraft = {
   sourceType: "forecast_item" | "recurring_occurrence"; sourceId: string; occurrenceDate: string | null;
   label: string; kind: "income" | "expense" | "transfer"; expectedAmountMinor: number;
   expectedDate: string; sourceAccountId: string | null; destinationAccountId: string | null; categoryId: string | null;
+  notes: string | null;
 };
 function message(error: unknown): string { return userFacingError(error, "Forecast could not be loaded."); }
 function money(value: number, currency: string): string { return formatMinorUnits(asMinorUnits(value), currency); }
@@ -33,10 +35,6 @@ export default function ForecastRoute() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [quickEntry, setQuickEntry] = useState(""); const [showDetails, setShowDetails] = useState(false);
   const [settlement, setSettlement] = useState<SettlementDraft | null>(null);
-  const [actualAmount, setActualAmount] = useState(""); const [actualDate, setActualDate] = useState("");
-  const [actualSource, setActualSource] = useState(""); const [actualDestination, setActualDestination] = useState("");
-  const [actualCategory, setActualCategory] = useState(""); const [actualNotes, setActualNotes] = useState("");
-  const [settlementError, setSettlementError] = useState("");
   const months = horizon ?? workspace.data?.profile.forecast_horizon_months ?? 12;
   const model = useMemo(() => workspace.data && budgets.data ? buildForecastScreenModel(workspace.data, months, selectedScenarios, undefined, budgets.data) : null, [workspace.data, budgets.data, months, selectedScenarios]);
   const invalidate = () => client.invalidateQueries({ queryKey: ["forecast-workspace"] });
@@ -63,20 +61,18 @@ export default function ForecastRoute() {
   const occurrence = useMutation({ mutationFn: (command: { ruleId: string; date: string }) => recurringRepository.setException(command.ruleId, command.date, { status: "skipped" }), onSuccess: () => void invalidate() });
   const settle = useMutation({ mutationFn: async () => {
     if (!settlement) throw new Error("Choose a forecast item first.");
-    const actualAmountMinor = Number(parseDisplayAmountToMinor(actualAmount));
-    if (actualAmountMinor <= 0 || !actualDate) throw new Error("Enter the exact amount and date.");
-    const command = { actualAmountMinor, occurredAt: `${actualDate}T12:00:00.000Z`,
-      sourceAccountId: settlement.kind === "income" ? null : actualSource || null,
-      destinationAccountId: settlement.kind === "expense" ? null : actualDestination || null,
-      categoryId: settlement.kind === "transfer" ? null : actualCategory || null,
-      notes: actualNotes.trim() || null, idempotencyKey: crypto.randomUUID() };
+    const command = { actualAmountMinor: settlement.expectedAmountMinor, occurredAt: `${settlement.expectedDate}T12:00:00.000Z`,
+      sourceAccountId: settlement.kind === "income" ? null : settlement.sourceAccountId,
+      destinationAccountId: settlement.kind === "expense" ? null : settlement.destinationAccountId,
+      categoryId: settlement.kind === "transfer" ? null : settlement.categoryId,
+      notes: settlement.notes, idempotencyKey: crypto.randomUUID() };
     if (settlement.sourceType === "forecast_item") await forecastRepository.settleItem({ ...command, itemId: settlement.sourceId });
     else await recurringRepository.settleOccurrence({ ...command, ruleId: settlement.sourceId, occurrenceDate: settlement.occurrenceDate! });
-  }, onSuccess: () => { setSettlement(null); setSettlementError(""); void Promise.all([
+  }, onSuccess: () => { setSettlement(null); void Promise.all([
     client.invalidateQueries({ queryKey: ["forecast-workspace"] }), client.invalidateQueries({ queryKey: ["analytics-workspace"] }),
     client.invalidateQueries({ queryKey: ["transactions"] }), client.invalidateQueries({ queryKey: ["accounts"] }),
     client.invalidateQueries({ queryKey: ["budget-workspace"] }),
-  ]); }, onError: (error) => setSettlementError(userFacingError(error, "This payment could not be recorded.")) });
+  ]); } });
   function openCreate() {
     const operatingId = workspace.data?.accounts.find((account) => !account.is_system && account.liquidity_class === "operating")?.id
       ?? workspace.data?.accounts.find((account) => !account.is_system && account.name.toLowerCase().includes("operating"))?.id ?? "";
@@ -89,11 +85,11 @@ export default function ForecastRoute() {
     if (item.sourceType !== "forecast_item" && item.sourceType !== "recurring_occurrence") return;
     setSettlement({ sourceType: item.sourceType, sourceId: item.sourceId, occurrenceDate: item.recurrenceRuleId ? item.canonicalDate : null,
       label: item.label, kind: item.kind, expectedAmountMinor: item.amountMinor, expectedDate: item.date,
-      sourceAccountId: item.sourceAccountId, destinationAccountId: item.destinationAccountId, categoryId: item.categoryId });
-    setActualAmount((item.amountMinor / 100).toFixed(2)); setActualDate(item.date); setActualSource(item.sourceAccountId ?? "");
-    setActualDestination(item.destinationAccountId ?? ""); setActualCategory(item.categoryId ?? ""); setActualNotes(item.notes ?? ""); setSettlementError("");
+      sourceAccountId: item.sourceAccountId, destinationAccountId: item.destinationAccountId, categoryId: item.categoryId,
+      notes: item.notes });
   }
   function settlementAction(kind: SettlementDraft["kind"]) { return kind === "income" ? "Mark received" : kind === "expense" ? "Mark paid" : "Mark transferred"; }
+  function settlementState(kind: SettlementDraft["kind"]) { return kind === "income" ? "received" : kind === "expense" ? "paid" : "transferred"; }
   const currency = workspace.data?.profile.base_currency ?? "NOK";
   return <Page eyebrow="What happens next" title="Forecast" description="Start with the cash you have now, then see how planned income and spending could change it. Planned money never changes your actual account balances.">
     <div className="forecast-toolbar forecast-controls-toolbar" aria-label="Forecast controls"><div><span>Horizon</span><div className="horizon-options">{horizons.map((value) => <button className={months === value ? "active" : ""} key={value} onClick={() => { setHorizon(value); void forecastRepository.saveHorizon(value); }}>{value} months</button>)}</div></div><div><span>Plans</span><div className="scenario-options">{workspace.data?.scenarios.map((item) => <label key={item.id}><input type="checkbox" checked={selectedScenarios.includes(item.id)} onChange={(event) => setSelectedScenarios((current) => event.target.checked ? [...current, item.id] : current.filter((id) => id !== item.id))}/>{item.name}</label>)}</div></div>{model ? <small className="forecast-range"><span>Forecast period</span><strong>{dateLabel(model.result.asOfDate)} – {dateLabel(model.result.endDate)}</strong></small> : null}</div>
@@ -132,20 +128,20 @@ export default function ForecastRoute() {
           <button className="secondary-button" type="button" onClick={() => { setShowDetails(true); setFormError(""); }}>More options</button>
         </form> : <form className="money-form" onSubmit={submit}><label>Type<select value={kind} onChange={(event) => setKind(event.target.value as typeof kind)}><option value="income">Income</option><option value="expense">Expense</option><option value="transfer">Transfer</option></select></label><label>Label<input value={label} onChange={(event) => setLabel(event.target.value)} required/></label><label>Amount<input value={amount} inputMode="decimal" onChange={(event) => setAmount(event.target.value)} required/></label><label>Date<input type="date" value={date} onChange={(event) => setDate(event.target.value)} required/></label>{kind !== "income" ? <label>From account<select value={source} onChange={(event) => setSource(event.target.value)} required><option value="">Choose account</option>{workspace.data?.accounts.filter((account) => !account.is_system).map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}</select></label> : null}{kind !== "expense" ? <label>To account<select value={destination} onChange={(event) => setDestination(event.target.value)} required><option value="">Choose account</option>{workspace.data?.accounts.filter((account) => !account.is_system).map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}</select></label> : null}<label>Plan <span className="optional">optional</span><select value={scenario} onChange={(event) => setScenario(event.target.value)}><option value="">Base forecast</option>{workspace.data?.scenarios.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>{formError ? <p className="field-error" role="alert">{formError}</p> : null}<button className="primary-button" disabled={save.isPending}>{editingId ? "Save changes" : "Add to forecast"}</button>{!editingId ? <button className="secondary-button" type="button" onClick={() => { setShowDetails(false); setFormError(""); }}>Use quick entry</button> : null}</form>}
       </Drawer>
-      <Drawer open={Boolean(settlement)} onClose={() => setSettlement(null)} eyebrow="Record actual money" title={settlement ? settlementAction(settlement.kind) : "Record payment"}>
-        {settlement ? <form className="money-form" onSubmit={(event) => { event.preventDefault(); settle.mutate(); }}>
-          <div className="settlement-expected"><span>Forecast</span><strong>{settlement.label}</strong><small>{money(settlement.expectedAmountMinor, currency)} expected on {dateLabel(settlement.expectedDate)}</small></div>
-          <label>Exact amount<input value={actualAmount} inputMode="decimal" onChange={(event) => setActualAmount(event.target.value)} required/></label>
-          <label>Actual date<input type="date" value={actualDate} onChange={(event) => setActualDate(event.target.value)} required/></label>
-          {settlement.kind !== "income" ? <label>From account<select value={actualSource} onChange={(event) => setActualSource(event.target.value)} required><option value="">Choose account</option>{workspace.data?.accounts.filter((account) => !account.is_system).map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}</select></label> : null}
-          {settlement.kind !== "expense" ? <label>To account<select value={actualDestination} onChange={(event) => setActualDestination(event.target.value)} required><option value="">Choose account</option>{workspace.data?.accounts.filter((account) => !account.is_system).map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}</select></label> : null}
-          {settlement.kind !== "transfer" ? <label>Category<select value={actualCategory} onChange={(event) => setActualCategory(event.target.value)} required><option value="">Choose category</option>{workspace.data?.categories.filter((category) => category.kind === settlement.kind).map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label> : null}
-          <label>Note <span className="optional">optional</span><textarea value={actualNotes} onChange={(event) => setActualNotes(event.target.value)}/></label>
-          <p className="muted">This records the real transaction once and removes the planned item from your active forecast.</p>
-          {settlementError ? <p className="field-error" role="alert">{settlementError}</p> : null}
-          <button className="primary-button" disabled={settle.isPending}>{settle.isPending ? "Recording…" : settlementAction(settlement.kind)}</button>
+      <ConfirmationDialog open={Boolean(settlement)} onClose={() => setSettlement(null)} eyebrow="Confirm actual money" title={settlement ? `Mark this item as ${settlementState(settlement.kind)}?` : "Confirm item"}>
+        {settlement ? <form className="settlement-confirmation" onSubmit={(event) => { event.preventDefault(); settle.mutate(); }}>
+          <div className="settlement-confirmation-summary">
+            <div><strong>{settlement.label}</strong><small>{dateLabel(settlement.expectedDate)}</small></div>
+            <strong className={settlement.kind === "expense" ? "negative" : settlement.kind === "income" ? "positive" : ""}>{settlement.kind === "expense" ? "−" : settlement.kind === "income" ? "+" : "↔"}{money(settlement.expectedAmountMinor, currency)}</strong>
+          </div>
+          <p className="muted">This records the planned item in Activity and removes it from your active forecast.</p>
+          {settle.error ? <p className="field-error" role="alert">{userFacingError(settle.error, "This payment could not be recorded.")}</p> : null}
+          <div className="confirmation-actions">
+            <button className="secondary-button" type="button" onClick={() => setSettlement(null)} disabled={settle.isPending}>Cancel</button>
+            <button className="primary-button" disabled={settle.isPending}>{settle.isPending ? "Recording…" : settlementAction(settlement.kind)}</button>
+          </div>
         </form> : null}
-      </Drawer>
+      </ConfirmationDialog>
     </> : null}
   </Page>;
 }
