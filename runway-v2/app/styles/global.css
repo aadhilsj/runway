@@ -135,13 +135,13 @@ button:disabled { opacity: .48; cursor: not-allowed; }
 .quick-spend-trackers strong { font-family:var(--font-display); font-size:1.05rem; font-weight:610; text-align:right; }
 .quick-spend-trackers small { grid-column:1 / -1; color:var(--color-muted); font-size:.7rem; }
 .quick-spend-form { display:grid; grid-template-columns:minmax(7rem,.55fr) minmax(13rem,1fr) minmax(9.5rem,.65fr) minmax(12rem,1fr) auto; gap:var(--space-3); align-items:end; }
-.quick-spend-form label,.quick-spend-form fieldset { display:grid; gap:.42rem; min-width:0; margin:0; padding:0; border:0; color:var(--color-muted); font-size:.72rem; font-weight:740; }
-.quick-spend-form legend,.quick-spend-form .field-label { min-height:1rem; line-height:1rem; }
-.quick-spend-form .field-label { display:block; }
+.quick-spend-form label,.quick-spend-form .quick-spend-category { display:grid; grid-template-rows:1rem 2.7rem; gap:.42rem; min-width:0; margin:0; color:var(--color-muted); font-size:.72rem; font-weight:740; }
+.quick-spend-form .field-label { display:flex; align-items:baseline; gap:.28rem; min-height:1rem; line-height:1rem; white-space:nowrap; }
+.quick-spend-form .field-label .optional { color:var(--color-muted); font-size:.68rem; font-weight:500; }
 .quick-spend-form input { width:100%; min-height:2.7rem; border:1px solid var(--color-line); border-radius:var(--radius-sm); background:var(--color-surface-strong); color:var(--color-ink); padding:.65rem .72rem; }
-.quick-spend-form fieldset > div { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--space-2); }
-.quick-spend-form fieldset button { min-height:2.7rem; border:1px solid var(--color-line); border-radius:var(--radius-sm); background:transparent; color:var(--color-muted); cursor:pointer; font-size:.76rem; font-weight:700; }
-.quick-spend-form fieldset button.active { background:var(--color-ink); border-color:var(--color-ink); color:white; }
+.quick-spend-category > div { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--space-2); }
+.quick-spend-category button { min-height:2.7rem; border:1px solid var(--color-line); border-radius:var(--radius-sm); background:transparent; color:var(--color-muted); cursor:pointer; font-size:.76rem; font-weight:700; }
+.quick-spend-category button.active { background:var(--color-ink); border-color:var(--color-ink); color:white; }
 .quick-spend-form > .primary-button { min-height:2.7rem; white-space:nowrap; }
 .activity-history-panel { padding:var(--space-4); }
 .activity-history-panel .panel-heading { align-items:center; margin-bottom:var(--space-3); }
