@@ -18,7 +18,7 @@ export default function PlansRoute() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [deleting, setDeleting] = useState<PlanRow | null>(null);
   const [comparisonOverrides, setComparisonOverrides] = useState<Record<string, boolean>>({});
-  const refresh = () => Promise.all([qc.invalidateQueries({ queryKey: ["plans-workspace"] }), qc.invalidateQueries({ queryKey: ["forecast-workspace"] }), qc.invalidateQueries({ queryKey: ["analytics-workspace"] })]);
+  const refresh = () => Promise.all([qc.invalidateQueries({ queryKey: ["plans-workspace"] }), qc.invalidateQueries({ queryKey: ["forecast-workspace"] }), qc.invalidateQueries({ queryKey: ["analytics-workspace"] }), qc.invalidateQueries({ queryKey: ["payday-workspace"] })]);
   const create = useMutation({ mutationFn: () => plansRepository.createPlan({ name, description, status: "draft" }), onSuccess: async () => { setName(""); setDescription(""); setError(""); setDrawerOpen(false); await refresh(); }, onError: value => setError(value instanceof Error ? value.message : "Plan could not be created") });
   const toggle = useMutation({ mutationFn: ({ id, enabled }: { id: string; enabled: boolean }) => plansRepository.updatePlan(id, { comparison_enabled: enabled }),
     onMutate: ({ id, enabled }) => setComparisonOverrides((current) => ({ ...current, [id]: enabled })),

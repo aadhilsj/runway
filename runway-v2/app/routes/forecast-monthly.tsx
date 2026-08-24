@@ -153,7 +153,12 @@ function MonthlyForecastEditor({ workspace }: { workspace: Workspace }) {
     const requiredHorizon = forecastHorizonThroughMonth(endMonth, today);
     if (Number(workspace.profile.forecast_horizon_months ?? 12) < requiredHorizon) await forecastRepository.saveHorizon(requiredHorizon);
   }, onSuccess: async () => {
-    await Promise.all([queryClient.invalidateQueries({ queryKey: ["forecast-workspace"] }), queryClient.invalidateQueries({ queryKey: ["analytics-workspace"] })]);
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["forecast-workspace"] }),
+      queryClient.invalidateQueries({ queryKey: ["analytics-workspace"] }),
+      queryClient.invalidateQueries({ queryKey: ["plans-workspace"] }),
+      queryClient.invalidateQueries({ queryKey: ["payday-workspace"] }),
+    ]);
     navigate("/forecast");
   }});
 

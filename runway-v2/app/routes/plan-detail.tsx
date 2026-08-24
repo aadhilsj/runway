@@ -30,7 +30,7 @@ export default function PlanDetailRoute() {
   const planItems = workspace.data?.forecast.items.filter(row => row.scenario_id === planId && row.status === "expected") ?? [];
   const planRules = workspace.data?.forecast.rules.filter(row => row.scenario_id === planId && row.active) ?? [];
   const operatingAccount = workspace.data?.forecast.accounts.find(row => !row.is_system && row.archived_at == null && row.class === "asset");
-  const refresh = () => Promise.all([qc.invalidateQueries({ queryKey: ["plans-workspace"] }), qc.invalidateQueries({ queryKey: ["forecast-workspace"] }), qc.invalidateQueries({ queryKey: ["analytics-workspace"] })]);
+  const refresh = () => Promise.all([qc.invalidateQueries({ queryKey: ["plans-workspace"] }), qc.invalidateQueries({ queryKey: ["forecast-workspace"] }), qc.invalidateQueries({ queryKey: ["analytics-workspace"] }), qc.invalidateQueries({ queryKey: ["payday-workspace"] })]);
 
   function closeItem() { setEditing(null); setEditingForecast(null); setItemOpen(false); setKind("expense"); setLabel(""); setAmount(""); setDate(""); setFund(""); setError(""); }
   function editChange(row: ScenarioChangeRow) { setEditing(row); setEditingForecast(null); setKind(row.change_type.includes("income") ? "income" : "expense"); setLabel(row.label ?? ""); setAmount(row.amount_minor == null ? "" : (Number(row.amount_minor) / 100).toFixed(2)); setDate(row.effective_on ?? ""); setFund(row.fund_id ?? ""); setItemOpen(true); }

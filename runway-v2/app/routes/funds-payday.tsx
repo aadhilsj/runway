@@ -4,9 +4,11 @@ import { Page } from "~/components/page";
 import { forecastRepository } from "~/data/repositories/forecast-repository";
 import { fundsRepository } from "~/data/repositories/funds-repository";
 import { budgetsRepository } from "~/data/repositories/budgets-repository";
+import { plansRepository } from "~/data/repositories/plans-repository";
 import { calculateSafeToSpendTrace } from "~/domain/allocations";
 import { asMinorUnits, formatMinorUnits, parseDisplayAmountToMinor } from "~/domain/money";
-import { buildForecastScreenModel, calendarDateInTimezone } from "~/read-models/forecast";
+import { buildForecastScreenModel, buildForecastScreenModelFromResult, calendarDateInTimezone } from "~/read-models/forecast";
+import { buildSelectedPlansEvaluation } from "~/read-models/plans";
 
 function money(value: number, currency: string) { return formatMinorUnits(asMinorUnits(Math.trunc(value)), currency); }
 function inputAmount(value: number) { return (value / 100).toFixed(value % 100 ? 2 : 0); }
@@ -14,14 +16,28 @@ function inputAmount(value: number) { return (value / 100).toFixed(value % 100 ?
 export default function FundsPaydayRoute() {
   const qc = useQueryClient();
   const query = useQuery({ queryKey: ["payday-workspace"], queryFn: async () => {
-    const [funds, forecast] = await Promise.all([fundsRepository.getWorkspace(), forecastRepository.getWorkspace()]);
-    return { funds, forecast };
+    const [funds, forecast, plans] = await Promise.all([
+      fundsRepository.getWorkspace(),
+      forecastRepository.getWorkspace(),
+      plansRepository.getWorkspace().catch(() => null),
+    ]);
+    return { funds, forecast, plans };
   } });
   const budgets = useQuery({ queryKey: ["budget-workspace"], queryFn: () => budgetsRepository.getWorkspace() });
   const [amounts, setAmounts] = useState<Record<string, string>>({}); const [notice, setNotice] = useState("");
   const view = useMemo(() => {
     if (!query.data || !budgets.data) return null;
-    const { funds, forecast } = query.data, today = calendarDateInTimezone(forecast.profile.timezone), model = buildForecastScreenModel(forecast, 1, [], today, budgets.data);
+    const { funds, forecast, plans } = query.data;
+    const today = calendarDateInTimezone(forecast.profile.timezone);
+    const selectedPlanIds = (plans?.plans ?? [])
+      .filter((plan) => plan.comparison_enabled && (plan.status === "active" || plan.status === "draft"))
+      .map((plan) => plan.id);
+    const model = selectedPlanIds.length && plans
+      ? (() => {
+          const evaluation = buildSelectedPlansEvaluation({ ...plans, forecast, funds, budgets: budgets.data }, selectedPlanIds, today, 1);
+          return buildForecastScreenModelFromResult(forecast, evaluation.applied.forecast, evaluation.result);
+        })()
+      : buildForecastScreenModel(forecast, 1, [], today, budgets.data);
     const operatingIds = new Set(forecast.accounts.filter((row) => row.liquidity_class === "operating" && row.class === "asset").map((row) => row.id));
     const balanceMap = new Map(forecast.balances.map((row) => [row.account_id, Number(row.display_balance_minor ?? 0)]));
     const actualCash = forecast.accounts.filter((row) => operatingIds.has(row.id)).reduce((sum, row) => sum + (balanceMap.get(row.id) ?? 0), 0);

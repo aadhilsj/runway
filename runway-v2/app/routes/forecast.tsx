@@ -67,9 +67,15 @@ export default function ForecastRoute() {
     onSuccess: async (_data, { id }) => { await Promise.all([
       client.invalidateQueries({ queryKey: ["forecast-workspace"] }), client.invalidateQueries({ queryKey: ["plans-workspace"] }),
       client.invalidateQueries({ queryKey: ["analytics-workspace"] }),
+      client.invalidateQueries({ queryKey: ["payday-workspace"] }),
     ]); setPlanSelectionOverrides((current) => { const next = { ...current }; delete next[id]; return next; }); },
   });
-  const invalidate = () => client.invalidateQueries({ queryKey: ["forecast-workspace"] });
+  const invalidate = () => Promise.all([
+    client.invalidateQueries({ queryKey: ["forecast-workspace"] }),
+    client.invalidateQueries({ queryKey: ["analytics-workspace"] }),
+    client.invalidateQueries({ queryKey: ["plans-workspace"] }),
+    client.invalidateQueries({ queryKey: ["payday-workspace"] }),
+  ]);
   useEffect(() => {
     void forecastRepository.purgeExpiredRecoverableItems().then(() => client.invalidateQueries({ queryKey: ["forecast-workspace"] })).catch(() => undefined);
   }, [client]);
@@ -114,6 +120,7 @@ export default function ForecastRoute() {
     client.invalidateQueries({ queryKey: ["forecast-workspace"] }), client.invalidateQueries({ queryKey: ["analytics-workspace"] }),
     client.invalidateQueries({ queryKey: ["transactions"] }), client.invalidateQueries({ queryKey: ["accounts"] }),
     client.invalidateQueries({ queryKey: ["budget-workspace"] }),
+    client.invalidateQueries({ queryKey: ["plans-workspace"] }), client.invalidateQueries({ queryKey: ["payday-workspace"] }),
   ]); } });
   function openCreate() {
     const operatingId = workspace.data?.accounts.find((account) => !account.is_system && account.liquidity_class === "operating")?.id

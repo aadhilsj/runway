@@ -72,6 +72,7 @@ export default function TransactionsRoute() {
       queryClient.invalidateQueries({ queryKey: ["payday-workspace"] }),
       queryClient.invalidateQueries({ queryKey: ["funds-workspace"] }),
       queryClient.invalidateQueries({ queryKey: ["budget-workspace"] }),
+      queryClient.invalidateQueries({ queryKey: ["plans-workspace"] }),
     ]);
   };
   const post = useMutation({
@@ -193,7 +194,15 @@ export default function TransactionsRoute() {
         }
       }
     },
-    onSuccess: async () => { setLimitsOpen(false); await queryClient.invalidateQueries({ queryKey: ["budget-workspace"] }); },
+    onSuccess: async () => {
+      setLimitsOpen(false);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["budget-workspace"] }),
+        queryClient.invalidateQueries({ queryKey: ["analytics-workspace"] }),
+        queryClient.invalidateQueries({ queryKey: ["plans-workspace"] }),
+        queryClient.invalidateQueries({ queryKey: ["payday-workspace"] }),
+      ]);
+    },
   });
 
   return <Page eyebrow="What really happened" title="Activity" description="Log everyday spending and review money that has actually moved.">
