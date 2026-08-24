@@ -33,9 +33,10 @@ function transactionDisplay(transaction: Transaction, accounts: Account[], categ
   const visibleEntries = transaction.transaction_entries.filter((entry) => accountById.has(entry.account_id));
   const primary = visibleEntries.find((entry) => Number(entry.amount_minor) < 0) ?? visibleEntries[0];
   const amount = primary ? Math.abs(Number(primary.amount_minor)) : 0;
+  const signedAmount = primary ? Number(primary.amount_minor) : 0;
   const categoryId = transaction.transaction_entries.find((entry) => entry.category_id)?.category_id;
   const accountNames = visibleEntries.map((entry) => accountById.get(entry.account_id)?.name).filter(Boolean);
-  return { amount, category: categoryId ? categoryNames.get(categoryId) : null, accountNames };
+  return { amount, signedAmount, category: categoryId ? categoryNames.get(categoryId) : null, accountNames };
 }
 
 export default function TransactionsRoute() {
@@ -217,7 +218,13 @@ export default function TransactionsRoute() {
           const display = transactionDisplay(transaction, accountRows, categoryNames);
           const isReversal = Boolean(transaction.reverses_transaction_id);
           const reversed = (transactions.data ?? []).some((candidate) => candidate.reverses_transaction_id === transaction.id);
-          return <article className="transaction-row activity-transaction-row" key={transaction.id}><div className="transaction-icon" data-kind={transaction.kind}>{transaction.kind === "income" ? "+" : transaction.kind === "expense" ? "−" : "↔"}</div><div><strong>{transaction.description}</strong><p>{new Date(transaction.occurred_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} · {transaction.kind.replace("_", " ")}</p><small>{[display.category, ...display.accountNames].filter(Boolean).join(" · ")}</small></div><div className="transaction-amount"><strong>{formatMinorUnits(asMinorUnits(display.amount), "NOK")}</strong>{isReversal ? <span>Correction</span> : reversed ? <span>Reversed</span> : transaction.kind !== "opening_balance" ? <button type="button" aria-label={`Reverse transaction: ${transaction.description}`} disabled={reverse.isPending} onClick={() => setPendingReversal(transaction)}>Reverse</button> : <span>Opening state</span>}</div></article>;
+          const adjustmentDirection = transaction.kind === "adjustment" ? Math.sign(display.signedAmount) : 0;
+          const icon = transaction.kind === "income" || adjustmentDirection > 0 ? "+" : transaction.kind === "expense" || adjustmentDirection < 0 ? "−" : "↔";
+          const iconKind = adjustmentDirection > 0 ? "income" : adjustmentDirection < 0 ? "expense" : transaction.kind;
+          const displayedAmount = transaction.kind === "adjustment"
+            ? `${display.signedAmount > 0 ? "+" : ""}${formatMinorUnits(asMinorUnits(display.signedAmount), "NOK")}`
+            : formatMinorUnits(asMinorUnits(display.amount), "NOK");
+          return <article className="transaction-row activity-transaction-row" key={transaction.id}><div className="transaction-icon" data-kind={iconKind}>{icon}</div><div><strong>{transaction.description}</strong><p>{new Date(transaction.occurred_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} · {transaction.kind.replace("_", " ")}</p><small>{[display.category, ...display.accountNames].filter(Boolean).join(" · ")}</small></div><div className="transaction-amount"><strong>{displayedAmount}</strong>{isReversal ? <span>Correction</span> : reversed ? <span>Reversed</span> : transaction.kind !== "opening_balance" ? <button type="button" aria-label={`Reverse transaction: ${transaction.description}`} disabled={reverse.isPending} onClick={() => setPendingReversal(transaction)}>Reverse</button> : <span>Opening state</span>}</div></article>;
         })}{!transactions.isLoading && filtered.length === 0 ? <p className="muted">No matching posted transactions.</p> : null}</div>
       </section>
     <Drawer open={Boolean(pendingReversal)} onClose={() => setPendingReversal(null)} eyebrow="Confirm correction" title="Reverse transaction?">

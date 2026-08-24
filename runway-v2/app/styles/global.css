@@ -114,6 +114,8 @@ button:disabled { opacity: .48; cursor: not-allowed; }
 .reconcile-result { margin: var(--space-4) 0; border-left: 3px solid var(--color-accent); padding-left: var(--space-4); display: grid; gap: var(--space-2); }
 .check-label { display: flex; align-items: center; gap: var(--space-2); margin: var(--space-4) 0; font-size: .84rem; font-weight: 720; }
 .check-label input { width: auto; }
+.money-form .check-label { display:flex; grid-template-columns:none; align-items:center; justify-content:flex-start; gap:var(--space-2); }
+.money-form .check-label input { flex:0 0 auto; width:auto; margin:0; }
 .money-form .limits-repeat-toggle { display:flex; align-items:center; justify-content:flex-start; gap:.65rem; width:max-content; max-width:100%; margin:0; cursor:pointer; }
 .money-form .limits-repeat-toggle input[type="checkbox"] { flex:0 0 auto; width:1rem; min-height:1rem; margin:0; padding:0; }
 .money-form .limits-repeat-toggle span { line-height:1.35; }

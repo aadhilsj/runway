@@ -174,6 +174,10 @@ test("signed-in Phase 4 money flow uses only invented fixture data", async ({ pa
   await page.getByLabel("Create a confirmed adjustment").check();
   await page.getByRole("button", { name: "Create adjustment" }).click();
   await expect(page.getByRole("button", { name: /Operating Cash/ })).toContainText("26 300 kr");
+  await page.goto("/money/transactions");
+  const reconciliation = page.locator(".transaction-row").filter({ hasText: "Balance reconciliation" });
+  await expect(reconciliation.locator(".transaction-icon")).toHaveText("−");
+  await expect(reconciliation.locator(".transaction-amount strong")).toContainText("−");
 });
 
 test("creates recurring plans and projects horizon and scenario changes", async ({ page }) => {
