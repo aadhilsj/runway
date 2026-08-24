@@ -14,15 +14,13 @@ import { MarkIcon, SyncIcon } from "./icons";
 
 const money = [
   ["Overview", "/overview"],
-  ["Activity", "/money/transactions"],
   ["Forecast", "/forecast"],
   ["Funds", "/funds"],
+  ["Activity", "/money/transactions"],
 ] as const;
-const planning = [
+const planningAndInvestments = [
   ["Budgets", "/money/budgets"],
   ["Plans", "/plans"],
-] as const;
-const investing = [
   ["Investments", "/investments"],
 ] as const;
 const records = [
@@ -91,8 +89,7 @@ export function AppShell() {
         </NavLink>
         <nav aria-label="Primary navigation">
           <NavigationGroup label="Money" items={money} />
-          <NavigationGroup label="Planning" items={planning} />
-          <NavigationGroup label="Investing" items={investing} />
+          <NavigationGroup label="Planning & investments" items={planningAndInvestments} />
           <NavigationGroup label="Records & insights" items={records} />
         </nav>
         <NavLink className="settings-link" to="/settings" prefetch="render">
@@ -139,8 +136,7 @@ function titleForPath(path: string): string {
   if (path.startsWith("/funds/")) return "Fund detail";
   const match = [
     ...money,
-    ...planning,
-    ...investing,
+    ...planningAndInvestments,
     ...records,
     ["Settings", "/settings"] as const,
   ].find(([, href]) => path === href);
