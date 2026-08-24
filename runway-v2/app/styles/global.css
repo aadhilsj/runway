@@ -125,20 +125,36 @@ button:disabled { opacity: .48; cursor: not-allowed; }
 .transaction-amount { text-align: right; display: grid; justify-items: end; gap: var(--space-1); }
 .transaction-amount span { color: var(--color-muted); font-size: .72rem; }
 .quick-spend-panel { display:grid; gap:var(--space-4); }
+.activity-spending-panel { padding:var(--space-4); gap:var(--space-3); }
 .quick-spend-heading { align-items:center; margin-bottom:0; }
 .quick-spend-heading > span { color:var(--color-muted); font-size:.74rem; }
+.compact-button { padding:.55rem .72rem; font-size:.76rem; }
 .quick-spend-trackers { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--space-3); }
-.quick-spend-trackers article { display:grid; gap:.18rem; padding:var(--space-3) var(--space-4); border:1px solid var(--color-line); border-radius:var(--radius-sm); background:var(--color-surface-strong); color:var(--color-ink); text-align:left; }
+.quick-spend-trackers article { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:.15rem var(--space-3); align-items:baseline; padding:.7rem .85rem; border:1px solid var(--color-line); border-radius:var(--radius-sm); background:var(--color-surface-strong); color:var(--color-ink); text-align:left; }
 .quick-spend-trackers span { color:var(--color-muted); font-size:.68rem; font-weight:780; letter-spacing:.08em; text-transform:uppercase; }
-.quick-spend-trackers strong { font-family:var(--font-display); font-size:1.22rem; font-weight:610; }
-.quick-spend-trackers small { color:var(--color-muted); font-size:.72rem; }
+.quick-spend-trackers strong { font-family:var(--font-display); font-size:1.05rem; font-weight:610; text-align:right; }
+.quick-spend-trackers small { grid-column:1 / -1; color:var(--color-muted); font-size:.7rem; }
 .quick-spend-form { display:grid; grid-template-columns:minmax(7rem,.55fr) minmax(13rem,1fr) minmax(9.5rem,.65fr) minmax(12rem,1fr) auto; gap:var(--space-3); align-items:end; }
-.quick-spend-form label,.quick-spend-form fieldset { display:grid; gap:var(--space-2); min-width:0; margin:0; padding:0; border:0; color:var(--color-muted); font-size:.72rem; font-weight:740; }
+.quick-spend-form label,.quick-spend-form fieldset { display:grid; gap:.42rem; min-width:0; margin:0; padding:0; border:0; color:var(--color-muted); font-size:.72rem; font-weight:740; }
+.quick-spend-form legend,.quick-spend-form .field-label { min-height:1rem; line-height:1rem; }
+.quick-spend-form .field-label { display:block; }
 .quick-spend-form input { width:100%; min-height:2.7rem; border:1px solid var(--color-line); border-radius:var(--radius-sm); background:var(--color-surface-strong); color:var(--color-ink); padding:.65rem .72rem; }
 .quick-spend-form fieldset > div { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--space-2); }
 .quick-spend-form fieldset button { min-height:2.7rem; border:1px solid var(--color-line); border-radius:var(--radius-sm); background:transparent; color:var(--color-muted); cursor:pointer; font-size:.76rem; font-weight:700; }
 .quick-spend-form fieldset button.active { background:var(--color-ink); border-color:var(--color-ink); color:white; }
 .quick-spend-form > .primary-button { min-height:2.7rem; white-space:nowrap; }
+.activity-history-panel { padding:var(--space-4); }
+.activity-history-panel .panel-heading { align-items:center; margin-bottom:var(--space-3); }
+.activity-history-panel .search-field { margin-bottom:var(--space-3); gap:.35rem; font-size:.72rem; }
+.activity-history-panel .search-field input { padding:.62rem .72rem; }
+.activity-history-panel .transaction-list { gap:var(--space-2); }
+.activity-transaction-row { grid-template-columns:1.8rem minmax(0,1fr) auto; padding:.68rem .8rem; gap:.7rem; }
+.activity-transaction-row .transaction-icon { width:1.7rem; height:1.7rem; font-size:.76rem; }
+.activity-transaction-row p { margin:.12rem 0; font-size:.72rem; }
+.activity-transaction-row small { font-size:.7rem; }
+.activity-transaction-row .transaction-amount { gap:.12rem; }
+.activity-transaction-row .transaction-amount > strong { font-size:.9rem; }
+.activity-transaction-row .transaction-amount button { font-size:.7rem; font-weight:650; }
 .forecast-totals { display: flex; gap: var(--space-5); color: var(--color-muted); font-size: .76rem; }
 .forecast-totals span { display: grid; gap: var(--space-1); }
 .forecast-totals strong { color: var(--color-ink); font-size: .95rem; }

@@ -19,6 +19,14 @@ function newKey(prefix: string): string { return `${prefix}:${globalThis.crypto?
 function defaultLocalDateTime(): string { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); }
 function defaultLocalDate(): string { return defaultLocalDateTime().slice(0, 10); }
 function monthStart(date: Date): string { return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-01`; }
+function monthLabel(value: string): string { return new Date(`${value.slice(0, 7)}-01T12:00:00`).toLocaleDateString("en-GB", { month: "long", year: "numeric" }); }
+function monthStartsBetween(first: string, last: string): string[] {
+  const cursor = new Date(`${first.slice(0, 7)}-01T12:00:00`);
+  const end = new Date(`${last.slice(0, 7)}-01T12:00:00`);
+  const months: string[] = [];
+  while (cursor <= end && months.length < 24) { months.push(monthStart(cursor)); cursor.setMonth(cursor.getMonth() + 1); }
+  return months;
+}
 
 function transactionDisplay(transaction: Transaction, accounts: Account[], categoryNames: Map<string, string>) {
   const accountById = new Map(accounts.map((account) => [account.id, account]));
@@ -41,6 +49,11 @@ export default function TransactionsRoute() {
   const [quickCategoryId, setQuickCategoryId] = useState("");
   const [quickDate, setQuickDate] = useState(defaultLocalDate);
   const [quickDescription, setQuickDescription] = useState("");
+  const [limitsOpen, setLimitsOpen] = useState(false);
+  const [groceriesLimit, setGroceriesLimit] = useState("");
+  const [miscellaneousLimit, setMiscellaneousLimit] = useState("");
+  const [repeatLimits, setRepeatLimits] = useState(false);
+  const [repeatThrough, setRepeatThrough] = useState(defaultLocalDate().slice(0, 7));
   const transactions = useQuery({ queryKey: ["transactions"], queryFn: () => transactionsRepository.listTransactions({ limit: 250 }) });
   const accounts = useQuery({ queryKey: ["accounts", "balances"], queryFn: () => accountsRepository.listAccountsWithBalances() });
   const categories = useQuery({ queryKey: ["categories"], queryFn: () => categoriesRepository.listCategories() });
@@ -131,30 +144,71 @@ export default function TransactionsRoute() {
     return { category, spentMinor, budgetedMinor, remainingMinor: budgetedMinor === null ? null : budgetedMinor - totalSpentMinor, groupName: group?.name };
   });
   const trackerCurrency = budgetWorkspace.data?.currency ?? "NOK";
+  const currentMonth = currentMonthStart.slice(0, 7);
+  const maxRepeatMonth = (() => { const date = new Date(`${currentMonthStart}T12:00:00`); date.setMonth(date.getMonth() + 23); return monthStart(date).slice(0, 7); })();
+  const openLimits = () => {
+    const groceries = quickTrackers.find((tracker) => tracker.category.name.toLowerCase() === "groceries");
+    const miscellaneous = quickTrackers.find((tracker) => ["miscellaneous", "misc"].includes(tracker.category.name.toLowerCase()));
+    setGroceriesLimit(groceries?.budgetedMinor == null || groceries.groupName ? "" : String(groceries.budgetedMinor / 100));
+    setMiscellaneousLimit(miscellaneous?.budgetedMinor == null || miscellaneous.groupName ? "" : String(miscellaneous.budgetedMinor / 100));
+    setRepeatLimits(false);
+    setRepeatThrough(currentMonth);
+    setLimitsOpen(true);
+  };
+  const saveLimits = useMutation({
+    mutationFn: async () => {
+      if (!groceriesLimit.trim() || !miscellaneousLimit.trim()) throw new Error("Enter both monthly limits.");
+      const groceriesMinor = Number(parseDisplayAmountToMinor(groceriesLimit));
+      const miscellaneousMinor = Number(parseDisplayAmountToMinor(miscellaneousLimit));
+      if (groceriesMinor < 0 || miscellaneousMinor < 0) throw new Error("Monthly limits cannot be negative.");
+      const groceries = quickCategories.find((category) => category.name.toLowerCase() === "groceries");
+      const miscellaneous = quickCategories.find((category) => ["miscellaneous", "misc"].includes(category.name.toLowerCase()));
+      if (!groceries || !miscellaneous) throw new Error("Groceries and Miscellaneous categories are not available.");
+      const endMonth = repeatLimits ? repeatThrough : currentMonth;
+      if (endMonth < currentMonth || endMonth > maxRepeatMonth) throw new Error("Choose a month within the next two years.");
+      const months = monthStartsBetween(currentMonthStart, `${endMonth}-01`);
+      const workspace = budgetWorkspace.data;
+      if (!workspace) throw new Error("Monthly limits are still loading.");
+      const targetCategoryIds = [groceries.id, miscellaneous.id];
+      const targetGroupIds = workspace.groupCategories.filter((row) => targetCategoryIds.includes(row.category_id)).map((row) => row.group_id);
+      const conflictingPeriod = workspace.periods.find((period) => months.includes(period.month_start) && workspace.lines.some((line) => line.budget_period_id === period.id && line.group_id && targetGroupIds.includes(line.group_id)));
+      if (conflictingPeriod) throw new Error(`${monthLabel(conflictingPeriod.month_start)} already has one shared Groceries and Miscellaneous limit. Split that month on Budgets before replacing it here.`);
+      const periods = [...workspace.periods];
+      const lines = [...workspace.lines];
+      for (const targetMonth of months) {
+        let period = periods.find((row) => row.month_start === targetMonth);
+        if (!period) { period = await budgetsRepository.createPeriod(targetMonth, trackerCurrency); periods.push(period); }
+        for (const [categoryId, budgetedMinor] of [[groceries.id, groceriesMinor], [miscellaneous.id, miscellaneousMinor]] as const) {
+          const line = lines.find((row) => row.budget_period_id === period.id && row.category_id === categoryId);
+          if (line) { await budgetsRepository.updateLine(line.id, budgetedMinor); line.budgeted_minor = budgetedMinor; }
+          else { lines.push(await budgetsRepository.createLine(period.id, categoryId, budgetedMinor)); }
+        }
+      }
+    },
+    onSuccess: async () => { setLimitsOpen(false); await queryClient.invalidateQueries({ queryKey: ["budget-workspace"] }); },
+  });
 
-  return <Page eyebrow="What really happened" title="Activity" description="Record money after it moves. Income, spending, and transfers here update your real account balances; Forecast items do not.">
-    <div className="actual-planned-strip"><div><strong>Actual</strong><span>Money that really moved and is backed by the ledger.</span></div><div><strong>Planned</strong><span>Expected future movement shown separately in Forecast.</span></div></div>
-    <section className="money-panel quick-spend-panel" aria-labelledby="quick-spend-heading">
-      <div className="panel-heading quick-spend-heading"><div><p className="section-kicker">Everyday spending</p><h2 id="quick-spend-heading">Log spending</h2></div><span>Today · {operatingAccount?.name ?? "Operating Cash"}</span></div>
+  return <Page eyebrow="What really happened" title="Activity" description="Log everyday spending and review money that has actually moved.">
+    <section className="money-panel quick-spend-panel activity-spending-panel" aria-labelledby="quick-spend-heading">
+      <div className="panel-heading quick-spend-heading"><div><p className="section-kicker">Everyday spending</p><h2 id="quick-spend-heading">{monthLabel(currentMonthStart)}</h2></div><button className="secondary-button compact-button" type="button" onClick={openLimits}>Set monthly limits</button></div>
       <div className="quick-spend-trackers" aria-label="This month's variable spending">
         {quickTrackers.map(({ category, spentMinor, budgetedMinor, remainingMinor, groupName }) => <article key={category.id}>
           <span>{category.name}</span><strong>{formatMinorUnits(asMinorUnits(spentMinor), trackerCurrency)} spent</strong>
-          <small>{budgetedMinor === null ? "No monthly limit set" : `${formatMinorUnits(asMinorUnits(remainingMinor ?? 0), trackerCurrency)} left${groupName ? ` in shared ${groupName}` : ""}`}</small>
+          <small>{budgetedMinor === null ? "No monthly limit set" : `${formatMinorUnits(asMinorUnits(remainingMinor ?? 0), trackerCurrency)} left of ${formatMinorUnits(asMinorUnits(budgetedMinor), trackerCurrency)}${groupName ? ` · shared ${groupName}` : ""}`}</small>
         </article>)}
       </div>
       <form className="quick-spend-form" onSubmit={onQuickSubmit}>
-        <label>Amount<input aria-label="Quick spend amount" value={quickAmount} onChange={(event) => setQuickAmount(event.target.value)} inputMode="decimal" placeholder="0.00" required/></label>
+        <label><span className="field-label">Amount</span><input aria-label="Quick spend amount" value={quickAmount} onChange={(event) => setQuickAmount(event.target.value)} inputMode="decimal" placeholder="0.00" required/></label>
         <fieldset><legend>Category</legend><div>{quickCategories.map((category) => <button type="button" key={category.id} className={selectedQuickCategory?.id === category.id ? "active" : ""} aria-pressed={selectedQuickCategory?.id === category.id} onClick={() => setQuickCategoryId(category.id)}>{category.name}</button>)}</div></fieldset>
-        <label>Date<input aria-label="Quick spend date" type="date" value={quickDate} onChange={(event) => setQuickDate(event.target.value)} required/></label>
-        <label>Description <span className="optional">optional</span><input aria-label="Quick spend description" value={quickDescription} onChange={(event) => setQuickDescription(event.target.value)} maxLength={240} placeholder="What was it?"/></label>
-        <button className="primary-button" type="submit" disabled={quickSpend.isPending || !selectedQuickCategory || !operatingAccount}>{quickSpend.isPending ? "Saving…" : "Save expense"}</button>
+        <label><span className="field-label">Date</span><input aria-label="Quick spend date" type="date" value={quickDate} onChange={(event) => setQuickDate(event.target.value)} required/></label>
+        <label><span className="field-label">Description <span className="optional">optional</span></span><input aria-label="Quick spend description" value={quickDescription} onChange={(event) => setQuickDescription(event.target.value)} maxLength={240} placeholder="What was it?"/></label>
+        <button className="primary-button" type="submit" disabled={quickSpend.isPending || !selectedQuickCategory || !operatingAccount}>{quickSpend.isPending ? "Logging…" : "Log expense"}</button>
       </form>
       {quickSpend.error ? <p className="field-error" role="alert">{message(quickSpend.error)}</p> : null}
       {budgetWorkspace.error ? <p className="muted">Spending can still be logged, but this month’s limits could not be loaded.</p> : null}
     </section>
-    <div className="panel-heading page-actions"><p className="muted">This is your record of money that really moved. If something is wrong, correct it without losing the original entry.</p><button className="primary-button" type="button" aria-label="Add transaction" onClick={() => setCreateOpen(true)}>Record activity</button></div>
-    <section className="money-panel" aria-labelledby="history-heading">
-        <div className="panel-heading"><div><p className="section-kicker">Your history</p><h2 id="history-heading">Money activity</h2></div></div>
+    <section className="money-panel activity-history-panel" aria-labelledby="history-heading">
+        <div className="panel-heading"><div><p className="section-kicker">Your history</p><h2 id="history-heading">History</h2></div><button className="secondary-button compact-button" type="button" aria-label="Add transaction" onClick={() => setCreateOpen(true)}>Record other activity</button></div>
         <label className="search-field">Search history<input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Description or type"/></label>
         {transactions.isLoading ? <p className="muted">Loading transactions…</p> : null}
         {transactions.error ? <p className="field-error" role="alert">{message(transactions.error)}</p> : null}
@@ -162,9 +216,21 @@ export default function TransactionsRoute() {
           const display = transactionDisplay(transaction, accountRows, categoryNames);
           const isReversal = Boolean(transaction.reverses_transaction_id);
           const reversed = (transactions.data ?? []).some((candidate) => candidate.reverses_transaction_id === transaction.id);
-          return <article className="transaction-row" key={transaction.id}><div className="transaction-icon" data-kind={transaction.kind}>{transaction.kind === "income" ? "+" : transaction.kind === "expense" ? "−" : "↔"}</div><div><strong>{transaction.description}</strong><p>{new Date(transaction.occurred_at).toLocaleString("en-GB")} · {transaction.kind.replace("_", " ")}</p><small>{[display.category, ...display.accountNames].filter(Boolean).join(" · ")}</small></div><div className="transaction-amount"><strong>{formatMinorUnits(asMinorUnits(display.amount), "NOK")}</strong>{isReversal ? <span>Correction</span> : reversed ? <span>Reversed</span> : transaction.kind !== "opening_balance" ? <button type="button" disabled={reverse.isPending} onClick={() => { if (confirm("Reverse this transaction? Runway will keep the original and create a correction.")) reverse.mutate(transaction.id); }}>Reverse transaction</button> : <span>Opening state</span>}</div></article>;
+          return <article className="transaction-row activity-transaction-row" key={transaction.id}><div className="transaction-icon" data-kind={transaction.kind}>{transaction.kind === "income" ? "+" : transaction.kind === "expense" ? "−" : "↔"}</div><div><strong>{transaction.description}</strong><p>{new Date(transaction.occurred_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} · {transaction.kind.replace("_", " ")}</p><small>{[display.category, ...display.accountNames].filter(Boolean).join(" · ")}</small></div><div className="transaction-amount"><strong>{formatMinorUnits(asMinorUnits(display.amount), "NOK")}</strong>{isReversal ? <span>Correction</span> : reversed ? <span>Reversed</span> : transaction.kind !== "opening_balance" ? <button type="button" disabled={reverse.isPending} onClick={() => { if (confirm("Reverse this transaction? Runway will keep the original and create a correction.")) reverse.mutate(transaction.id); }}>Reverse</button> : <span>Opening state</span>}</div></article>;
         })}{!transactions.isLoading && filtered.length === 0 ? <p className="muted">No matching posted transactions.</p> : null}</div>
       </section>
+    <Drawer open={limitsOpen} onClose={() => setLimitsOpen(false)} eyebrow="Everyday spending" title={`Set ${monthLabel(currentMonthStart)} limits`}>
+      <form className="money-form" onSubmit={(event) => { event.preventDefault(); saveLimits.mutate(); }}>
+        <p className="form-help">Set the most you want to spend. Expenses logged here will automatically reduce what is left.</p>
+        <label>Groceries limit<input aria-label="Groceries limit" value={groceriesLimit} onChange={(event) => setGroceriesLimit(event.target.value)} inputMode="decimal" placeholder="1000" required/></label>
+        <label>Miscellaneous limit<input aria-label="Miscellaneous limit" value={miscellaneousLimit} onChange={(event) => setMiscellaneousLimit(event.target.value)} inputMode="decimal" placeholder="1000" required/></label>
+        <label className="check-label"><input type="checkbox" checked={repeatLimits} onChange={(event) => setRepeatLimits(event.target.checked)}/>Use these limits for future months too</label>
+        {repeatLimits ? <label>Repeat through<input aria-label="Repeat through" type="month" min={currentMonth} max={maxRepeatMonth} value={repeatThrough} onChange={(event) => setRepeatThrough(event.target.value)} required/></label> : null}
+        <p className="form-help">Existing spending is never erased. Future months remain individually editable later.</p>
+        {saveLimits.error ? <p className="field-error" role="alert">{message(saveLimits.error)}</p> : null}
+        <button className="primary-button" type="submit" disabled={saveLimits.isPending}>{saveLimits.isPending ? "Saving…" : repeatLimits ? "Save limits through selected month" : "Save monthly limits"}</button>
+      </form>
+    </Drawer>
     <Drawer open={createOpen} onClose={() => setCreateOpen(false)} eyebrow="Update your real balance" title="Record activity">
         <div className="segmented-control" aria-label="Transaction type">{(["income", "expense", "transfer", "debt_payment"] as const).map((value) => <button type="button" className={kind === value ? "active" : ""} aria-pressed={kind === value} onClick={() => setKind(value)} key={value}>{value === "debt_payment" ? "Debt payment" : value[0]!.toUpperCase() + value.slice(1)}</button>)}</div>
         <form className="money-form" onSubmit={onSubmit}>

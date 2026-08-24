@@ -8,6 +8,7 @@ import ForecastRoute from "~/routes/forecast";
 
 const mocks = vi.hoisted(() => ({
   createAccount: vi.fn(), reconcileAccount: vi.fn(), postExpense: vi.fn(), reverseTransaction: vi.fn(), settleItem: vi.fn(),
+  createBudgetPeriod: vi.fn(), createBudgetLine: vi.fn(), updateBudgetLine: vi.fn(),
   operatingAccount: {
     id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", user_id: "owner", name: "Operating Cash", class: "asset" as const,
     subtype: "checking" as const, currency: "NOK", liquidity_class: "operating" as const, valuation_mode: "ledger" as const,
@@ -42,7 +43,7 @@ vi.mock("~/data/repositories/budgets-repository", () => ({ budgetsRepository: {
       { id: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee", name: "Miscellaneous", kind: "expense" },
     ], currency: "NOK",
   }),
-  createPeriod: vi.fn(), createLine: vi.fn(), updateLine: vi.fn(),
+  createPeriod: mocks.createBudgetPeriod, createLine: mocks.createBudgetLine, updateLine: mocks.updateBudgetLine,
 } }));
 vi.mock("~/data/repositories/transactions-repository", () => ({ transactionsRepository: {
   listTransactions: vi.fn().mockResolvedValue([]), postIncome: vi.fn(), postExpense: mocks.postExpense,
@@ -103,16 +104,33 @@ describe("Phase 4 actual-money workflows", () => {
   it("logs variable spending directly from Activity", async () => {
     mocks.postExpense.mockResolvedValue("transaction-quick");
     renderWithQuery(<TransactionsRoute />);
-    await screen.findByRole("heading", { name: "Log spending" });
+    await screen.findByRole("button", { name: "Set monthly limits" });
     fireEvent.change(screen.getByLabelText("Quick spend amount"), { target: { value: "300" } });
     fireEvent.change(screen.getByLabelText("Quick spend description"), { target: { value: "Invented grocery shop" } });
-    fireEvent.click(screen.getByRole("button", { name: "Save expense" }));
+    fireEvent.click(screen.getByRole("button", { name: "Log expense" }));
     await waitFor(() => expect(mocks.postExpense).toHaveBeenCalledWith(expect.objectContaining({
       accountId: mocks.operatingAccount.id,
       amountMinor: 30000,
       categoryId: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
       description: "Invented grocery shop",
     })));
+  });
+
+  it("sets the current month's everyday spending limits from Activity", async () => {
+    const currentMonth = new Date();
+    const monthStart = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, "0")}-01`;
+    mocks.createBudgetPeriod.mockResolvedValue({ id: "period-a", month_start: monthStart, currency: "NOK", status: "planned", notes: null });
+    mocks.createBudgetLine
+      .mockResolvedValueOnce({ id: "line-groceries", budget_period_id: "period-a", category_id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd", group_id: null, budgeted_minor: 100000, rollover: false, notes: null })
+      .mockResolvedValueOnce({ id: "line-misc", budget_period_id: "period-a", category_id: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee", group_id: null, budgeted_minor: 100000, rollover: false, notes: null });
+    renderWithQuery(<TransactionsRoute />);
+    fireEvent.click(await screen.findByRole("button", { name: "Set monthly limits" }));
+    fireEvent.change(screen.getByLabelText("Groceries limit"), { target: { value: "1000" } });
+    fireEvent.change(screen.getByLabelText("Miscellaneous limit"), { target: { value: "1000" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save monthly limits" }));
+    await waitFor(() => expect(mocks.createBudgetPeriod).toHaveBeenCalledWith(monthStart, "NOK"));
+    expect(mocks.createBudgetLine).toHaveBeenCalledWith("period-a", "dddddddd-dddd-4ddd-8ddd-dddddddddddd", 100000);
+    expect(mocks.createBudgetLine).toHaveBeenCalledWith("period-a", "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee", 100000);
   });
 
   it("supports direct links to the expense form", async () => {
