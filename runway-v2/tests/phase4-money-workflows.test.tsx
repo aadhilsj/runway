@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import AccountsRoute from "~/routes/money-accounts";
@@ -28,7 +28,21 @@ vi.mock("~/data/repositories/snapshots-repository", () => ({ snapshotsRepository
   listBalanceSnapshots: vi.fn().mockResolvedValue([]), createBalanceSnapshot: vi.fn(), reconcileAccount: mocks.reconcileAccount,
 } }));
 vi.mock("~/data/repositories/categories-repository", () => ({ categoriesRepository: {
-  listCategories: vi.fn().mockResolvedValue([{ id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", name: "Housing", kind: "expense" }]),
+  listCategories: vi.fn().mockResolvedValue([
+    { id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", name: "Housing", kind: "expense" },
+    { id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd", name: "Groceries", kind: "expense" },
+    { id: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee", name: "Miscellaneous", kind: "expense" },
+  ]),
+} }));
+vi.mock("~/data/repositories/budgets-repository", () => ({ budgetsRepository: {
+  getWorkspace: vi.fn().mockResolvedValue({
+    periods: [], lines: [], groups: [], groupCategories: [], actuals: [], commitments: [],
+    categories: [
+      { id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd", name: "Groceries", kind: "expense" },
+      { id: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee", name: "Miscellaneous", kind: "expense" },
+    ], currency: "NOK",
+  }),
+  createPeriod: vi.fn(), createLine: vi.fn(), updateLine: vi.fn(),
 } }));
 vi.mock("~/data/repositories/transactions-repository", () => ({ transactionsRepository: {
   listTransactions: vi.fn().mockResolvedValue([]), postIncome: vi.fn(), postExpense: mocks.postExpense,
@@ -79,13 +93,29 @@ describe("Phase 4 actual-money workflows", () => {
     renderWithQuery(<TransactionsRoute />);
     fireEvent.click(await screen.findByRole("button", { name: "Add transaction" }));
     await screen.findByRole("option", { name: "Operating Cash" });
-    fireEvent.change(screen.getByLabelText("Amount"), { target: { value: "125.50" } });
-    fireEvent.change(screen.getByLabelText("Description"), { target: { value: "Invented purchase" } });
+    const dialog = screen.getByRole("dialog");
+    fireEvent.change(within(dialog).getByLabelText("Amount"), { target: { value: "125.50" } });
+    fireEvent.change(within(dialog).getByLabelText("Description"), { target: { value: "Invented purchase" } });
     fireEvent.click(screen.getByRole("button", { name: "Post expense" }));
     await waitFor(() => expect(mocks.postExpense).toHaveBeenCalledWith(expect.objectContaining({ amountMinor: 12550, description: "Invented purchase" })));
   });
 
-  it("opens the expense form from the budget spending shortcut", async () => {
+  it("logs variable spending directly from Activity", async () => {
+    mocks.postExpense.mockResolvedValue("transaction-quick");
+    renderWithQuery(<TransactionsRoute />);
+    await screen.findByRole("heading", { name: "Log spending" });
+    fireEvent.change(screen.getByLabelText("Quick spend amount"), { target: { value: "300" } });
+    fireEvent.change(screen.getByLabelText("Quick spend description"), { target: { value: "Invented grocery shop" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save expense" }));
+    await waitFor(() => expect(mocks.postExpense).toHaveBeenCalledWith(expect.objectContaining({
+      accountId: mocks.operatingAccount.id,
+      amountMinor: 30000,
+      categoryId: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+      description: "Invented grocery shop",
+    })));
+  });
+
+  it("supports direct links to the expense form", async () => {
     renderWithQuery(<TransactionsRoute />, "/money/transactions?new=expense");
     expect(await screen.findByRole("button", { name: "Post expense" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Expense" })).toHaveAttribute("aria-pressed", "true");
