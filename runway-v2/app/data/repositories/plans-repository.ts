@@ -1,5 +1,6 @@
 import { forecastRepository } from "./forecast-repository";
 import { fundsRepository } from "./funds-repository";
+import { budgetsRepository } from "./budgets-repository";
 import { requireAuthenticatedUserId, requireSupabase } from "./shared";
 import type { Json } from "../database.types";
 
@@ -9,10 +10,10 @@ export type ScenarioChangeInsert=Omit<ScenarioChangeRow,"id"|"user_id"|"created_
 
 function client() { return requireSupabase(); }
 export const plansRepository={
- async getWorkspace(){ const db=client(),userId=await requireAuthenticatedUserId(db);const [forecast,funds,plans,changes,applications]=await Promise.all([
-   forecastRepository.getWorkspace(),fundsRepository.getWorkspace(),db.from("scenarios").select("*").eq("user_id",userId).order("created_at"),
+ async getWorkspace(){ const db=client(),userId=await requireAuthenticatedUserId(db);const [forecast,funds,budgets,plans,changes,applications]=await Promise.all([
+   forecastRepository.getWorkspace(),fundsRepository.getWorkspace(),budgetsRepository.getWorkspace(),db.from("scenarios").select("*").eq("user_id",userId).order("created_at"),
    db.from("scenario_changes").select("*").eq("user_id",userId).order("sort_order"),db.from("scenario_applications").select("*").eq("user_id",userId),
- ]);for(const result of [plans,changes,applications])if(result.error)throw result.error;return{forecast,funds,plans:plans.data as PlanRow[],changes:changes.data as ScenarioChangeRow[],applications:applications.data as Array<{id:string;scenario_id:string;summary:Record<string,unknown>;applied_at:string}>};},
+ ]);for(const result of [plans,changes,applications])if(result.error)throw result.error;return{forecast,funds,budgets,plans:plans.data as PlanRow[],changes:changes.data as ScenarioChangeRow[],applications:applications.data as Array<{id:string;scenario_id:string;summary:Record<string,unknown>;applied_at:string}>};},
  async createPlan(input:{name:string;description?:string|null;status?:"draft"|"active"}){const db=client(),userId=await requireAuthenticatedUserId(db);const{data,error}=await db.from("scenarios").insert({user_id:userId,name:input.name.trim(),description:input.description?.trim()||null,status:input.status??"draft"}).select("*").single();if(error)throw error;return data as PlanRow;},
  async updatePlan(id:string,input:Partial<Pick<PlanRow,"name"|"description"|"status"|"start_on"|"end_on"|"comparison_enabled"|"archived_at">>){const db=client(),userId=await requireAuthenticatedUserId(db);const{error}=await db.from("scenarios").update(input).eq("id",id).eq("user_id",userId);if(error)throw error;},
  async deletePlan(id:string){const{error}=await client().rpc("delete_plan",{p_scenario_id:id});if(error)throw error;},

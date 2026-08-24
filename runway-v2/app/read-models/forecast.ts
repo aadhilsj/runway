@@ -30,6 +30,9 @@ function remainingBudgetItems(
   const actuals = new Map(
     budgets.actuals.map((actual) => [`${actual.category_id}:${actual.month_start}`, Number(actual.actual_minor ?? 0)]),
   );
+  const commitments = new Map(
+    budgets.commitments.map((commitment) => [`${commitment.category_id}:${commitment.month_start}`, Number(commitment.committed_minor ?? 0)]),
+  );
 
   return budgets.periods.flatMap((period) => {
     if (period.status === "closed") return [];
@@ -41,7 +44,8 @@ function remainingBudgetItems(
       const category = trackedCategories.get(line.category_id);
       if (!category) return [];
       const spentMinor = actuals.get(`${category.id}:${period.month_start}`) ?? 0;
-      const remainingMinor = Math.max(0, Number(line.budgeted_minor ?? 0) - spentMinor);
+      const committedMinor = commitments.get(`${category.id}:${period.month_start}`) ?? 0;
+      const remainingMinor = Math.max(0, Number(line.budgeted_minor ?? 0) - spentMinor - committedMinor);
       if (remainingMinor === 0) return [];
       return [{
         id: `monthly-budget:${period.id}:${line.id}`,

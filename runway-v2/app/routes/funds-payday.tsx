@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Page } from "~/components/page";
 import { forecastRepository } from "~/data/repositories/forecast-repository";
 import { fundsRepository } from "~/data/repositories/funds-repository";
+import { budgetsRepository } from "~/data/repositories/budgets-repository";
 import { calculateSafeToSpendTrace } from "~/domain/allocations";
 import { asMinorUnits, formatMinorUnits, parseDisplayAmountToMinor } from "~/domain/money";
 import { buildForecastScreenModel, calendarDateInTimezone } from "~/read-models/forecast";
@@ -16,10 +17,11 @@ export default function FundsPaydayRoute() {
     const [funds, forecast] = await Promise.all([fundsRepository.getWorkspace(), forecastRepository.getWorkspace()]);
     return { funds, forecast };
   } });
+  const budgets = useQuery({ queryKey: ["budget-workspace"], queryFn: () => budgetsRepository.getWorkspace() });
   const [amounts, setAmounts] = useState<Record<string, string>>({}); const [notice, setNotice] = useState("");
   const view = useMemo(() => {
-    if (!query.data) return null;
-    const { funds, forecast } = query.data, today = calendarDateInTimezone(forecast.profile.timezone), model = buildForecastScreenModel(forecast, 1, [], today);
+    if (!query.data || !budgets.data) return null;
+    const { funds, forecast } = query.data, today = calendarDateInTimezone(forecast.profile.timezone), model = buildForecastScreenModel(forecast, 1, [], today, budgets.data);
     const operatingIds = new Set(forecast.accounts.filter((row) => row.liquidity_class === "operating" && row.class === "asset").map((row) => row.id));
     const balanceMap = new Map(forecast.balances.map((row) => [row.account_id, Number(row.display_balance_minor ?? 0)]));
     const actualCash = forecast.accounts.filter((row) => operatingIds.has(row.id)).reduce((sum, row) => sum + (balanceMap.get(row.id) ?? 0), 0);
@@ -32,7 +34,7 @@ export default function FundsPaydayRoute() {
     const plan = funds.plans.find((row) => row.is_default && row.active);
     const planItems = [...funds.items].filter((row) => row.plan_id === plan?.id && row.active).sort((a, b) => a.priority - b.priority);
     return { plan, planItems, safeTrace, currency: funds.profile.base_currency };
-  }, [query.data]);
+  }, [query.data, budgets.data]);
   useEffect(() => {
     if (view) setAmounts(Object.fromEntries(view.planItems.map((row) => [row.id, inputAmount(Number(row.amount_minor))])));
   }, [view]);
@@ -47,7 +49,7 @@ export default function FundsPaydayRoute() {
   const availableMinor = view?.safeTrace.safeToSpendMinor ?? 0;
   const exceedsAvailable = assignedTotal > availableMinor;
   return <Page eyebrow="Payday plan" title="Choose your payday amounts" description="Enter how much you want to set aside for each fund, then confirm.">
-    {query.isLoading ? <p className="muted">Loading payday plan…</p> : null}{query.error ? <p className="field-error">The payday plan could not be loaded.</p> : null}
+    {query.isLoading || budgets.isLoading ? <p className="muted">Loading payday plan…</p> : null}{query.error || budgets.error ? <p className="field-error">The payday plan could not be loaded.</p> : null}
     {view ? <section className="money-panel payday-panel"><div className="panel-heading"><div><p className="section-kicker">Your funds</p><h2>Set each amount</h2></div></div>
         <div className="payday-list">{view.planItems.map((row) => <article className="payday-row" key={row.id}><strong>{row.label}</strong><label><span className="sr-only">Amount for {row.label}</span><input aria-label={`${row.label} amount`} type="number" min="0" step="0.01" value={amounts[row.id] ?? "0"} onChange={(event) => setAmounts((current) => ({ ...current, [row.id]: event.target.value }))}/><small>{view.currency}</small></label></article>)}</div>
         {notice ? <p className={notice.startsWith("Allocations confirmed") ? "form-notice" : "field-error"}>{notice}</p> : null}
