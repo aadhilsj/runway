@@ -53,12 +53,17 @@ export const accountsRepository = {
     return data;
   },
 
-  async archiveAccount(accountId: string): Promise<void> {
+  async deleteAccount(accountId: string): Promise<void> {
     const client = requireSupabase();
     const userId = await requireAuthenticatedUserId(client);
-    const { error } = await client.from("accounts").update({ archived_at: new Date().toISOString() })
-      .eq("id", accountId).eq("user_id", userId).eq("is_system", false);
+    const { data, error } = await client.from("accounts").delete()
+      .eq("id", accountId).eq("user_id", userId).eq("is_system", false)
+      .select("id").maybeSingle();
+    if (error?.code === "23503") {
+      throw new Error("This account has financial history and cannot be deleted.");
+    }
     if (error) throw error;
+    if (!data) throw new Error("This account could not be found or cannot be deleted.");
   },
 
   async renameAccount(accountId: string, name: string): Promise<void> {

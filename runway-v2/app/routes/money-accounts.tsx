@@ -86,7 +86,13 @@ export default function AccountsRoute() {
     mutationFn: ({ id, name }: { id: string; name: string }) => accountsRepository.renameAccount(id, name),
     onSuccess: async () => { setRenamingId(null); await invalidateMoney(); },
   });
-  const archive = useMutation({ mutationFn: accountsRepository.archiveAccount, onSuccess: invalidateMoney });
+  const removeAccount = useMutation({
+    mutationFn: accountsRepository.deleteAccount,
+    onSuccess: async (_, accountId) => {
+      if (selectedAccountId === accountId) setSelectedAccountId(null);
+      await invalidateMoney();
+    },
+  });
   const addSnapshot = useMutation({
     mutationFn: async (form: HTMLFormElement) => {
       if (!selectedAccountId) throw new Error("Choose an account first");
@@ -140,10 +146,11 @@ export default function AccountsRoute() {
               <span><strong>{account.name}</strong><small>{labels[account.subtype]}</small></span>
               <span className={account.class === "liability" ? "negative" : ""}>{formatMinorUnits(asMinorUnits(account.display_balance_minor), "NOK")}</span>
             </button>
-            <div className="row-actions"><button type="button" onClick={() => setRenamingId(account.id)}>Rename</button><button type="button" disabled={archive.isPending} onClick={() => { if (confirm(`Archive ${account.name}?`)) archive.mutate(account.id); }}>Archive</button></div>
+            <div className="row-actions"><button type="button" onClick={() => setRenamingId(account.id)}>Rename</button><button className="quiet-danger" type="button" disabled={removeAccount.isPending} onClick={() => { if (confirm(`Delete ${account.name}? Only unused accounts can be deleted.`)) removeAccount.mutate(account.id); }}>Delete</button></div>
             {renamingId === account.id ? <form className="inline-form" onSubmit={(event) => { event.preventDefault(); const data = new FormData(event.currentTarget); rename.mutate({ id: account.id, name: String(data.get("name")) }); }}><label>New name<input name="name" defaultValue={account.name} required maxLength={120}/></label><button type="submit">Save name</button></form> : null}
           </article>)}
           {!accounts.isLoading && activeAccounts.length === 0 ? <p className="muted">No active accounts yet.</p> : null}
+          {removeAccount.error ? <p className="field-error" role="alert">{message(removeAccount.error)}</p> : null}
         </div>
       </section>
       <Drawer open={createOpen} onClose={() => setCreateOpen(false)} eyebrow="Add a home for money" title="Create account">
