@@ -6,9 +6,10 @@ type DrawerProps = {
   eyebrow?: string;
   title: string;
   children: ReactNode;
+  className?: string;
 };
 
-export function Drawer({ open, onClose, eyebrow, title, children }: DrawerProps) {
+export function Drawer({ open, onClose, eyebrow, title, children, className = "" }: DrawerProps) {
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
 
@@ -27,7 +28,7 @@ export function Drawer({ open, onClose, eyebrow, title, children }: DrawerProps)
 
   return (
     <dialog
-      className="drawer"
+      className={`drawer${className ? ` ${className}` : ""}`}
       ref={ref}
       aria-labelledby={titleId}
       onCancel={(event) => {

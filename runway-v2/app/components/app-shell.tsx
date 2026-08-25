@@ -10,7 +10,8 @@ import { categoriesRepository } from "~/data/repositories/categories-repository"
 import { investmentsRepository } from "~/data/repositories/investments-repository";
 import { plansRepository } from "~/data/repositories/plans-repository";
 import { transactionsRepository } from "~/data/repositories/transactions-repository";
-import { MarkIcon, SyncIcon } from "./icons";
+import { Drawer } from "./drawer";
+import { MarkIcon, NavigationIcon, SyncIcon, type NavigationIconName } from "./icons";
 
 const money = [
   ["Overview", "/overview"],
@@ -26,6 +27,13 @@ const records = [
   ["Accounts", "/money/accounts"],
   ["Analytics", "/analytics"],
 ] as const;
+const mobilePrimary = [
+  ["Overview", "/overview", "overview"],
+  ["Forecast", "/forecast", "forecast"],
+  ["Funds", "/funds", "funds"],
+  ["Activity", "/money/transactions", "activity"],
+] as const satisfies readonly (readonly [string, string, NavigationIconName])[];
+const mobileSecondary = [...planningAndInvestments, ...records, ["Settings", "/settings"] as const];
 
 function NavigationGroup({
   label,
@@ -51,6 +59,7 @@ export function AppShell() {
   const location = useLocation();
   const queryClient = useQueryClient();
   const userId = session?.user.id ?? "";
+  const [moreOpen, setMoreOpen] = useState(false);
   useState(() => { if (userId) restoreRunwayQueryCache(queryClient, userId); });
   useEffect(() => {
     if (!userId) return;
@@ -78,6 +87,7 @@ export function AppShell() {
     void warm().catch(() => { /* Individual screens retain their own retry and error handling. */ });
     return () => { unsubscribe(); if (saveTimer) clearTimeout(saveTimer); };
   }, [queryClient, userId]);
+  useEffect(() => setMoreOpen(false), [location.pathname]);
   const handleSignOut = async () => { clearRunwayQueryCache(); queryClient.clear(); await signOut(); };
   return (
     <div className="app-frame">
@@ -97,7 +107,8 @@ export function AppShell() {
       </aside>
       <div className="workspace">
         <header className="topbar">
-          <div>
+          <NavLink to="/overview" className="mobile-brand-mark" aria-label="Runway overview"><MarkIcon /></NavLink>
+          <div className="topbar-location">
             <span className="location-label">Current view</span>
             <strong>{titleForPath(location.pathname)}</strong>
           </div>
@@ -121,8 +132,22 @@ export function AppShell() {
           <Outlet />
         </main>
       </div>
+      <nav className="mobile-bottom-nav" aria-label="Mobile navigation">
+        {mobilePrimary.map(([name, href, icon]) => <NavLink key={href} to={href} prefetch="render"><NavigationIcon name={icon}/><span>{name}</span></NavLink>)}
+        <button className={isSecondaryPath(location.pathname) ? "active" : ""} type="button" aria-haspopup="dialog" aria-expanded={moreOpen} onClick={() => setMoreOpen(true)}><NavigationIcon name="more"/><span>More</span></button>
+      </nav>
+      <Drawer className="mobile-more-sheet" open={moreOpen} onClose={() => setMoreOpen(false)} eyebrow="Runway" title="More">
+        <nav className="mobile-more-links" aria-label="More navigation">
+          {mobileSecondary.map(([name, href]) => <NavLink key={href} to={href} prefetch="render">{name}<span aria-hidden="true">›</span></NavLink>)}
+        </nav>
+        <div className="mobile-account-actions"><span>{session?.user.email}</span><button type="button" className="secondary-button" onClick={() => void handleSignOut()}>Sign out</button></div>
+      </Drawer>
     </div>
   );
+}
+
+function isSecondaryPath(path: string) {
+  return mobileSecondary.some(([, href]) => path === href || path.startsWith(`${href}/`));
 }
 
 function titleForPath(path: string): string {

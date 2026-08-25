@@ -406,3 +406,85 @@ test("captures the Phase 10.6 simplified product surfaces", async ({ page }) => 
   await capture("payday", "/funds/payday", "Available to split"); await capture("funds", "/funds", "Emergency");
   await capture("activity", "/money/transactions", "Activity"); await capture("accounts", "/money/accounts", "Your accounts"); await capture("sidebar", "/overview", "Total cash");
 });
+
+const responsivePrimaryRoutes = [
+  ["/overview", "Overview"],
+  ["/forecast", "Forecast"],
+  ["/funds", "Funds"],
+  ["/money/transactions", "Activity"],
+] as const;
+
+const responsiveSecondaryRoutes = [
+  ["/plans", "Plans"],
+  ["/investments", "Investments"],
+  ["/money/accounts", "Accounts"],
+  ["/analytics", "Analytics"],
+  ["/settings", "Settings"],
+] as const;
+
+async function expectNoResponsivePageOverflow(page: Page, route = "current page") {
+  const dimensions = await page.evaluate(() => {
+    const viewport = document.documentElement.clientWidth;
+    const offenders = [...document.querySelectorAll<HTMLElement>("body *")]
+      .filter((element) => element.getBoundingClientRect().right > viewport + 1)
+      .slice(0, 8)
+      .map((element) => `${element.tagName.toLowerCase()}.${element.className || "(no-class)"}`);
+    return { viewport, page: document.documentElement.scrollWidth, offenders };
+  });
+  expect(dimensions.page, `${route} should not overflow horizontally; offenders: ${dimensions.offenders.join(", ")}`).toBeLessThanOrEqual(dimensions.viewport + 1);
+}
+
+test("responsive phone navigation and core workspaces fit without horizontal overflow", async ({ page }) => {
+  const screenshotDir = process.env.RUNWAY_MOBILE_SCREENSHOT_DIR;
+  await installFixtureBackend(page);
+
+  for (const width of [360, 390, 412]) {
+    await page.setViewportSize({ width, height: 844 });
+    for (const [path, heading] of responsivePrimaryRoutes) {
+      await page.goto(path);
+      await expect(page.getByRole("heading", { name: heading, level: 1 })).toBeVisible();
+      await expect(page.getByRole("navigation", { name: "Mobile navigation" })).toBeVisible();
+      await expect(page.locator(".sidebar")).toBeHidden();
+      await expectNoResponsivePageOverflow(page, `${path} at ${width}px`);
+      if (screenshotDir && width === 390) await page.screenshot({ path: `${screenshotDir}/phone-${heading.toLowerCase()}.png`, fullPage: false });
+    }
+  }
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  const bottomLinks = page.getByRole("navigation", { name: "Mobile navigation" }).locator("a, button");
+  for (let index = 0; index < await bottomLinks.count(); index += 1) {
+    const box = await bottomLinks.nth(index).boundingBox();
+    expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
+  }
+
+  await page.getByRole("button", { name: "More" }).click();
+  const more = page.getByRole("dialog", { name: "More" });
+  await expect(more).toBeVisible();
+  await expect(more.getByRole("link", { name: /Plans/ })).toBeVisible();
+  await expect(more.getByRole("button", { name: "Sign out" })).toBeVisible();
+  if (screenshotDir) await page.screenshot({ path: `${screenshotDir}/phone-more.png`, fullPage: false });
+});
+
+test("responsive secondary workspaces fit on a portrait tablet", async ({ page }) => {
+  const screenshotDir = process.env.RUNWAY_MOBILE_SCREENSHOT_DIR;
+  await page.setViewportSize({ width: 768, height: 1024 });
+  await installFixtureBackend(page);
+
+  for (const [path, heading] of responsiveSecondaryRoutes) {
+    await page.goto(path);
+    await expect(page.getByRole("heading", { name: heading, level: 1 })).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Mobile navigation" })).toBeVisible();
+    await expectNoResponsivePageOverflow(page, path);
+    if (screenshotDir) await page.screenshot({ path: `${screenshotDir}/tablet-${heading.toLowerCase()}.png`, fullPage: false });
+  }
+});
+
+test("responsive desktop navigation remains intact", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await installFixtureBackend(page);
+  await page.goto("/overview");
+
+  await expect(page.locator(".sidebar")).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Mobile navigation" })).toBeHidden();
+  await expectNoResponsivePageOverflow(page);
+});

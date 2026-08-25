@@ -1,0 +1,12 @@
+{
+  "name": "Runway",
+  "short_name": "Runway",
+  "description": "Plan your cash flow, funds, and future decisions.",
+  "start_url": "/overview",
+  "display": "standalone",
+  "background_color": "#f6efe3",
+  "theme_color": "#f6efe3",
+  "icons": [
+    { "src": "/runway-mark.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
