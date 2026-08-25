@@ -316,7 +316,7 @@ button:disabled { opacity: .48; cursor: not-allowed; }
 .fund-settings-grid small { font-weight:520; }
 .fund-detail-layout { display:grid; grid-template-columns:minmax(15rem,.42fr) minmax(0,1.58fr); gap:var(--space-5); align-items:start; }
 .fund-command-panel { padding:var(--space-4); }
-.fund-page-actions,.page-action-row { display:flex; justify-content:flex-end; align-items:center; gap:var(--space-3); margin-top:calc(var(--space-4) * -1); }
+.fund-page-actions,.page-action-row { display:flex; justify-content:flex-start; align-items:center; gap:var(--space-3); margin-top:calc(var(--space-4) * -1); }
 .fund-page-actions .primary-button { white-space:nowrap; }
 .fund-command-panel,.fund-history-panel { min-height:0; }
 .progress-track { height: .48rem; overflow: hidden; border-radius: 999px; background: var(--color-line); }

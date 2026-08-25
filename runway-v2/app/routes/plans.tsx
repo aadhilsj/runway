@@ -24,7 +24,7 @@ export default function PlansRoute() {
   const active = workspace.data?.plans.filter(plan => plan.status === "active" || plan.status === "draft") ?? [];
   const archived = workspace.data?.plans.filter(plan => plan.status === "archived" || plan.status === "applied") ?? [];
   return <Page eyebrow="What if?" title="Plans" description="Try a future decision—such as a trip or a move—and compare its effect without changing your real money.">
-    <div className="page-action-row"><Link className="secondary-button" to="/plans/compare">Compare plans</Link><button className="primary-button" type="button" onClick={() => setDrawerOpen(true)}>Create plan</button></div>
+    <div className="page-action-row"><button className="primary-button" type="button" onClick={() => setDrawerOpen(true)}>Create plan</button><Link className="secondary-button" to="/plans/compare">Compare plans</Link></div>
     {workspace.isLoading ? <p className="muted">Loading Plans…</p> : null}{workspace.error ? <p className="field-error">Plans could not be loaded.</p> : null}{error ? <p className="field-error" role="alert">{error}</p> : null}
     <section className="money-panel compact-plan-panel"><div className="panel-heading"><div><p className="section-kicker">Active plans</p><h2>What you are exploring</h2></div></div><div className="plan-list">{active.map(plan => {
       const changes = workspace.data!.changes.filter(change => change.scenario_id === plan.id), items = workspace.data!.forecast.items.filter(item => item.scenario_id === plan.id && item.status === "expected"), rules = workspace.data!.forecast.rules.filter(rule => rule.scenario_id === plan.id && rule.active), count = changes.length + items.length + rules.length;
