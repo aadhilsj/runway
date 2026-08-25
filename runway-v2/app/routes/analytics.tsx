@@ -4,9 +4,6 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
-  Legend,
-  Line,
-  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -18,6 +15,13 @@ import { asMinorUnits, formatMinorAxis, formatMinorUnits } from "~/domain/money"
 import { buildAnalyticsReadModel } from "~/read-models/overview";
 function money(v: number, c: string) {
   return formatMinorUnits(asMinorUnits(Math.trunc(v)), c);
+}
+function monthLabel(value: string) {
+  return new Intl.DateTimeFormat("en-GB", {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(`${value}-01T00:00:00Z`));
 }
 export default function AnalyticsRoute() {
   const workspace = useQuery({
@@ -50,79 +54,49 @@ export default function AnalyticsRoute() {
   const budget = model.budgetPeriods.find(
     (row) => row.month === (month || model.currentMonth),
   );
-  const hasCashFlow = model.cashFlow.some((row) => row.incomeMinor !== 0 || row.expenseMinor !== 0);
+  const selectedMonth = month || model.currentMonth;
+  const selectedCashFlow = model.cashFlow.find(
+    (row) => row.month === selectedMonth,
+  ) ?? { month: selectedMonth, incomeMinor: 0, expenseMinor: 0, netMinor: 0 };
   return (
     <Page
       eyebrow="Your money over time"
       title="Analytics"
-      description="See what actually came in, what went out, and how your net worth changed. Future money stays in Forecast."
+      description="Review actual cash flow, category spending, and budget performance month by month. Future money stays in Forecast."
     >
-      <div className="analytics-toolbar">
-        <label>
-          Selected month
+      <div className="analytics-controls">
+        <label htmlFor="analytics-month">
+          Month
           <select
-            value={month || model.currentMonth}
+            id="analytics-month"
+            value={selectedMonth}
             onChange={(e) => setMonth(e.target.value)}
           >
             {months.map((value) => (
-              <option key={value}>{value}</option>
+              <option key={value} value={value}>{monthLabel(value)}</option>
             ))}
           </select>
         </label>
-        <span>
-          Authoritative history begins{" "}
-          {model.cutoverDate ?? "when the first actual transaction is posted"}.
-        </span>
       </div>
       <section className="analytics-grid">
         <article className="chart-card">
           <div>
             <p className="section-kicker">Actual · transfers excluded</p>
             <h2>Monthly cash flow</h2>
+            <p className="muted">{monthLabel(selectedMonth)}</p>
           </div>
-          {hasCashFlow ? <div className="analytics-chart">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={model.cashFlow}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis
-                  tickFormatter={(v) => formatMinorAxis(Number(v))}
-                />
-                <Tooltip formatter={(v) => money(Number(v), model.currency)} />
-                <Legend />
-                <Bar dataKey="incomeMinor" name="Income" fill="#3e7356" />
-                <Bar dataKey="expenseMinor" name="Expenses" fill="#bb5f43" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div> : <div className="chart-empty"><span>Actual cash flow will appear here</span><small>Post income or an expense to begin the monthly series.</small></div>}
-          <table>
-            <thead>
-              <tr>
-                <th>Month</th>
-                <th>Income</th>
-                <th>Expenses</th>
-                <th>Net</th>
-              </tr>
-            </thead>
-            <tbody>
-              {model.cashFlow.map((row) => (
-                <tr key={row.month}>
-                  <td>{row.month}</td>
-                  <td>{money(row.incomeMinor, model.currency)}</td>
-                  <td>{money(row.expenseMinor, model.currency)}</td>
-                  <td>{money(row.netMinor, model.currency)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {!hasCashFlow ? (
-            <p className="muted">No posted income or expenses yet.</p>
-          ) : null}
+          <dl className="analytics-metrics">
+            <div><dt>Income</dt><dd className="positive">{money(selectedCashFlow.incomeMinor, model.currency)}</dd></div>
+            <div><dt>Expenses</dt><dd className="negative">{money(selectedCashFlow.expenseMinor, model.currency)}</dd></div>
+            <div><dt>Net</dt><dd className={selectedCashFlow.netMinor < 0 ? "negative" : selectedCashFlow.netMinor > 0 ? "positive" : ""}>{money(selectedCashFlow.netMinor, model.currency)}</dd></div>
+          </dl>
+          {selectedCashFlow.incomeMinor === 0 && selectedCashFlow.expenseMinor === 0 ? <p className="muted">No posted income or expenses in this month.</p> : null}
         </article>
         <article className="chart-card">
           <div>
             <p className="section-kicker">Actual · selected month</p>
             <h2>Spending by category</h2>
+            <p className="analytics-card-help">Categories come from Activity. Transactions recorded without one appear as Unclassified.</p>
           </div>
           {model.spending.length ? <div className="analytics-chart">
             <ResponsiveContainer width="100%" height="100%">
@@ -156,42 +130,7 @@ export default function AnalyticsRoute() {
             </p>
           ) : null}
         </article>
-        <article className="chart-card">
-          <div>
-            <p className="section-kicker">Actual · ledger-derived</p>
-            <h2>Net worth since cutover</h2>
-          </div>
-          {model.netWorth.length > 1 ? <div className="analytics-chart">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={model.netWorth}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" />
-                <YAxis
-                  tickFormatter={(v) => formatMinorAxis(Number(v))}
-                />
-                <Tooltip
-                  formatter={(v) => [
-                    money(Number(v), model.currency),
-                    "Authoritative net worth",
-                  ]}
-                />
-                <Line
-                  type="stepAfter"
-                  dataKey="netWorthMinor"
-                  name="Net worth"
-                  stroke="#24352f"
-                  dot={false}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div> : <div className="chart-empty"><span>Net-worth trend needs another observation</span><small>Your opening position is safe; the line becomes useful after balances change.</small></div>}
-          <p className="muted">
-            Recorded portfolio values replace book value from their observation
-            date and carry forward until the next snapshot. No pre-cutover
-            values or unrecorded market gains are inferred.
-          </p>
-        </article>
-        <article className="chart-card">
+        <article className="chart-card budget-performance-card">
           <div>
             <p className="section-kicker">Recorded budget periods only</p>
             <h2>Budget performance</h2>
