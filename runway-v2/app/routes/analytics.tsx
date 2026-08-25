@@ -3,7 +3,9 @@ import { useQuery } from "@tanstack/react-query";
 import {
   Bar,
   BarChart,
+  Cell,
   CartesianGrid,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -58,11 +60,28 @@ export default function AnalyticsRoute() {
   const selectedCashFlow = model.cashFlow.find(
     (row) => row.month === selectedMonth,
   ) ?? { month: selectedMonth, incomeMinor: 0, expenseMinor: 0, netMinor: 0 };
+  const cashFlowChart = [
+    { label: "Income", amountMinor: selectedCashFlow.incomeMinor, color: "#3e7356" },
+    { label: "Expenses", amountMinor: selectedCashFlow.expenseMinor, color: "#bb5f43" },
+    { label: "Net", amountMinor: selectedCashFlow.netMinor, color: selectedCashFlow.netMinor < 0 ? "#bb5f43" : "#6b9278" },
+  ];
+  const categoryChart = model.spending.length > 5
+    ? [
+        ...model.spending.slice(0, 4),
+        {
+          categoryId: "other",
+          label: "Other",
+          amountMinor: model.spending.slice(4).reduce((sum, row) => sum + row.amountMinor, 0),
+          share: model.spending.slice(4).reduce((sum, row) => sum + row.share, 0),
+        },
+      ]
+    : model.spending;
   return (
     <Page
       eyebrow="Your money over time"
       title="Analytics"
       description="Review actual cash flow, category spending, and budget performance month by month. Future money stays in Forecast."
+      className="analytics-page"
     >
       <div className="analytics-controls">
         <label htmlFor="analytics-month">
@@ -79,58 +98,50 @@ export default function AnalyticsRoute() {
         </label>
       </div>
       <section className="analytics-grid">
-        <article className="chart-card">
+        <article className="chart-card analytics-card cash-flow-card">
           <div>
             <p className="section-kicker">Actual · transfers excluded</p>
             <h2>Monthly cash flow</h2>
-            <p className="muted">{monthLabel(selectedMonth)}</p>
           </div>
-          <dl className="analytics-metrics">
-            <div><dt>Income</dt><dd className="positive">{money(selectedCashFlow.incomeMinor, model.currency)}</dd></div>
-            <div><dt>Expenses</dt><dd className="negative">{money(selectedCashFlow.expenseMinor, model.currency)}</dd></div>
-            <div><dt>Net</dt><dd className={selectedCashFlow.netMinor < 0 ? "negative" : selectedCashFlow.netMinor > 0 ? "positive" : ""}>{money(selectedCashFlow.netMinor, model.currency)}</dd></div>
-          </dl>
-          {selectedCashFlow.incomeMinor === 0 && selectedCashFlow.expenseMinor === 0 ? <p className="muted">No posted income or expenses in this month.</p> : null}
+          {selectedCashFlow.incomeMinor !== 0 || selectedCashFlow.expenseMinor !== 0 ? <div className="analytics-chart analytics-cash-chart" role="img" aria-label={`Monthly cash flow chart for ${monthLabel(selectedMonth)}`}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={cashFlowChart} margin={{ top: 8, right: 4, bottom: 0, left: 0 }}>
+                <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                <XAxis dataKey="label" axisLine={false} tickLine={false} />
+                <YAxis width={52} axisLine={false} tickLine={false} tickFormatter={(value) => formatMinorAxis(Number(value))} />
+                <Tooltip formatter={(value) => money(Number(value), model.currency)} />
+                <ReferenceLine y={0} stroke="#8d7f72" />
+                <Bar dataKey="amountMinor" radius={[5, 5, 0, 0]}>
+                  {cashFlowChart.map((row) => <Cell key={row.label} fill={row.color} />)}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div> : <div className="chart-empty compact-chart-empty"><span>No cash flow yet</span><small>Posted income and expenses will appear here.</small></div>}
         </article>
-        <article className="chart-card">
+        <article className="chart-card analytics-card category-card">
           <div>
             <p className="section-kicker">Actual · selected month</p>
             <h2>Spending by category</h2>
-            <p className="analytics-card-help">Categories come from Activity. Transactions recorded without one appear as Unclassified.</p>
           </div>
-          {model.spending.length ? <div className="analytics-chart">
+          {categoryChart.length ? <div className="analytics-chart analytics-category-chart" role="img" aria-label={`Spending by category chart for ${monthLabel(selectedMonth)}`}>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={model.spending} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" />
+              <BarChart data={categoryChart} layout="vertical" margin={{ top: 0, right: 8, bottom: 0, left: 0 }}>
+                <CartesianGrid horizontal={false} strokeDasharray="3 3" />
                 <XAxis
                   type="number"
+                  axisLine={false}
+                  tickLine={false}
                   tickFormatter={(v) => formatMinorAxis(Number(v))}
                 />
-                <YAxis type="category" dataKey="label" width={100} />
+                <YAxis type="category" dataKey="label" width={88} axisLine={false} tickLine={false} />
                 <Tooltip formatter={(v) => money(Number(v), model.currency)} />
-                <Bar dataKey="amountMinor" name="Spending" fill="#bb5f43" />
+                <Bar dataKey="amountMinor" name="Spending" fill="#bb5f43" radius={[0, 5, 5, 0]} />
               </BarChart>
             </ResponsiveContainer>
-          </div> : <div className="chart-empty"><span>No category spending yet</span><small>Only posted expenses are included.</small></div>}
-          <ul className="ranked-list">
-            {model.spending.map((row) => (
-              <li key={row.categoryId ?? "none"}>
-                <span>
-                  {row.label}
-                  <small>{Math.round(row.share * 100)}% of spending</small>
-                </span>
-                <strong>{money(row.amountMinor, model.currency)}</strong>
-              </li>
-            ))}
-          </ul>
-          {!model.spending.length ? (
-            <p className="muted">
-              No spending in this period. Comparisons appear only when periods
-              contain comparable data.
-            </p>
-          ) : null}
+          </div> : <div className="chart-empty compact-chart-empty"><span>No category spending yet</span><small>Only posted expenses are included.</small></div>}
+          <p className="analytics-card-help">Categories come from Activity. Missing categories appear as Unclassified.</p>
         </article>
-        <article className="chart-card budget-performance-card">
+        <article className="chart-card analytics-card budget-performance-card">
           <div>
             <p className="section-kicker">Recorded budget periods only</p>
             <h2>Budget performance</h2>
@@ -157,7 +168,7 @@ export default function AnalyticsRoute() {
                   </strong>
                 </span>
               </div>
-              <table>
+              <div className="analytics-budget-table"><table>
                 <thead>
                   <tr>
                     <th>Line</th>
@@ -174,7 +185,7 @@ export default function AnalyticsRoute() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </table></div>
             </>
           ) : (
             <p className="muted">
