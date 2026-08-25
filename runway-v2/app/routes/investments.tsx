@@ -100,6 +100,7 @@ export default function InvestmentsRoute() {
   };
   return (
     <Page
+      className="investments-page"
       eyebrow="Long-term position"
       title="Investments"
       description="Track what your investments are worth and how much you contributed. Moving cash into an investment is recorded in Activity."
