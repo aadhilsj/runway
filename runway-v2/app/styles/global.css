@@ -661,6 +661,99 @@ button:disabled { opacity: .48; cursor: not-allowed; }
   .settlement-confirmation-summary { align-items:flex-start; flex-direction:column; }
   .confirmation-actions { gap:var(--space-2); }
 }
+
+/* Mobile density pass: preserve comfortable touch targets while avoiding desktop-scale cards. */
+@media (max-width: 56rem) {
+  input[type="date"],input[type="month"] { display:block; inline-size:100%; width:100%; min-inline-size:0; min-width:0; max-inline-size:100%; max-width:100%; }
+
+  .content { padding:var(--space-4) var(--space-3) calc(5.9rem + env(safe-area-inset-bottom)); }
+  .page-stack { gap:var(--space-4); }
+  .page-header h1,.analytics-page .page-header h1,.accounts-page .page-header h1,.investments-page .page-header h1,.forecast-breakdown-page .page-header h1 { font-size:clamp(2rem,9vw,2.45rem); }
+  .page-header>p:last-child { font-size:.84rem; line-height:1.42; }
+
+  .mobile-bottom-nav { left:.7rem; right:.7rem; bottom:max(.55rem,env(safe-area-inset-bottom)); min-height:3.75rem; padding:.22rem; border:1px solid var(--color-line); border-radius:1.15rem; box-shadow:0 .55rem 2rem rgb(52 37 31/.18); overflow:hidden; }
+  .mobile-bottom-nav a,.mobile-bottom-nav button { min-height:3.25rem; border-radius:.9rem; }
+
+  .overview-metrics { gap:var(--space-3); }
+  .overview-metrics>article { min-width:0; padding:var(--space-3); overflow:hidden; }
+  .overview-metrics .projection-card { grid-template-columns:minmax(0,1fr); }
+  .projection-card .projection-date-input { box-sizing:border-box; inline-size:100%; width:100%; max-width:100%; min-width:0; padding:.68rem .75rem; overflow:hidden; text-align:center; }
+
+  .forecast-toolbar { gap:var(--space-2); padding:.75rem; }
+  .horizon-options { gap:.45rem; }
+  .horizon-options button { min-height:2.75rem; padding:.35rem .2rem; font-size:.71rem; }
+  .forecast-plans-control { padding-top:.65rem; }
+  .forecast-range { padding-top:.65rem; }
+  .forecast-mental-model { gap:.65rem; }
+  .forecast-mental-model>div,.forecast-mental-model>a { min-height:4.85rem; padding:.75rem; }
+  .forecast-mental-model strong { font-size:clamp(1.05rem,5vw,1.35rem); }
+  .forecast-mental-model small { font-size:.68rem; }
+  .forecast-balance-strip { gap:.55rem; padding:.75rem; }
+  .timeline-panel { padding:.75rem; }
+  .timeline-panel .panel-heading { gap:.75rem; margin-bottom:.75rem; }
+  .timeline-panel .panel-heading h2 { font-size:1.35rem; }
+  .timeline-panel .panel-heading .muted { font-size:.76rem; line-height:1.4; }
+  .timeline-heading-actions { gap:.5rem; }
+  .timeline-list { gap:.5rem; }
+  .timeline-month-divider { margin:.55rem 0 0; }
+  .timeline-list .forecast-row-detailed { grid-template-columns:minmax(0,1fr) auto; gap:.25rem .65rem; padding:.72rem .78rem; }
+  .timeline-list .forecast-row-detailed time { grid-column:1; grid-row:1; font-size:.7rem; }
+  .timeline-list .forecast-row-detailed>div:nth-of-type(1) { grid-column:1; grid-row:2; min-width:0; }
+  .timeline-list .forecast-row-detailed>div:nth-of-type(1)>strong { overflow-wrap:anywhere; font-size:.88rem; }
+  .timeline-list .timeline-money { grid-column:2; grid-row:1 / span 2; align-self:center; justify-items:end; text-align:right; }
+  .timeline-list .timeline-money>strong { font-size:.88rem; }
+  .timeline-list .after-event-balance { font-size:.58rem!important; white-space:nowrap; }
+  .timeline-list .timeline-actions { grid-column:1 / -1; grid-row:3; grid-template-columns:auto 2.75rem; width:auto; justify-content:start; margin-top:.12rem; }
+  .timeline-list .timeline-actions .timeline-settle-action { min-height:2.75rem; padding-inline:.25rem; text-align:left; }
+  .timeline-list .timeline-overflow-trigger { width:2.75rem; height:2.75rem; }
+
+  .compact-plan-panel,.plan-items-panel { padding:.85rem; }
+  .compact-plan-panel .panel-heading,.plan-items-panel .panel-heading { margin-bottom:.7rem; }
+  .compact-plan-panel .panel-heading h2,.plan-items-panel .panel-heading h2 { font-size:1.35rem; }
+  .plan-list,.assumption-list { gap:.55rem; }
+  .plan-row { grid-template-columns:minmax(0,1fr) auto; gap:.45rem .75rem; padding:.8rem; }
+  .plan-row-copy { grid-column:1; grid-row:1; min-width:0; }
+  .plan-row h3 { font-size:1rem; }
+  .plan-row p,.plan-row small { font-size:.7rem; }
+  .plan-value { grid-column:2; grid-row:1; align-self:center; justify-items:end; text-align:right; }
+  .plan-value>span { font-size:.65rem; }
+  .plan-value>strong { font-size:1.05rem; white-space:nowrap; }
+  .plan-actions { grid-column:1 / -1; grid-row:2; gap:.35rem; align-items:center; }
+  .plan-open-link { min-height:2.75rem; display:inline-flex; align-items:center; padding-inline:.75rem; }
+  .plan-overflow summary { width:2.75rem; height:2.75rem; }
+  .plan-items-panel .panel-heading { align-items:center; }
+  .plan-items-panel .panel-heading>.row-actions { align-items:center; padding:0; }
+  .plan-item-count { display:none; }
+  .plan-item-row { gap:.35rem .65rem; padding:.75rem; }
+  .plan-item-row>div:first-child { min-width:0; }
+  .plan-item-row>div:first-child>strong { font-size:.9rem; }
+  .plan-item-row>div:first-child>p { font-size:.7rem; }
+  .plan-item-row>strong { align-self:start; font-size:.88rem; white-space:nowrap; }
+  .plan-item-row>.row-actions { gap:.45rem; padding:0; }
+
+  .fund-grid { gap:.65rem; }
+  .fund-card { min-height:0; gap:.7rem; padding:.9rem; }
+  .fund-card h2 { font-size:1.55rem; }
+  .fund-balance { font-size:1.65rem; }
+  .fund-card-heading .section-kicker { margin-bottom:0; }
+  .fund-progress p { margin:.4rem 0 0; font-size:.72rem; }
+  .fund-card-meta,.fund-card-link { padding-top:.65rem; }
+  .fund-card-link { min-height:2.75rem; display:flex; align-items:center; font-size:.82rem; }
+
+  .activity-spending-panel { padding:.85rem; overflow:hidden; }
+  .quick-spend-heading { gap:.7rem; }
+  .quick-spend-heading .row-actions { gap:.5rem; }
+  .quick-spend-heading .row-actions .standalone-label { min-width:0; overflow:hidden; }
+  .quick-spend-heading .row-actions input[type="month"] { box-sizing:border-box; padding:.65rem .7rem; text-align:center; }
+  .quick-spend-trackers { gap:.5rem; }
+  .quick-spend-trackers>article { padding:.75rem; }
+  .quick-spend-form { gap:.65rem; }
+}
+
+@media (max-width: 30rem) {
+  .forecast-mental-model { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .mobile-bottom-nav { left:.45rem; right:.45rem; }
+}
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
 }
