@@ -69,18 +69,18 @@ export function AppShell() {
       saveTimer = setTimeout(() => persistRunwayQueryCache(queryClient, userId), 100);
     });
     const warm = async () => {
-      const analytics = await queryClient.ensureQueryData({ queryKey: ["analytics-workspace"], queryFn: () => analyticsRepository.getWorkspace(), staleTime: 30_000 });
+      const analytics = await queryClient.ensureQueryData({ queryKey: ["analytics-workspace"], queryFn: () => analyticsRepository.getWorkspace(), staleTime: 30_000, revalidateIfStale: true });
       if (!queryClient.getQueryData(["forecast-workspace"])) queryClient.setQueryData(["forecast-workspace"], analytics.forecast);
       if (!queryClient.getQueryData(["funds-workspace"])) queryClient.setQueryData(["funds-workspace"], analytics.funds);
       if (!queryClient.getQueryData(["budget-workspace"])) queryClient.setQueryData(["budget-workspace"], analytics.budgets);
       if (!queryClient.getQueryData(["payday-workspace"])) queryClient.setQueryData(["payday-workspace"], { funds: analytics.funds, forecast: analytics.forecast });
       await Promise.allSettled([
-        queryClient.ensureQueryData({ queryKey: ["plans-workspace"], queryFn: () => plansRepository.getWorkspace(), staleTime: 30_000 }),
-        queryClient.ensureQueryData({ queryKey: ["investments-workspace"], queryFn: () => investmentsRepository.getWorkspace(), staleTime: 30_000 }),
-        queryClient.ensureQueryData({ queryKey: ["transactions"], queryFn: () => transactionsRepository.listTransactions({ limit: 250 }), staleTime: 30_000 }),
-        queryClient.ensureQueryData({ queryKey: ["accounts", "balances"], queryFn: () => accountsRepository.listAccountsWithBalances(), staleTime: 30_000 }),
-        queryClient.ensureQueryData({ queryKey: ["net-worth"], queryFn: () => balancesRepository.getCurrentNetWorth("NOK"), staleTime: 30_000 }),
-        queryClient.ensureQueryData({ queryKey: ["categories"], queryFn: () => categoriesRepository.listCategories(), staleTime: 30_000 }),
+        queryClient.ensureQueryData({ queryKey: ["plans-workspace"], queryFn: () => plansRepository.getWorkspace(), staleTime: 30_000, revalidateIfStale: true }),
+        queryClient.ensureQueryData({ queryKey: ["investments-workspace"], queryFn: () => investmentsRepository.getWorkspace(), staleTime: 30_000, revalidateIfStale: true }),
+        queryClient.ensureQueryData({ queryKey: ["transactions"], queryFn: () => transactionsRepository.listTransactions({ limit: 250 }), staleTime: 30_000, revalidateIfStale: true }),
+        queryClient.ensureQueryData({ queryKey: ["accounts", "balances"], queryFn: () => accountsRepository.listAccountsWithBalances(), staleTime: 30_000, revalidateIfStale: true }),
+        queryClient.ensureQueryData({ queryKey: ["net-worth"], queryFn: () => balancesRepository.getCurrentNetWorth("NOK"), staleTime: 30_000, revalidateIfStale: true }),
+        queryClient.ensureQueryData({ queryKey: ["categories"], queryFn: () => categoriesRepository.listCategories(), staleTime: 30_000, revalidateIfStale: true }),
       ]);
       persistRunwayQueryCache(queryClient, userId);
     };

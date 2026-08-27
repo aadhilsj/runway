@@ -4,12 +4,16 @@ const USER_ID = "11111111-1111-4111-8111-111111111111";
 const OPERATING_ID = "22222222-2222-4222-8222-222222222222";
 const SAVINGS_ID = "33333333-3333-4333-8333-333333333333";
 const CATEGORY_ID = "44444444-4444-4444-8444-444444444444";
+const GROCERIES_ID = "88888888-8888-4888-8888-888888888888";
+const MISCELLANEOUS_ID = "99999999-9999-4999-8999-999999999999";
+const RECEIVABLE_ID = "66666666-6666-4666-8666-666666666666";
+const REIMBURSEMENT_POOL_ID = "77777777-7777-4777-8777-777777777777";
 
 interface FixtureAccount {
-  id: string; user_id: string; name: string; class: "asset"; subtype: "checking" | "savings";
-  currency: string; include_in_net_worth: boolean; liquidity_class: "operating" | "liquid";
+  id: string; user_id: string; name: string; class: "asset"; subtype: "checking" | "savings" | "cash";
+  currency: string; include_in_net_worth: boolean; liquidity_class: "operating" | "liquid" | "non_liquid";
   valuation_mode: "ledger"; is_system: boolean; system_key: null; opened_on: string;
-  archived_at: null; created_at: string; updated_at: string;
+  hidden_from_accounts: boolean; archived_at: null; created_at: string; updated_at: string;
 }
 
 function json(route: Route, body: unknown, status = 200) {
@@ -18,13 +22,13 @@ function json(route: Route, body: unknown, status = 200) {
 
 export async function installFixtureBackend(page: Page) {
   const now = "2026-08-19T12:00:00.000Z";
-  const account = (id: string, name: string, subtype: "checking" | "savings", liquidity: "operating" | "liquid"): FixtureAccount => ({
+  const account = (id: string, name: string, subtype: "checking" | "savings" | "cash", liquidity: "operating" | "liquid" | "non_liquid", hidden = false): FixtureAccount => ({
     id, user_id: USER_ID, name, class: "asset", subtype, currency: "NOK", include_in_net_worth: true,
     liquidity_class: liquidity, valuation_mode: "ledger", is_system: false, system_key: null,
-    opened_on: "2026-08-19", archived_at: null, created_at: now, updated_at: now,
+    hidden_from_accounts: hidden, opened_on: "2026-08-19", archived_at: null, created_at: now, updated_at: now,
   });
-  const accounts = [account(OPERATING_ID, "Operating Cash", "checking", "operating")];
-  const balances = new Map([[OPERATING_ID, 1_195_600]]);
+  const accounts = [account(OPERATING_ID, "Operating Cash", "checking", "operating"), account(RECEIVABLE_ID, "Splitwise receivable", "cash", "non_liquid", true)];
+  const balances = new Map([[OPERATING_ID, 1_195_600], [RECEIVABLE_ID, 0]]);
   const transactions: Array<Record<string, unknown>> = [{
     id: "55555555-5555-4555-8555-555555555555", user_id: USER_ID, kind: "opening_balance", status: "posted",
     currency: "NOK", occurred_at: now, description: "Opening balance", merchant_or_source: null, notes: null,
@@ -39,6 +43,8 @@ export async function installFixtureBackend(page: Page) {
   const forecastItems: Array<Record<string, unknown>> = [{ id: "forecast-scenario", user_id: USER_ID, kind: "expense", expected_date: "2026-10-15", amount_minor: 250000, source_account_id: OPERATING_ID, destination_account_id: null, category_id: CATEGORY_ID, label: "Invented scenario cost", notes: null, confidence: "expected", status: "expected", scenario_id: "scenario-fixture", default_sort_order: null }];
   const scenarios: Array<Record<string, unknown>> = [{ id: "scenario-fixture", user_id: USER_ID, name: "Invented plan", description: "Fixture", status: "active", comparison_enabled: false, legacy_source_id: "legacy-fixture", migration_metadata: {}, start_on: null, end_on: null, archived_at: null, applied_at: null, created_at: now, updated_at: now }];
   const scenarioChanges: Array<Record<string, unknown>> = [];
+  const reimbursementPools: Array<Record<string, unknown>> = [{ id: REIMBURSEMENT_POOL_ID, user_id: USER_ID, name: "Splitwise", receivable_account_id: RECEIVABLE_ID, destination_account_id: OPERATING_ID, forecast_item_id: null, expected_date: "2026-09-10", created_at: now, updated_at: now }];
+  const reimbursementEntries: Array<Record<string, unknown>> = [];
   let sequence = 0;
   const newId = () => `aaaaaaaa-aaaa-4aaa-8aaa-${String(++sequence).padStart(12, "0")}`;
   const netWorth = () => [...balances.values()].reduce((sum, value) => sum + value, 0);
@@ -64,14 +70,20 @@ export async function installFixtureBackend(page: Page) {
     const request = route.request();
     const url = new URL(request.url());
     if (url.pathname.startsWith("/auth/v1/")) return json(route, user);
-    if (url.pathname === "/rest/v1/accounts" && request.method() === "GET") return json(route, accounts);
+    if (url.pathname === "/rest/v1/accounts" && request.method() === "GET") return json(route, url.searchParams.get("hidden_from_accounts") === "eq.false" ? accounts.filter((row) => !row.hidden_from_accounts) : accounts);
     if (url.pathname === "/rest/v1/profiles" && request.method() === "GET") return json(route, { user_id: USER_ID, base_currency: "NOK", timezone: "Europe/Oslo", operating_floor_minor: 900000, forecast_horizon_months: forecastHorizonMonths, safety_window_days: 30, schema_version: 7 });
     if (url.pathname === "/rest/v1/profiles" && request.method() === "PATCH") { const body = request.postDataJSON(); if (body.forecast_horizon_months) forecastHorizonMonths = body.forecast_horizon_months; return json(route, []); }
     if (url.pathname === "/rest/v1/account_balances") return json(route, accounts.map((row) => ({ user_id: USER_ID, account_id: row.id, currency: "NOK", ledger_balance_minor: balances.get(row.id) ?? 0, display_balance_minor: balances.get(row.id) ?? 0 })));
     if (url.pathname === "/rest/v1/current_net_worth") return json(route, [{ user_id: USER_ID, currency: "NOK", net_worth_minor: netWorth() }]);
-    if (url.pathname === "/rest/v1/categories") return json(route, [{ id: CATEGORY_ID, user_id: USER_ID, name: "Housing", kind: "expense", archived_at: null, sort_order: 10 }]);
+    if (url.pathname === "/rest/v1/categories") return json(route, [
+      { id: CATEGORY_ID, user_id: USER_ID, name: "Housing", kind: "expense", archived_at: null, sort_order: 10 },
+      { id: GROCERIES_ID, user_id: USER_ID, name: "Groceries", kind: "expense", archived_at: null, sort_order: 20 },
+      { id: MISCELLANEOUS_ID, user_id: USER_ID, name: "Miscellaneous", kind: "expense", archived_at: null, sort_order: 30 },
+    ]);
     if (url.pathname === "/rest/v1/transactions") return json(route, transactions);
     if (url.pathname === "/rest/v1/forecast_items" && request.method() === "GET") return json(route, forecastItems);
+    if (url.pathname === "/rest/v1/reimbursement_pools" && request.method() === "GET") return json(route, reimbursementPools);
+    if (url.pathname === "/rest/v1/reimbursement_entries" && request.method() === "GET") return json(route, reimbursementEntries);
     if (url.pathname === "/rest/v1/funds" && request.method() === "GET") return json(route, []);
     if (url.pathname === "/rest/v1/fund_balances" && request.method() === "GET") return json(route, []);
     if (url.pathname === "/rest/v1/portfolio_value_snapshots" && request.method() === "GET") return json(route, []);
@@ -105,6 +117,26 @@ export async function installFixtureBackend(page: Page) {
       }
       if (rpc === "post_income") return json(route, addTransaction("income", body.p_description, [{ account_id: body.p_destination_account_id, amount_minor: body.p_amount_minor }]));
       if (rpc === "post_expense") return json(route, addTransaction("expense", body.p_description, [{ account_id: body.p_source_account_id, amount_minor: -body.p_amount_minor }]));
+      if (rpc === "post_split_expense") {
+        const personal = body.p_amount_minor - body.p_reimbursable_minor;
+        const transactionId = addTransaction("expense", body.p_description, [{ account_id: body.p_source_account_id, amount_minor: -body.p_amount_minor }, { account_id: RECEIVABLE_ID, amount_minor: body.p_reimbursable_minor }]);
+        reimbursementEntries.unshift({ id: newId(), user_id: USER_ID, pool_id: REIMBURSEMENT_POOL_ID, transaction_id: transactionId, entry_kind: "expense_share", delta_minor: body.p_reimbursable_minor, occurred_at: body.p_occurred_at, description: body.p_description, personal_minor: personal, created_at: now });
+        let item = forecastItems.find((row) => row.id === "splitwise-forecast");
+        if (!item) { item = { id: "splitwise-forecast", user_id: USER_ID, kind: "transfer", expected_date: "2026-09-10", amount_minor: body.p_reimbursable_minor, source_account_id: RECEIVABLE_ID, destination_account_id: OPERATING_ID, category_id: null, label: "Splitwise", notes: "Reimbursement repayment tracked from Activity.", confidence: "expected", status: "expected", scenario_id: null, default_sort_order: null, updated_at: now }; forecastItems.push(item); }
+        else item.amount_minor = Number(item.amount_minor) + body.p_reimbursable_minor;
+        reimbursementPools[0]!.forecast_item_id = "splitwise-forecast";
+        return json(route, transactionId);
+      }
+      if (rpc === "record_reimbursement") {
+        const transactionId = addTransaction("reimbursement", "Splitwise", [{ account_id: RECEIVABLE_ID, amount_minor: -body.p_amount_minor }, { account_id: body.p_destination_account_id, amount_minor: body.p_amount_minor }]);
+        reimbursementEntries.unshift({ id: newId(), user_id: USER_ID, pool_id: REIMBURSEMENT_POOL_ID, transaction_id: transactionId, entry_kind: "repayment", delta_minor: -body.p_amount_minor, occurred_at: body.p_occurred_at, description: "Repayment received", created_at: now });
+        const outstanding = reimbursementEntries.reduce((sum, row) => sum + Number(row.delta_minor), 0);
+        const itemIndex = forecastItems.findIndex((row) => row.id === "splitwise-forecast");
+        if (outstanding > 0 && itemIndex >= 0) forecastItems[itemIndex]!.amount_minor = outstanding;
+        else if (itemIndex >= 0) forecastItems.splice(itemIndex, 1);
+        reimbursementPools[0]!.forecast_item_id = outstanding > 0 ? "splitwise-forecast" : null;
+        return json(route, transactionId);
+      }
       if (rpc === "post_transfer") return json(route, addTransaction("transfer", body.p_description, [{ account_id: body.p_source_account_id, amount_minor: -body.p_amount_minor }, { account_id: body.p_destination_account_id, amount_minor: body.p_amount_minor }]));
       if (rpc === "reverse_transaction") {
         const original = transactions.find((row) => row.id === body.p_transaction_id)!;
@@ -210,6 +242,34 @@ test("keeps primary money screens warm across navigation and refresh", async ({ 
   await page.goto("/funds/payday");
   await expect(page.getByText("Loading payday plan…")).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Set each amount" })).toBeVisible();
+});
+
+test("tracks a shared grocery purchase and a partial Splitwise repayment end to end", async ({ page }) => {
+  await installFixtureBackend(page);
+  await page.goto("/money/transactions");
+  await page.getByLabel("Quick spend amount").fill("300");
+  await page.getByLabel("Quick spend description").fill("Shared groceries");
+  await page.getByRole("button", { name: "Groceries", exact: true }).click();
+  await page.getByRole("checkbox", { name: /Someone owes me part of this/i }).check();
+  await page.getByLabel("Amount owed back").fill("60");
+  await page.getByRole("button", { name: "Log expense" }).click();
+  const history = page.locator(".transaction-row").filter({ hasText: "Shared groceries" });
+  await expect(history).toContainText("Your spending: 240 kr");
+  await expect(history).toContainText("Owed back: 60 kr");
+  await expect.poll(() => page.evaluate(async () => (await fetch("http://127.0.0.1:54321/rest/v1/forecast_items")).json())).toEqual(expect.arrayContaining([expect.objectContaining({ id: "splitwise-forecast", amount_minor: 6000 })]));
+  await expect.poll(() => page.evaluate(async () => (await fetch("http://127.0.0.1:54321/rest/v1/account_balances")).json())).toEqual(expect.arrayContaining([expect.objectContaining({ account_id: OPERATING_ID, display_balance_minor: 1165600 }), expect.objectContaining({ account_id: RECEIVABLE_ID, display_balance_minor: 6000 })]));
+
+  await page.goto("/forecast");
+  const splitwise = page.locator(".forecast-row").filter({ hasText: "Splitwise" });
+  await expect(splitwise).toContainText("+60 kr");
+  await expect(splitwise.getByText("What makes up this total")).toBeVisible();
+  await splitwise.getByRole("button", { name: "Mark received" }).click();
+  await page.getByLabel("Reimbursement amount received").fill("20");
+  await page.getByRole("dialog").getByRole("button", { name: "Mark received" }).click();
+  await expect(splitwise).toContainText("+40 kr");
+
+  await page.goto("/overview");
+  await expect(page.getByText("Net worth").locator("..").locator("strong")).toContainText("11 716 kr");
 });
 
 test("creates a monthly forecast in one pass and projects its horizon", async ({ page }) => {

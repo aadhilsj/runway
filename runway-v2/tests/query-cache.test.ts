@@ -6,12 +6,13 @@ afterEach(() => { clearRunwayQueryCache(); vi.restoreAllMocks(); });
 
 describe("workspace query cache", () => {
   it("restores successful workspace data for the same user", () => {
-    const first = new QueryClient();
+    const first = new QueryClient({ defaultOptions: { queries: { staleTime: 30_000 } } });
     first.setQueryData(["forecast-workspace"], { profile: { base_currency: "NOK" } });
     persistRunwayQueryCache(first, "user-a");
-    const restored = new QueryClient();
+    const restored = new QueryClient({ defaultOptions: { queries: { staleTime: 30_000 } } });
     restoreRunwayQueryCache(restored, "user-a");
     expect(restored.getQueryData(["forecast-workspace"])).toEqual({ profile: { base_currency: "NOK" } });
+    expect(restored.getQueryState(["forecast-workspace"])?.isInvalidated).toBe(true);
   });
 
   it("does not expose one user's cache to another user", () => {

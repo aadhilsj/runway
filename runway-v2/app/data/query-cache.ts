@@ -25,6 +25,15 @@ export function restoreRunwayQueryCache(queryClient: QueryClient, userId: string
       return;
     }
     hydrate(queryClient, cached.state);
+    // Persisted data makes navigation and reloads feel immediate, but it must
+    // never suppress a fresh read from the database. A mutation can complete
+    // immediately before a reload, before the debounced cache writer has saved
+    // the updated workspace. Keep the hydrated data visible while marking it
+    // stale so active screens revalidate in the background.
+    void queryClient.invalidateQueries({
+      predicate: (query) => persistedWorkspaceKeys.has(String(query.queryKey[0])),
+      refetchType: "none",
+    });
   } catch {
     target.removeItem(cacheKey);
   }
