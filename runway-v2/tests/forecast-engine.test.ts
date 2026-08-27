@@ -70,6 +70,17 @@ describe("forecast engine", () => {
     expect(result.endingNetWorthMinor).toBe(140_000);
   });
 
+  it("moves a reimbursement receivable into cash without changing net worth or income", () => {
+    const receivable = { id: "receivable", name: "Splitwise receivable", class: "asset" as const, subtype: "cash" as const,
+      liquidityClass: "non_liquid" as const, balanceMinor: 17_657, includeInNetWorth: true };
+    const result = forecast(input({ accounts: [operating, savings, investment, liability, receivable], forecastItems: [
+      { id: "splitwise", kind: "transfer", date: "2026-01-10", amountMinor: 17_657, sourceAccountId: "receivable", destinationAccountId: "operating", label: "Splitwise", status: "expected" },
+    ] }));
+    expect(result.endingAccountBalances).toMatchObject({ operating: 117_657, receivable: 0 });
+    expect(result.endingNetWorthMinor).toBe(157_657);
+    expect(result.totals).toEqual({ incomeMinor: 0, expenseMinor: 0, transferMinor: 17_657 });
+  });
+
   it("detects floor breaches and ignores events beyond the horizon", () => {
     const result = forecast(input({ endDate: "2026-01-31", forecastItems: [
       { id: "inside", kind: "expense", date: "2026-01-20", amountMinor: 20_000, sourceAccountId: "operating", label: "Inside", status: "expected" },

@@ -28,10 +28,10 @@ export const plansRepository={
  async updateChange(id:string,input:Partial<ScenarioChangeInsert>){const db=client(),userId=await requireAuthenticatedUserId(db);const{error}=await db.from("scenario_changes").update(input).eq("id",id).eq("user_id",userId);if(error)throw error;},
  async removeChange(id:string){const db=client(),userId=await requireAuthenticatedUserId(db);const{error}=await db.from("scenario_changes").delete().eq("id",id).eq("user_id",userId);if(error)throw error;},
  async settleItem(command:SettlePlanItemCommand){const{data,error}=await client().rpc("settle_plan_item",{
-   p_scenario_change_id:command.scenarioChangeId,p_forecast_item_id:command.forecastItemId,
+   p_scenario_change_id:command.scenarioChangeId as string,p_forecast_item_id:command.forecastItemId as string,
    p_actual_amount_minor:command.actualAmountMinor,p_occurred_at:command.occurredAt,
-   p_source_account_id:command.sourceAccountId,p_destination_account_id:command.destinationAccountId,
-   p_category_id:command.categoryId,p_notes:command.notes,p_idempotency_key:command.idempotencyKey,
+   p_source_account_id:command.sourceAccountId as string,p_destination_account_id:command.destinationAccountId as string,
+   p_category_id:command.categoryId as string,p_notes:command.notes as string,p_idempotency_key:command.idempotencyKey,
  });if(error)throw error;return data;},
  async previewApply(id:string){const{data,error}=await client().rpc("preview_plan_application",{p_scenario_id:id});if(error)throw error;return data as {scenario_id:string;name:string;confirmation_token:string;change_count:number;changes:Array<Record<string,unknown>>;requires_confirmation:true;actual_transactions_created:0};},
  async applyToBase(id:string,token:string){const{data,error}=await client().rpc("apply_plan_to_base",{p_scenario_id:id,p_confirmation_token:token});if(error)throw error;return data as Record<string,unknown>;},

@@ -249,7 +249,7 @@ export function buildOverviewReadModel(
         const visible = row.transaction_entries.filter((entry) =>
             workspace.forecast.accounts.some(
               (account) =>
-                account.id === entry.account_id && !account.is_system,
+                account.id === entry.account_id && !account.is_system && !account.hidden_from_accounts,
             ),
           ),
           primary =

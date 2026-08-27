@@ -126,8 +126,8 @@ function MonthlyForecastEditor({ workspace }: { workspace: Workspace }) {
   const incomeMinor = populated.filter((row) => row.kind === "income").reduce((sum, row) => sum + rowMinor(row), 0);
   const expenseMinor = populated.filter((row) => row.kind === "expense").reduce((sum, row) => sum + rowMinor(row), 0);
   const currency = workspace.profile.base_currency;
-  const operatingAccount = workspace.accounts.find((account) => !account.is_system && account.liquidity_class === "operating")
-    ?? workspace.accounts.find((account) => !account.is_system && account.name.toLowerCase().includes("operating"));
+  const operatingAccount = workspace.accounts.find((account) => !account.is_system && !account.hidden_from_accounts && account.liquidity_class === "operating")
+    ?? workspace.accounts.find((account) => !account.is_system && !account.hidden_from_accounts && account.name.toLowerCase().includes("operating"));
 
   const updateRow = (clientId: string, change: Partial<BaselineRow>) => setRows((current) => current.map((row) => row.clientId === clientId ? { ...row, ...change } : row));
   const removeRow = (clientId: string) => setRows((current) => current.filter((row) => row.clientId !== clientId));

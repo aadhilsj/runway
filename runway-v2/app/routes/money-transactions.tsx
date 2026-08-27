@@ -7,6 +7,7 @@ import { accountsRepository } from "~/data/repositories/accounts-repository";
 import { budgetsRepository } from "~/data/repositories/budgets-repository";
 import { categoriesRepository } from "~/data/repositories/categories-repository";
 import { transactionsRepository } from "~/data/repositories/transactions-repository";
+import { reimbursementsRepository } from "~/data/repositories/reimbursements-repository";
 import { asMinorUnits, formatMinorUnits, parseDisplayAmountToMinor } from "~/domain/money";
 import { userFacingError } from "~/user-facing-error";
 
@@ -50,6 +51,8 @@ export default function TransactionsRoute() {
   const [quickCategoryId, setQuickCategoryId] = useState("");
   const [quickDate, setQuickDate] = useState(defaultLocalDate);
   const [quickDescription, setQuickDescription] = useState("");
+  const [quickHasReimbursement, setQuickHasReimbursement] = useState(false);
+  const [quickReimbursableAmount, setQuickReimbursableAmount] = useState("");
   const [limitsOpen, setLimitsOpen] = useState(false);
   const [trackerMonth, setTrackerMonth] = useState(defaultLocalDate().slice(0, 7));
   const [groceriesLimit, setGroceriesLimit] = useState("");
@@ -61,6 +64,7 @@ export default function TransactionsRoute() {
   const accounts = useQuery({ queryKey: ["accounts", "balances"], queryFn: () => accountsRepository.listAccountsWithBalances() });
   const categories = useQuery({ queryKey: ["categories"], queryFn: () => categoriesRepository.listCategories() });
   const budgetWorkspace = useQuery({ queryKey: ["budget-workspace"], queryFn: () => budgetsRepository.getWorkspace() });
+  const reimbursements = useQuery({ queryKey: ["reimbursements-workspace"], queryFn: () => reimbursementsRepository.getWorkspace() });
   const invalidateMoney = async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["transactions"] }),
@@ -73,6 +77,7 @@ export default function TransactionsRoute() {
       queryClient.invalidateQueries({ queryKey: ["funds-workspace"] }),
       queryClient.invalidateQueries({ queryKey: ["budget-workspace"] }),
       queryClient.invalidateQueries({ queryKey: ["plans-workspace"] }),
+      queryClient.invalidateQueries({ queryKey: ["reimbursements-workspace"] }),
     ]);
   };
   const post = useMutation({
@@ -112,6 +117,24 @@ export default function TransactionsRoute() {
       if (!selectedQuickCategory) throw new Error("Groceries and Miscellaneous categories are not available.");
       if (!operatingAccount) throw new Error("Operating Cash is not available.");
       const description = quickDescription.trim() || selectedQuickCategory.name;
+      if (quickHasReimbursement) {
+        const reimbursableMinor = Number(parseDisplayAmountToMinor(quickReimbursableAmount));
+        if (reimbursableMinor <= 0) throw new Error("Enter the amount you expect back.");
+        if (reimbursableMinor > amountMinor) throw new Error("The amount owed back cannot exceed the purchase total.");
+        const pool = reimbursements.data?.pools[0];
+        if (!pool) throw new Error("Your Splitwise tracker is not ready yet.");
+        return reimbursementsRepository.postSplitExpense({
+          sourceAccountId: operatingAccount.id,
+          amountMinor,
+          reimbursableMinor,
+          poolId: pool.id,
+          categoryId: selectedQuickCategory.id,
+          occurredAt: new Date(`${quickDate}T12:00:00`).toISOString(),
+          description,
+          notes: null,
+          idempotencyKey: newKey("split-expense"),
+        });
+      }
       return transactionsRepository.postExpense({
         accountId: operatingAccount.id,
         amountMinor,
@@ -123,7 +146,7 @@ export default function TransactionsRoute() {
         idempotencyKey: newKey("quick-expense"),
       });
     },
-    onSuccess: async () => { setQuickAmount(""); setQuickDescription(""); await invalidateMoney(); },
+    onSuccess: async () => { setQuickAmount(""); setQuickDescription(""); setQuickHasReimbursement(false); setQuickReimbursableAmount(""); await invalidateMoney(); },
   });
   const applicableCategories = categoryRows.filter((category) => category.kind === (kind === "income" ? "income" : "expense"));
   const categoryNames = useMemo(() => new Map(categoryRows.map((category) => [category.id, category.name])), [categoryRows]);
@@ -131,6 +154,9 @@ export default function TransactionsRoute() {
     const needle = search.trim().toLowerCase();
     return !needle || transaction.description.toLowerCase().includes(needle) || transaction.kind.includes(needle);
   });
+  const reimbursementEntryByTransaction = useMemo(() => new Map(
+    (reimbursements.data?.entries ?? []).filter((entry) => entry.transaction_id).map((entry) => [entry.transaction_id!, entry]),
+  ), [reimbursements.data]);
   const onSubmit = (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); post.mutate(event.currentTarget); };
   const onQuickSubmit = (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); quickSpend.mutate(); };
   const currentMonthStart = monthStart(new Date());
@@ -219,6 +245,8 @@ export default function TransactionsRoute() {
         <div className="quick-spend-category"><span className="field-label">Category</span><div role="group" aria-label="Expense category">{quickCategories.map((category) => <button type="button" key={category.id} className={selectedQuickCategory?.id === category.id ? "active" : ""} aria-pressed={selectedQuickCategory?.id === category.id} onClick={() => setQuickCategoryId(category.id)}>{category.name}</button>)}</div></div>
         <label><span className="field-label">Date</span><input aria-label="Quick spend date" type="date" value={quickDate} onChange={(event) => setQuickDate(event.target.value)} required/></label>
         <label><span className="field-label">Description <span className="optional">optional</span></span><input aria-label="Quick spend description" value={quickDescription} onChange={(event) => setQuickDescription(event.target.value)} maxLength={240} placeholder="What was it?"/></label>
+        <label className="reimbursement-toggle"><input type="checkbox" checked={quickHasReimbursement} onChange={(event) => setQuickHasReimbursement(event.target.checked)}/><span><strong>Someone owes me part of this</strong><small>Track their share in {reimbursements.data?.pools[0]?.name ?? "Splitwise"}.</small></span></label>
+        {quickHasReimbursement ? <label className="reimbursement-amount"><span className="field-label">Amount owed back</span><input aria-label="Amount owed back" value={quickReimbursableAmount} onChange={(event) => setQuickReimbursableAmount(event.target.value)} inputMode="decimal" placeholder="0.00" required/><small>Only the remainder counts against your {selectedQuickCategory?.name ?? "spending"} limit.</small></label> : null}
         <button className="primary-button" type="submit" disabled={quickSpend.isPending || !selectedQuickCategory || !operatingAccount}>{quickSpend.isPending ? "Logging…" : "Log expense"}</button>
       </form>
       {quickSpend.error ? <p className="field-error" role="alert">{message(quickSpend.error)}</p> : null}
@@ -239,7 +267,10 @@ export default function TransactionsRoute() {
           const displayedAmount = transaction.kind === "adjustment"
             ? `${display.signedAmount > 0 ? "+" : ""}${formatMinorUnits(asMinorUnits(display.signedAmount), "NOK")}`
             : formatMinorUnits(asMinorUnits(display.amount), "NOK");
-          return <article className="transaction-row activity-transaction-row" key={transaction.id}><div className="transaction-icon" data-kind={iconKind}>{icon}</div><div><strong>{transaction.description}</strong><p>{new Date(transaction.occurred_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} · {transaction.kind.replace("_", " ")}</p><small>{[display.category, ...display.accountNames].filter(Boolean).join(" · ")}</small></div><div className="transaction-amount"><strong>{displayedAmount}</strong>{isReversal ? <span>Correction</span> : reversed ? <span>Reversed</span> : transaction.kind !== "opening_balance" ? <button type="button" aria-label={`Reverse transaction: ${transaction.description}`} disabled={reverse.isPending} onClick={() => setPendingReversal(transaction)}>Reverse</button> : <span>Opening state</span>}</div></article>;
+          const reimbursementEntry = reimbursementEntryByTransaction.get(transaction.id);
+          const reimbursableMinor = reimbursementEntry?.entry_kind === "expense_share" ? Number(reimbursementEntry.delta_minor) : 0;
+          const personalMinor = reimbursableMinor ? Math.max(0, display.amount - reimbursableMinor) : 0;
+          return <article className="transaction-row activity-transaction-row" key={transaction.id}><div className="transaction-icon" data-kind={iconKind}>{icon}</div><div><strong>{transaction.description}</strong><p>{new Date(transaction.occurred_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} · {transaction.kind.replace("_", " ")}</p><small>{[display.category, ...display.accountNames].filter(Boolean).join(" · ")}</small>{reimbursableMinor ? <div className="activity-reimbursement-breakdown"><span>Your spending: {formatMinorUnits(asMinorUnits(personalMinor), "NOK")}</span><span>Owed back: {formatMinorUnits(asMinorUnits(reimbursableMinor), "NOK")}</span></div> : null}</div><div className="transaction-amount"><strong>{displayedAmount}</strong>{isReversal ? <span>Correction</span> : reversed ? <span>Reversed</span> : transaction.kind !== "opening_balance" ? <button type="button" aria-label={`Reverse transaction: ${transaction.description}`} disabled={reverse.isPending} onClick={() => setPendingReversal(transaction)}>Reverse</button> : <span>Opening state</span>}</div></article>;
         })}{!transactions.isLoading && filtered.length === 0 ? <p className="muted">No matching posted transactions.</p> : null}</div>
       </section>
     <Drawer open={Boolean(pendingReversal)} onClose={() => setPendingReversal(null)} eyebrow="Confirm correction" title="Reverse transaction?">

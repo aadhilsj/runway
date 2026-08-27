@@ -27,7 +27,7 @@ export default function OverviewRoute() {
   const [confirmBalance, setConfirmBalance] = useState(false);
   const workspace = useQuery({ queryKey: ["analytics-workspace"], queryFn: () => analyticsRepository.getWorkspace() });
   const model = useMemo(() => workspace.data ? buildOverviewReadModel(workspace.data, projectionDate) : null, [workspace.data, projectionDate]);
-  const liquidAccounts = useMemo(() => workspace.data?.forecast.accounts.filter((account) => !account.is_system && account.class === "asset" && (account.liquidity_class === "operating" || account.liquidity_class === "liquid")) ?? [], [workspace.data]);
+  const liquidAccounts = useMemo(() => workspace.data?.forecast.accounts.filter((account) => !account.is_system && !account.hidden_from_accounts && account.class === "asset" && (account.liquidity_class === "operating" || account.liquidity_class === "liquid")) ?? [], [workspace.data]);
   const primaryAccount = liquidAccounts.find((account) => account.liquidity_class === "operating") ?? liquidAccounts[0] ?? null;
   const primaryBalance = primaryAccount ? Number(workspace.data?.forecast.balances.find((row) => row.account_id === primaryAccount.id)?.display_balance_minor ?? 0) : 0;
   const targetTotalMinor = (() => { try { return balanceAmount ? Number(parseDisplayAmountToMinor(balanceAmount)) : null; } catch { return null; } })();

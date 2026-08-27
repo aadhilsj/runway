@@ -60,8 +60,8 @@ export const recurringRepository = {
     const { data, error } = await client.rpc("settle_recurring_occurrence", {
       p_recurring_rule_id: command.ruleId, p_occurrence_date: command.occurrenceDate,
       p_actual_amount_minor: command.actualAmountMinor, p_occurred_at: command.occurredAt,
-      p_source_account_id: command.sourceAccountId, p_destination_account_id: command.destinationAccountId,
-      p_category_id: command.categoryId, p_notes: command.notes, p_idempotency_key: command.idempotencyKey,
+      p_source_account_id: command.sourceAccountId as string, p_destination_account_id: command.destinationAccountId as string,
+      p_category_id: command.categoryId as string, p_notes: command.notes as string, p_idempotency_key: command.idempotencyKey,
     });
     if (error) throw error;
     return data;

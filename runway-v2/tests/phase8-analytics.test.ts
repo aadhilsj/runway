@@ -21,4 +21,13 @@ describe("Phase 8 authoritative analytics",()=>{
  it("counts Fund allocation nowhere because it is not a ledger transaction",()=>expect(aggregateMonthlyCashFlow(rows,accounts,"UTC")).toHaveLength(2));
  it("derives cash, allocated, unallocated and book-value investments once",()=>expect(currentFinancialPosition(accounts,new Map([["cash",114_000],["invest",10_000],["debt",0]]),20_000)).toEqual({totalCashMinor:114_000,allocatedCashMinor:20_000,unallocatedCashMinor:94_000,investmentBookValueMinor:10_000,totalAssetsMinor:124_000,totalLiabilitiesMinor:0,netWorthMinor:124_000}));
  it("subtracts displayed liabilities from net worth",()=>expect(currentFinancialPosition(accounts,new Map([["cash",100_000],["invest",0],["debt",25_000]]),0).netWorthMinor).toBe(75_000));
+ it("treats a reimbursable share as an asset without inflating income or spending",()=>{
+  const reimbursementAccounts:AnalyticsAccount[]=[...accounts,{id:"receivable",name:"Splitwise receivable",class:"asset",subtype:"cash",liquidityClass:"non_liquid",includeInNetWorth:true,isSystem:false}];
+  const split=tx("split-groceries","expense","2026-09-06",[["cash",-30_000],["receivable",6_000],["expense",24_000,"food"]]);
+  const repayment=tx("splitwise-repayment","reimbursement","2026-09-07",[["receivable",-3_000],["cash",3_000]]);
+  const flow=aggregateMonthlyCashFlow([...rows,split,repayment],reimbursementAccounts,"UTC").at(-1)!;
+  expect(flow).toEqual({month:"2026-09",incomeMinor:30_000,expenseMinor:30_000,netMinor:0});
+  expect(aggregateCategorySpend([...rows,split,repayment],reimbursementAccounts,new Map([["food","Food"]]),"UTC","2026-09")[0]!.amountMinor).toBe(30_000);
+  expect(currentFinancialPosition(reimbursementAccounts,new Map([["cash",87_000],["receivable",3_000],["invest",10_000],["debt",0]]),0)).toMatchObject({totalCashMinor:87_000,totalAssetsMinor:100_000,netWorthMinor:100_000});
+ });
 });

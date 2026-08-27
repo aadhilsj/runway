@@ -18,7 +18,7 @@ function remainingBudgetItems(
 ) {
   if (!budgets) return [];
   const operatingAccount = workspace.accounts.find(
-    (account) => !account.is_system && account.class === "asset" && account.liquidity_class === "operating",
+    (account) => !account.is_system && !account.hidden_from_accounts && account.class === "asset" && account.liquidity_class === "operating",
   );
   if (!operatingAccount) return [];
 

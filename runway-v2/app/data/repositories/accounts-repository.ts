@@ -8,7 +8,7 @@ export const accountsRepository = {
   async listAccounts({ includeSystem = false }: { includeSystem?: boolean } = {}) {
     const client = requireSupabase();
     const userId = await requireAuthenticatedUserId(client);
-    let query = client.from("accounts").select("*").eq("user_id", userId).order("created_at");
+    let query = client.from("accounts").select("*").eq("user_id", userId).eq("hidden_from_accounts", false).order("created_at");
     if (!includeSystem) query = query.eq("is_system", false);
     const { data, error } = await query;
     if (error) throw error;
@@ -19,7 +19,7 @@ export const accountsRepository = {
     const client = requireSupabase();
     const userId = await requireAuthenticatedUserId(client);
     const [accountsResult, balancesResult] = await Promise.all([
-      client.from("accounts").select("*").eq("user_id", userId).eq("is_system", false).order("created_at"),
+      client.from("accounts").select("*").eq("user_id", userId).eq("is_system", false).eq("hidden_from_accounts", false).order("created_at"),
       client.from("account_balances").select("*").eq("user_id", userId),
     ]);
     if (accountsResult.error) throw accountsResult.error;

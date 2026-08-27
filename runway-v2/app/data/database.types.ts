@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.17"
   }
   public: {
     Tables: {
@@ -87,6 +87,7 @@ export type Database = {
           creation_idempotency_key: string | null
           creation_payload: Json | null
           currency: string
+          hidden_from_accounts: boolean
           id: string
           include_in_net_worth: boolean
           is_system: boolean
@@ -108,6 +109,7 @@ export type Database = {
           creation_idempotency_key?: string | null
           creation_payload?: Json | null
           currency: string
+          hidden_from_accounts?: boolean
           id?: string
           include_in_net_worth?: boolean
           is_system?: boolean
@@ -129,6 +131,7 @@ export type Database = {
           creation_idempotency_key?: string | null
           creation_payload?: Json | null
           currency?: string
+          hidden_from_accounts?: boolean
           id?: string
           include_in_net_worth?: boolean
           is_system?: boolean
@@ -1444,6 +1447,143 @@ export type Database = {
           },
         ]
       }
+      reimbursement_entries: {
+        Row: {
+          created_at: string
+          delta_minor: number
+          description: string
+          entry_kind: string
+          id: string
+          occurred_at: string
+          pool_id: string
+          transaction_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          delta_minor: number
+          description: string
+          entry_kind: string
+          id?: string
+          occurred_at: string
+          pool_id: string
+          transaction_id?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          delta_minor?: number
+          description?: string
+          entry_kind?: string
+          id?: string
+          occurred_at?: string
+          pool_id?: string
+          transaction_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reimbursement_entries_pool_id_user_id_fkey"
+            columns: ["pool_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "reimbursement_pools"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "reimbursement_entries_transaction_id_user_id_fkey"
+            columns: ["transaction_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id", "user_id"]
+          },
+        ]
+      }
+      reimbursement_pools: {
+        Row: {
+          created_at: string
+          destination_account_id: string
+          expected_date: string
+          forecast_item_id: string | null
+          id: string
+          name: string
+          receivable_account_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          destination_account_id: string
+          expected_date: string
+          forecast_item_id?: string | null
+          id?: string
+          name: string
+          receivable_account_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          destination_account_id?: string
+          expected_date?: string
+          forecast_item_id?: string | null
+          id?: string
+          name?: string
+          receivable_account_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reimbursement_pools_destination_account_id_user_id_fkey"
+            columns: ["destination_account_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "account_balances"
+            referencedColumns: ["account_id", "user_id"]
+          },
+          {
+            foreignKeyName: "reimbursement_pools_destination_account_id_user_id_fkey"
+            columns: ["destination_account_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "reimbursement_pools_destination_account_id_user_id_fkey"
+            columns: ["destination_account_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "fund_backing_summary"
+            referencedColumns: ["account_id", "user_id"]
+          },
+          {
+            foreignKeyName: "reimbursement_pools_forecast_item_id_user_id_fkey"
+            columns: ["forecast_item_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "forecast_items"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "reimbursement_pools_receivable_account_id_user_id_fkey"
+            columns: ["receivable_account_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "account_balances"
+            referencedColumns: ["account_id", "user_id"]
+          },
+          {
+            foreignKeyName: "reimbursement_pools_receivable_account_id_user_id_fkey"
+            columns: ["receivable_account_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "reimbursement_pools_receivable_account_id_user_id_fkey"
+            columns: ["receivable_account_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "fund_backing_summary"
+            referencedColumns: ["account_id", "user_id"]
+          },
+        ]
+      }
       runway_state: {
         Row: {
           state: Json
@@ -1922,6 +2062,23 @@ export type Database = {
           },
         ]
       }
+      budget_commitments: {
+        Row: {
+          category_id: string | null
+          committed_minor: number | null
+          month_start: string | null
+          user_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "forecast_items_category_owner_fkey"
+            columns: ["category_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id", "user_id"]
+          },
+        ]
+      }
       current_net_worth: {
         Row: {
           currency: string | null
@@ -1978,6 +2135,16 @@ export type Database = {
       }
     }
     Functions: {
+      adjust_reimbursement_pool: {
+        Args: {
+          p_description: string
+          p_expected_date: string
+          p_idempotency_key: string
+          p_pool_id: string
+          p_total_minor: number
+        }
+        Returns: string
+      }
       allocate_to_fund: {
         Args: {
           p_amount_minor: number
@@ -1992,9 +2159,9 @@ export type Database = {
         Args: { p_confirmation_token: string; p_scenario_id: string }
         Returns: Json
       }
-      delete_plan: {
-        Args: { p_scenario_id: string }
-        Returns: undefined
+      convert_forecast_item_to_reimbursement_pool: {
+        Args: { p_forecast_item_id: string }
+        Returns: string
       }
       create_account: {
         Args: {
@@ -2013,6 +2180,7 @@ export type Database = {
         }
         Returns: string
       }
+      delete_plan: { Args: { p_scenario_id: string }; Returns: undefined }
       execute_payday_allocation: {
         Args: {
           p_idempotency_key: string
@@ -2033,47 +2201,6 @@ export type Database = {
           p_transaction_id: string
         }
         Returns: undefined
-      }
-      settle_forecast_item: {
-        Args: {
-          p_actual_amount_minor: number
-          p_category_id: string | null
-          p_destination_account_id: string | null
-          p_forecast_item_id: string
-          p_idempotency_key: string
-          p_notes: string | null
-          p_occurred_at: string
-          p_source_account_id: string | null
-        }
-        Returns: string
-      }
-      settle_plan_item: {
-        Args: {
-          p_actual_amount_minor: number
-          p_category_id: string | null
-          p_destination_account_id: string | null
-          p_forecast_item_id: string | null
-          p_idempotency_key: string
-          p_notes: string | null
-          p_occurred_at: string
-          p_scenario_change_id: string | null
-          p_source_account_id: string | null
-        }
-        Returns: string
-      }
-      settle_recurring_occurrence: {
-        Args: {
-          p_actual_amount_minor: number
-          p_category_id: string | null
-          p_destination_account_id: string | null
-          p_idempotency_key: string
-          p_notes: string | null
-          p_occurred_at: string
-          p_occurrence_date: string
-          p_recurring_rule_id: string
-          p_source_account_id: string | null
-        }
-        Returns: string
       }
       post_debt_payment: {
         Args: {
@@ -2138,6 +2265,20 @@ export type Database = {
         }
         Returns: string
       }
+      post_split_expense: {
+        Args: {
+          p_amount_minor: number
+          p_category_id: string
+          p_description: string
+          p_idempotency_key: string
+          p_notes: string
+          p_occurred_at: string
+          p_pool_id: string
+          p_reimbursable_minor: number
+          p_source_account_id: string
+        }
+        Returns: string
+      }
       post_transaction: {
         Args: {
           p_currency: string
@@ -2179,6 +2320,17 @@ export type Database = {
         }
         Returns: Json
       }
+      record_reimbursement: {
+        Args: {
+          p_amount_minor: number
+          p_destination_account_id: string
+          p_idempotency_key: string
+          p_notes: string
+          p_occurred_at: string
+          p_pool_id: string
+        }
+        Returns: string
+      }
       release_from_fund: {
         Args: {
           p_amount_minor: number
@@ -2195,6 +2347,47 @@ export type Database = {
           p_notes: string
           p_occurred_at: string
           p_transaction_id: string
+        }
+        Returns: string
+      }
+      settle_forecast_item: {
+        Args: {
+          p_actual_amount_minor: number
+          p_category_id: string
+          p_destination_account_id: string
+          p_forecast_item_id: string
+          p_idempotency_key: string
+          p_notes: string
+          p_occurred_at: string
+          p_source_account_id: string
+        }
+        Returns: string
+      }
+      settle_plan_item: {
+        Args: {
+          p_actual_amount_minor: number
+          p_category_id: string
+          p_destination_account_id: string
+          p_forecast_item_id: string
+          p_idempotency_key: string
+          p_notes: string
+          p_occurred_at: string
+          p_scenario_change_id: string
+          p_source_account_id: string
+        }
+        Returns: string
+      }
+      settle_recurring_occurrence: {
+        Args: {
+          p_actual_amount_minor: number
+          p_category_id: string
+          p_destination_account_id: string
+          p_idempotency_key: string
+          p_notes: string
+          p_occurred_at: string
+          p_occurrence_date: string
+          p_recurring_rule_id: string
+          p_source_account_id: string
         }
         Returns: string
       }

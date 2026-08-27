@@ -11,18 +11,19 @@ const mocks = vi.hoisted(() => {
   items: [{ id: "base", kind: "expense", expected_date: "2026-09-01", amount_minor: 100000, source_account_id: account.id, destination_account_id: null, category_id: null, label: "Base expense", notes: null, confidence: "expected", scenario_id: null, default_sort_order: null, status: "expected", updated_at: "2026-08-24T20:00:00Z" },
     { id: "scenario-item", kind: "expense", expected_date: "2026-09-02", amount_minor: 200000, source_account_id: account.id, destination_account_id: null, category_id: null, label: "Scenario expense", notes: null, confidence: "expected", scenario_id: "scenario-a", default_sort_order: null, status: "expected" }],
   rules: [{ id: "rule-a", kind: "expense", label: "Monthly fixture", notes: null, source_account_id: account.id, destination_account_id: null, category_id: null, amount_minor: 5000, frequency: "monthly", interval_count: 1, day_of_month: 10, day_of_week: null, start_on: "2026-09-10", end_on: null, default_sort_order: null, confidence: "expected", scenario_id: null, active: true, archived_at: null }],
-    occurrences: [], scenarios: [{ id: "scenario-a", name: "Optional plan", status: "active", archived_at: null, comparison_enabled: false }], categories: [], transactions: [] } as any;
+    occurrences: [], scenarios: [{ id: "scenario-a", name: "Optional plan", status: "active", archived_at: null, comparison_enabled: false }], categories: [], transactions: [], reimbursementPools: [], reimbursementEntries: [] } as any;
   const updatePlan = vi.fn(async (id: string, values: { comparison_enabled?: boolean }) => { const plan = workspace.scenarios.find((item: { id: string }) => item.id === id); if (plan && values.comparison_enabled !== undefined) plan.comparison_enabled = values.comparison_enabled; });
   const planWorkspace = { forecast: workspace, funds: { profile: { safety_window_days: 30 }, items: [], goals: [] }, budgets: { periods: [], lines: [], groups: [], groupCategories: [], actuals: [], categories: [], currency: "NOK" }, plans: workspace.scenarios, changes: [] as any[], applications: [] };
-  return { createItem: vi.fn(), createRule: vi.fn(), settleItem: vi.fn(), settlePlanItem: vi.fn(), settleOccurrence: vi.fn(), restoreException: vi.fn(), saveMonthlyBaseline: vi.fn(), saveHorizon: vi.fn(), setActive: vi.fn(), archive: vi.fn(), updatePlan, account, workspace, planWorkspace };
+  return { createItem: vi.fn(), createRule: vi.fn(), settleItem: vi.fn(), settlePlanItem: vi.fn(), settleOccurrence: vi.fn(), restoreException: vi.fn(), recordRepayment: vi.fn(), adjustPool: vi.fn(), saveMonthlyBaseline: vi.fn(), saveHorizon: vi.fn(), setActive: vi.fn(), archive: vi.fn(), updatePlan, account, workspace, planWorkspace };
 });
 
 vi.mock("~/data/repositories/forecast-repository", () => ({ forecastRepository: { getWorkspace: vi.fn().mockResolvedValue(mocks.workspace), saveHorizon: mocks.saveHorizon, createItem: mocks.createItem, updateItem: vi.fn(), purgeExpiredRecoverableItems: vi.fn().mockResolvedValue(undefined), matchItem: vi.fn(), settleItem: mocks.settleItem } }));
 vi.mock("~/data/repositories/budgets-repository", () => ({ budgetsRepository: { getWorkspace: vi.fn().mockResolvedValue({ periods: [], lines: [], groups: [], groupCategories: [], actuals: [], categories: [], currency: "NOK" }) } }));
 vi.mock("~/data/repositories/recurring-repository", () => ({ recurringRepository: { create: mocks.createRule, update: vi.fn(), setActive: mocks.setActive, archive: mocks.archive, setException: vi.fn(), restoreException: mocks.restoreException, settleOccurrence: mocks.settleOccurrence, saveMonthlyBaseline: mocks.saveMonthlyBaseline } }));
 vi.mock("~/data/repositories/plans-repository", () => ({ plansRepository: { getWorkspace: vi.fn().mockResolvedValue(mocks.planWorkspace), updatePlan: mocks.updatePlan, settleItem: mocks.settlePlanItem } }));
+vi.mock("~/data/repositories/reimbursements-repository", () => ({ reimbursementsRepository: { getWorkspace: vi.fn().mockResolvedValue({ pools: [], entries: [] }), recordRepayment: mocks.recordRepayment, adjustPool: mocks.adjustPool } }));
 function show(ui: React.ReactNode) { const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } }); return render(<MemoryRouter><QueryClientProvider client={client}>{ui}</QueryClientProvider></MemoryRouter>); }
-afterEach(() => { cleanup(); mocks.workspace.occurrences = []; mocks.workspace.scenarios[0].comparison_enabled = false; mocks.planWorkspace.changes = []; vi.clearAllMocks(); });
+afterEach(() => { cleanup(); mocks.workspace.occurrences = []; mocks.workspace.scenarios[0].comparison_enabled = false; mocks.workspace.items = mocks.workspace.items.filter((item: { id: string }) => item.id !== "splitwise-item"); mocks.workspace.accounts = mocks.workspace.accounts.filter((item: { id: string }) => item.id !== "receivable-a"); mocks.workspace.balances = mocks.workspace.balances.filter((item: { account_id: string }) => item.account_id !== "receivable-a"); mocks.workspace.reimbursementPools = []; mocks.workspace.reimbursementEntries = []; mocks.planWorkspace.changes = []; vi.clearAllMocks(); });
 
 describe("Phase 5 forecast UI", () => {
   it("extends a forecast horizon through the entire selected end month", () => {
@@ -67,6 +68,25 @@ describe("Phase 5 forecast UI", () => {
       itemId: "base", actualAmountMinor: 100000, occurredAt: "2026-09-01T12:00:00.000Z",
       sourceAccountId: mocks.account.id, destinationAccountId: null, categoryId: null, notes: null,
     })));
+  });
+
+  it("records a partial Splitwise repayment as a transfer and keeps the remainder forecasted", async () => {
+    mocks.workspace.accounts.push({ ...mocks.account, id: "receivable-a", name: "Splitwise receivable", subtype: "cash", liquidity_class: "non_liquid", hidden_from_accounts: true });
+    mocks.workspace.balances.push({ account_id: "receivable-a", display_balance_minor: 1765700 });
+    mocks.workspace.items.push({ id: "splitwise-item", kind: "transfer", expected_date: "2026-09-10", amount_minor: 1765700, source_account_id: "receivable-a", destination_account_id: mocks.account.id, category_id: null, label: "Splitwise", notes: null, confidence: "expected", scenario_id: null, default_sort_order: null, status: "expected", updated_at: "2026-08-24T20:00:00Z" });
+    mocks.workspace.reimbursementPools = [{ id: "pool-a", forecast_item_id: "splitwise-item", expected_date: "2026-09-10" }];
+    mocks.workspace.reimbursementEntries = [{ id: "entry-a", pool_id: "pool-a", delta_minor: 1765700, description: "Opening Splitwise balance" }];
+    mocks.recordRepayment.mockResolvedValue("transaction-repayment");
+    show(<ForecastRoute/>);
+    const label = await screen.findByText("Splitwise");
+    const row = label.closest("article")!;
+    expect(within(row).getByText("What makes up this total")).toBeVisible();
+    fireEvent.click(within(row).getByRole("button", { name: "Mark received" }));
+    const dialog = screen.getByRole("dialog");
+    fireEvent.change(within(dialog).getByLabelText("Reimbursement amount received"), { target: { value: "100" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Mark received" }));
+    await waitFor(() => expect(mocks.recordRepayment).toHaveBeenCalledWith(expect.objectContaining({ poolId: "pool-a", destinationAccountId: mocks.account.id, amountMinor: 10000 })));
+    expect(mocks.settleItem).not.toHaveBeenCalled();
   });
 
   it("settles an older Plan-linked forecast item and identifies its Plan in the confirmation", async () => {

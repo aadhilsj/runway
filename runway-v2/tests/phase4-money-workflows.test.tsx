@@ -9,6 +9,7 @@ import ForecastRoute from "~/routes/forecast";
 const mocks = vi.hoisted(() => ({
   createAccount: vi.fn(), reconcileAccount: vi.fn(), postExpense: vi.fn(), reverseTransaction: vi.fn(), settleItem: vi.fn(),
   createBudgetPeriod: vi.fn(), createBudgetLine: vi.fn(), updateBudgetLine: vi.fn(), deleteBudgetLine: vi.fn(), getBudgetWorkspace: vi.fn(),
+  postSplitExpense: vi.fn(),
   operatingAccount: {
     id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", user_id: "owner", name: "Operating Cash", class: "asset" as const,
     subtype: "checking" as const, currency: "NOK", liquidity_class: "operating" as const, valuation_mode: "ledger" as const,
@@ -48,6 +49,10 @@ vi.mock("~/data/repositories/budgets-repository", () => ({ budgetsRepository: {
 vi.mock("~/data/repositories/transactions-repository", () => ({ transactionsRepository: {
   listTransactions: vi.fn().mockResolvedValue([]), postIncome: vi.fn(), postExpense: mocks.postExpense,
   postTransfer: vi.fn(), postDebtPayment: vi.fn(), reverseTransaction: mocks.reverseTransaction,
+} }));
+vi.mock("~/data/repositories/reimbursements-repository", () => ({ reimbursementsRepository: {
+  getWorkspace: vi.fn().mockResolvedValue({ pools: [{ id: "pool-a", name: "Splitwise" }], entries: [] }),
+  postSplitExpense: mocks.postSplitExpense, recordRepayment: vi.fn(), adjustPool: vi.fn(),
 } }));
 vi.mock("~/data/repositories/forecast-repository", () => ({ forecastRepository: {
   getWorkspace: vi.fn().mockResolvedValue({
@@ -114,6 +119,26 @@ describe("Phase 4 actual-money workflows", () => {
       categoryId: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
       description: "Invented grocery shop",
     })));
+  });
+
+  it("logs only the personal share as spending while tracking the amount owed back", async () => {
+    mocks.postSplitExpense.mockResolvedValue("transaction-split");
+    renderWithQuery(<TransactionsRoute />);
+    await screen.findByRole("button", { name: "Set monthly limits" });
+    fireEvent.change(screen.getByLabelText("Quick spend amount"), { target: { value: "300" } });
+    fireEvent.change(screen.getByLabelText("Quick spend description"), { target: { value: "Shared groceries" } });
+    fireEvent.click(screen.getByRole("checkbox", { name: /Someone owes me part of this/i }));
+    fireEvent.change(screen.getByLabelText("Amount owed back"), { target: { value: "60" } });
+    fireEvent.click(screen.getByRole("button", { name: "Log expense" }));
+    await waitFor(() => expect(mocks.postSplitExpense).toHaveBeenCalledWith(expect.objectContaining({
+      sourceAccountId: mocks.operatingAccount.id,
+      amountMinor: 30000,
+      reimbursableMinor: 6000,
+      poolId: "pool-a",
+      categoryId: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+      description: "Shared groceries",
+    })));
+    expect(mocks.postExpense).not.toHaveBeenCalled();
   });
 
   it("sets the current month's everyday spending limits from Activity", async () => {

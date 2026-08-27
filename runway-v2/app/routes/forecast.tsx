@@ -8,6 +8,7 @@ import { forecastRepository } from "~/data/repositories/forecast-repository";
 import { budgetsRepository } from "~/data/repositories/budgets-repository";
 import { plansRepository } from "~/data/repositories/plans-repository";
 import { recurringRepository } from "~/data/repositories/recurring-repository";
+import { reimbursementsRepository } from "~/data/repositories/reimbursements-repository";
 import { asMinorUnits, formatMinorUnits, parseDisplayAmountToMinor } from "~/domain/money";
 import { parseForecastQuickEntry } from "~/domain/forecast-quick-entry";
 import { buildForecastScreenModel, buildForecastScreenModelFromResult } from "~/read-models/forecast";
@@ -20,6 +21,7 @@ type SettlementDraft = {
   label: string; kind: "income" | "expense" | "transfer"; expectedAmountMinor: number;
   expectedDate: string; sourceAccountId: string | null; destinationAccountId: string | null; categoryId: string | null;
   notes: string | null; planName: string | null;
+  reimbursementPoolId: string | null;
 };
 function message(error: unknown): string { return userFacingError(error, "Forecast could not be loaded."); }
 function money(value: number, currency: string): string { return formatMinorUnits(asMinorUnits(value), currency); }
@@ -40,6 +42,10 @@ export default function ForecastRoute() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [quickEntry, setQuickEntry] = useState(""); const [showDetails, setShowDetails] = useState(false);
   const [settlement, setSettlement] = useState<SettlementDraft | null>(null);
+  const [repaymentAmount, setRepaymentAmount] = useState("");
+  const [reimbursementEditId, setReimbursementEditId] = useState<string | null>(null);
+  const [reimbursementTotal, setReimbursementTotal] = useState("");
+  const [reimbursementDate, setReimbursementDate] = useState("");
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const months = horizon ?? workspace.data?.profile.forecast_horizon_months ?? 12;
   const horizonOptions = horizons.includes(months) ? horizons : [...horizons, months].sort((left, right) => left - right);
@@ -75,6 +81,7 @@ export default function ForecastRoute() {
     client.invalidateQueries({ queryKey: ["analytics-workspace"] }),
     client.invalidateQueries({ queryKey: ["plans-workspace"] }),
     client.invalidateQueries({ queryKey: ["payday-workspace"] }),
+    client.invalidateQueries({ queryKey: ["reimbursements-workspace"] }),
   ]);
   useEffect(() => {
     void forecastRepository.purgeExpiredRecoverableItems().then(() => client.invalidateQueries({ queryKey: ["forecast-workspace"] })).catch(() => undefined);
@@ -94,8 +101,8 @@ export default function ForecastRoute() {
   }, onSuccess: () => { setEditingId(null); setLabel(""); setAmount(""); setDate(""); setFormError(""); setDrawerOpen(false); void invalidate(); }, onError: (error) => setFormError(message(error)) });
   const quickSave = useMutation({ mutationFn: async () => {
     const parsed = parseForecastQuickEntry(quickEntry);
-    const operatingAccount = workspace.data?.accounts.find((account) => !account.is_system && account.liquidity_class === "operating")
-      ?? workspace.data?.accounts.find((account) => !account.is_system && account.name.toLowerCase().includes("operating"));
+    const operatingAccount = workspace.data?.accounts.find((account) => !account.is_system && !account.hidden_from_accounts && account.liquidity_class === "operating")
+      ?? workspace.data?.accounts.find((account) => !account.is_system && !account.hidden_from_accounts && account.name.toLowerCase().includes("operating"));
     if (!operatingAccount) throw new Error("Operating Cash is not available.");
     await forecastRepository.createItem({
       kind: parsed.kind, label: parsed.label, amount_minor: parsed.amountMinor, expected_date: parsed.expectedDate,
@@ -109,6 +116,19 @@ export default function ForecastRoute() {
   const restoreOccurrence = useMutation({ mutationFn: (command: { sourceType: "forecast_item" | "recurring_occurrence"; sourceId: string; date: string }) => command.sourceType === "forecast_item" ? forecastRepository.updateItem(command.sourceId, { status: "expected" }) : recurringRepository.restoreException(command.sourceId, command.date), onSuccess: () => void invalidate() });
   const settle = useMutation({ mutationFn: async () => {
     if (!settlement) throw new Error("Choose a forecast item first.");
+    if (settlement.reimbursementPoolId) {
+      const amountMinor = Number(parseDisplayAmountToMinor(repaymentAmount));
+      if (amountMinor <= 0 || amountMinor > settlement.expectedAmountMinor) throw new Error("Enter an amount up to the outstanding balance.");
+      if (!settlement.destinationAccountId) throw new Error("Choose where the repayment was received.");
+      return reimbursementsRepository.recordRepayment({
+        poolId: settlement.reimbursementPoolId,
+        destinationAccountId: settlement.destinationAccountId,
+        amountMinor,
+        occurredAt: `${defaultLocalDate()}T12:00:00.000Z`,
+        notes: settlement.notes,
+        idempotencyKey: crypto.randomUUID(),
+      });
+    }
     const command = { actualAmountMinor: settlement.expectedAmountMinor, occurredAt: `${settlement.expectedDate}T12:00:00.000Z`,
       sourceAccountId: settlement.kind === "income" ? null : settlement.sourceAccountId,
       destinationAccountId: settlement.kind === "expense" ? null : settlement.destinationAccountId,
@@ -125,10 +145,21 @@ export default function ForecastRoute() {
     client.invalidateQueries({ queryKey: ["transactions"] }), client.invalidateQueries({ queryKey: ["accounts"] }),
     client.invalidateQueries({ queryKey: ["budget-workspace"] }),
     client.invalidateQueries({ queryKey: ["plans-workspace"] }), client.invalidateQueries({ queryKey: ["payday-workspace"] }),
+    client.invalidateQueries({ queryKey: ["reimbursements-workspace"] }),
   ]); } });
+  const adjustReimbursement = useMutation({ mutationFn: async () => {
+    const pool = (workspace.data?.reimbursementPools ?? []).find((candidate) => candidate.id === reimbursementEditId);
+    if (!pool) throw new Error("Choose a reimbursement tracker first.");
+    const totalMinor = Number(parseDisplayAmountToMinor(reimbursementTotal));
+    if (totalMinor < 0) throw new Error("The amount owed cannot be negative.");
+    return reimbursementsRepository.adjustPool({
+      poolId: pool.id, totalMinor, expectedDate: reimbursementDate,
+      description: "Matched Splitwise total", idempotencyKey: crypto.randomUUID(),
+    });
+  }, onSuccess: () => { setReimbursementEditId(null); void invalidate(); } });
   function openCreate() {
-    const operatingId = workspace.data?.accounts.find((account) => !account.is_system && account.liquidity_class === "operating")?.id
-      ?? workspace.data?.accounts.find((account) => !account.is_system && account.name.toLowerCase().includes("operating"))?.id ?? "";
+    const operatingId = workspace.data?.accounts.find((account) => !account.is_system && !account.hidden_from_accounts && account.liquidity_class === "operating")?.id
+      ?? workspace.data?.accounts.find((account) => !account.is_system && !account.hidden_from_accounts && account.name.toLowerCase().includes("operating"))?.id ?? "";
     setEditingId(null); setQuickEntry(""); setShowDetails(false); setFormError(""); setKind("expense"); setLabel(""); setAmount("");
     setDate(defaultLocalDate()); setSource(operatingId); setDestination(operatingId); setScenario(""); setDrawerOpen(true);
   }
@@ -139,13 +170,22 @@ export default function ForecastRoute() {
     const sourceType = item.sourceType === "scenario_item"
       ? item.sourceId.startsWith("plan:") ? "plan_change" : "plan_forecast_item"
       : item.sourceType;
+    const reimbursementPool = (workspace.data?.reimbursementPools ?? []).find((pool) => pool.forecast_item_id === item.sourceId);
+    setRepaymentAmount((item.amountMinor / 100).toFixed(2));
     setSettlement({ sourceType, sourceId: item.sourceId.startsWith("plan:") ? item.sourceId.slice(5) : item.sourceId, occurrenceDate: item.recurrenceRuleId ? item.canonicalDate : null,
       label: item.label, kind: item.kind, expectedAmountMinor: item.amountMinor, expectedDate: item.date,
       sourceAccountId: item.sourceAccountId, destinationAccountId: item.destinationAccountId, categoryId: item.categoryId,
-      notes: item.notes, planName: workspace.data?.scenarios.find((plan) => plan.id === item.scenarioId)?.name ?? null });
+      notes: item.notes, planName: workspace.data?.scenarios.find((plan) => plan.id === item.scenarioId)?.name ?? null,
+      reimbursementPoolId: reimbursementPool?.id ?? null });
   }
-  function settlementAction(kind: SettlementDraft["kind"]) { return kind === "income" ? "Mark received" : kind === "expense" ? "Mark paid" : "Mark transferred"; }
-  function settlementState(kind: SettlementDraft["kind"]) { return kind === "income" ? "received" : kind === "expense" ? "paid" : "transferred"; }
+  function beginReimbursementEdit(poolId: string) {
+    const pool = (workspace.data?.reimbursementPools ?? []).find((candidate) => candidate.id === poolId);
+    if (!pool) return;
+    const outstanding = (workspace.data?.reimbursementEntries ?? []).filter((entry) => entry.pool_id === pool.id).reduce((sum, entry) => sum + Number(entry.delta_minor), 0);
+    setReimbursementEditId(pool.id); setReimbursementTotal((outstanding / 100).toFixed(2)); setReimbursementDate(pool.expected_date);
+  }
+  function settlementAction(kind: SettlementDraft["kind"], reimbursement = false) { return reimbursement || kind === "income" ? "Mark received" : kind === "expense" ? "Mark paid" : "Mark transferred"; }
+  function settlementState(kind: SettlementDraft["kind"], reimbursement = false) { return reimbursement || kind === "income" ? "received" : kind === "expense" ? "paid" : "transferred"; }
   const currency = workspace.data?.profile.base_currency ?? "NOK";
   return <Page eyebrow="What happens next" title="Forecast" description="Start with the cash you have now, then see how planned income and spending could change it. Planned money never changes your actual account balances.">
     <div className="forecast-toolbar forecast-controls-toolbar" aria-label="Forecast controls"><div><span>Horizon</span><div className="horizon-options">{horizonOptions.map((value) => <button className={months === value ? "active" : ""} key={value} onClick={() => { setHorizon(value); void forecastRepository.saveHorizon(value); }}>{value} months</button>)}</div></div><details className="forecast-plans-control"><summary><span>Plans included</span><small>{selectedScenarios.length}</small></summary><div className="scenario-options">{workspace.data?.scenarios.map((item) => <label key={item.id}><input type="checkbox" checked={selectedScenarios.includes(item.id)} onChange={(event) => togglePlan.mutate({ id: item.id, enabled: event.target.checked })}/>{item.name}</label>)}</div></details>{model ? <small className="forecast-range"><span>Forecast period</span><strong>{dateLabel(model.result.asOfDate)} – {dateLabel(model.result.endDate)}</strong></small> : null}</div>
@@ -156,16 +196,20 @@ export default function ForecastRoute() {
       <section className="money-panel timeline-panel">
         <div className="panel-heading"><div><p className="section-kicker">What creates your forecast</p><h2>Upcoming timeline</h2><span className="muted">Expected items only. Mark an item paid or received when it happens.</span></div><div className="timeline-heading-actions"><Link className="secondary-button compact-button" to="/forecast/monthly">{workspace.data?.rules.some((rule) => rule.frequency === "monthly" && rule.interval_count === 1 && !rule.scenario_id) ? "Manage monthly forecast" : "Set up monthly forecast"}</Link><button className="primary-button compact-button" type="button" onClick={openCreate}>Add planned item</button></div></div>
         {model.result.scenario.conflicts.length ? <p className="field-error">Conflicting Plan changes were excluded: {model.result.scenario.conflicts.length}.</p> : null}
-        <div className="forecast-list timeline-list">{model.timeline.map((item, index) => { const planName=workspace.data?.scenarios.find(plan=>plan.id===item.scenarioId)?.name; const startsMonth = index === 0 || model.timeline[index - 1]!.date.slice(0, 7) !== item.date.slice(0, 7); return <Fragment key={item.id}>{startsMonth ? <div className="timeline-month-divider"><span>{monthLabel(item.date)}</span></div> : null}<article className={`forecast-row forecast-row-detailed forecast-row-${item.kind}${item.scenarioId?" plan-timeline-item":""}`}>
+        <div className="forecast-list timeline-list">{model.timeline.map((item, index) => {
+          const planName = workspace.data?.scenarios.find((plan) => plan.id === item.scenarioId)?.name;
+          const reimbursementPool = (workspace.data?.reimbursementPools ?? []).find((pool) => pool.forecast_item_id === item.sourceId);
+          const reimbursementEntries = reimbursementPool ? (workspace.data?.reimbursementEntries ?? []).filter((entry) => entry.pool_id === reimbursementPool.id) : [];
+          const startsMonth = index === 0 || model.timeline[index - 1]!.date.slice(0, 7) !== item.date.slice(0, 7);
+          return <Fragment key={item.id}>{startsMonth ? <div className="timeline-month-divider"><span>{monthLabel(item.date)}</span></div> : null}<article className={`forecast-row forecast-row-detailed forecast-row-${reimbursementPool ? "income reimbursement-forecast-row" : item.kind}${item.scenarioId?" plan-timeline-item":""}`}>
           <time dateTime={item.date}>{dateLabel(item.date)}</time>
-          <div><strong>{item.label}</strong>{planName?<small className="plan-origin">Plan · {planName}</small>:null}</div>
-          <div className="timeline-money"><strong className={item.kind === "expense" ? "negative" : item.kind === "income" ? "positive" : ""}>{item.kind === "expense" ? "−" : item.kind === "income" ? "+" : "↔"}{money(item.amountMinor, currency)}</strong><small className="after-event-balance">After event: {money(item.runningBalanceMinor, currency)}</small></div>
+          <div><strong>{item.label}</strong>{planName?<small className="plan-origin">Plan · {planName}</small>:null}{reimbursementPool ? <details className="reimbursement-breakdown"><summary>What makes up this total</summary><div>{reimbursementEntries.slice(0, 12).map((entry) => <span key={entry.id}><span>{entry.description}</span><strong className={Number(entry.delta_minor) < 0 ? "negative" : ""}>{Number(entry.delta_minor) > 0 ? "+" : "−"}{money(Math.abs(Number(entry.delta_minor)), currency)}</strong></span>)}</div></details> : null}</div>
+          <div className="timeline-money"><strong className={item.kind === "expense" ? "negative" : item.kind === "income" || reimbursementPool ? "positive" : ""}>{item.kind === "expense" ? "−" : item.kind === "income" || reimbursementPool ? "+" : "↔"}{money(item.amountMinor, currency)}</strong><small className="after-event-balance">After event: {money(item.runningBalanceMinor, currency)}</small></div>
           {item.sourceType === "forecast_item" ? <div className="timeline-actions">
-            <button className="timeline-settle-action" type="button" onClick={() => beginSettlement(item)}>{settlementAction(item.kind)}</button>
+            <button className="timeline-settle-action" type="button" onClick={() => beginSettlement(item)}>{settlementAction(item.kind, Boolean(reimbursementPool))}</button>
             <div className="timeline-overflow" data-forecast-menu><button className="timeline-overflow-trigger" type="button" aria-label={`More actions for ${item.label}`} aria-expanded={openMenuId === item.id} onClick={() => setOpenMenuId((current) => current === item.id ? null : item.id)}>⋯</button>{openMenuId === item.id ? <div className="timeline-overflow-menu">
-              <button onClick={() => { setOpenMenuId(null); beginEdit(item.sourceId); }}>Edit</button>
-              <button onClick={() => { setOpenMenuId(null); update.mutate({ id: item.sourceId, values: { status: "skipped" } }); }}>Skip</button>
-              <button className="delete-action" onClick={() => { setOpenMenuId(null); update.mutate({ id: item.sourceId, values: { status: "canceled" } }); }}>Delete</button>
+              <button onClick={() => { setOpenMenuId(null); reimbursementPool ? beginReimbursementEdit(reimbursementPool.id) : beginEdit(item.sourceId); }}>Edit</button>
+              {!reimbursementPool ? <><button onClick={() => { setOpenMenuId(null); update.mutate({ id: item.sourceId, values: { status: "skipped" } }); }}>Skip</button><button className="delete-action" onClick={() => { setOpenMenuId(null); update.mutate({ id: item.sourceId, values: { status: "canceled" } }); }}>Delete</button></> : null}
             </div> : null}</div>
           </div> : item.recurrenceRuleId ? <div className="timeline-actions">
             <button className="timeline-settle-action" type="button" onClick={() => beginSettlement(item)}>{settlementAction(item.kind)}</button>
@@ -185,19 +229,28 @@ export default function ForecastRoute() {
           {formError ? <p className="field-error" role="alert">{formError}</p> : null}
           <button className="primary-button" disabled={quickSave.isPending}>{quickSave.isPending ? "Adding…" : "Add to forecast"}</button>
           <button className="secondary-button" type="button" onClick={() => { setShowDetails(true); setFormError(""); }}>More options</button>
-        </form> : <form className="money-form" onSubmit={submit}><label>Type<select value={kind} onChange={(event) => setKind(event.target.value as typeof kind)}><option value="income">Income</option><option value="expense">Expense</option><option value="transfer">Transfer</option></select></label><label>Label<input value={label} onChange={(event) => setLabel(event.target.value)} required/></label><label>Amount<input value={amount} inputMode="decimal" onChange={(event) => setAmount(event.target.value)} required/></label><label>Date<input type="date" value={date} onChange={(event) => setDate(event.target.value)} required/></label>{kind !== "income" ? <label>From account<select value={source} onChange={(event) => setSource(event.target.value)} required><option value="">Choose account</option>{workspace.data?.accounts.filter((account) => !account.is_system).map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}</select></label> : null}{kind !== "expense" ? <label>To account<select value={destination} onChange={(event) => setDestination(event.target.value)} required><option value="">Choose account</option>{workspace.data?.accounts.filter((account) => !account.is_system).map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}</select></label> : null}<label>Plan <span className="optional">optional</span><select value={scenario} onChange={(event) => setScenario(event.target.value)}><option value="">Base forecast</option>{workspace.data?.scenarios.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>{formError ? <p className="field-error" role="alert">{formError}</p> : null}<button className="primary-button" disabled={save.isPending}>{editingId ? "Save changes" : "Add to forecast"}</button>{!editingId ? <button className="secondary-button" type="button" onClick={() => { setShowDetails(false); setFormError(""); }}>Use quick entry</button> : null}</form>}
+        </form> : <form className="money-form" onSubmit={submit}><label>Type<select value={kind} onChange={(event) => setKind(event.target.value as typeof kind)}><option value="income">Income</option><option value="expense">Expense</option><option value="transfer">Transfer</option></select></label><label>Label<input value={label} onChange={(event) => setLabel(event.target.value)} required/></label><label>Amount<input value={amount} inputMode="decimal" onChange={(event) => setAmount(event.target.value)} required/></label><label>Date<input type="date" value={date} onChange={(event) => setDate(event.target.value)} required/></label>{kind !== "income" ? <label>From account<select value={source} onChange={(event) => setSource(event.target.value)} required><option value="">Choose account</option>{workspace.data?.accounts.filter((account) => !account.is_system && !account.hidden_from_accounts).map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}</select></label> : null}{kind !== "expense" ? <label>To account<select value={destination} onChange={(event) => setDestination(event.target.value)} required><option value="">Choose account</option>{workspace.data?.accounts.filter((account) => !account.is_system && !account.hidden_from_accounts).map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}</select></label> : null}<label>Plan <span className="optional">optional</span><select value={scenario} onChange={(event) => setScenario(event.target.value)}><option value="">Base forecast</option>{workspace.data?.scenarios.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>{formError ? <p className="field-error" role="alert">{formError}</p> : null}<button className="primary-button" disabled={save.isPending}>{editingId ? "Save changes" : "Add to forecast"}</button>{!editingId ? <button className="secondary-button" type="button" onClick={() => { setShowDetails(false); setFormError(""); }}>Use quick entry</button> : null}</form>}
       </Drawer>
-      <ConfirmationDialog open={Boolean(settlement)} onClose={() => setSettlement(null)} eyebrow="Confirm actual money" title={settlement ? `Mark this item as ${settlementState(settlement.kind)}?` : "Confirm item"}>
+      <Drawer open={Boolean(reimbursementEditId)} onClose={() => setReimbursementEditId(null)} eyebrow="Money owed to you" title="Edit Splitwise balance">
+        <form className="money-form" onSubmit={(event) => { event.preventDefault(); adjustReimbursement.mutate(); }}>
+          <label>Total currently owed<input value={reimbursementTotal} onChange={(event) => setReimbursementTotal(event.target.value)} inputMode="decimal" required/></label>
+          <label>Expected repayment date<input type="date" value={reimbursementDate} onChange={(event) => setReimbursementDate(event.target.value)} required/></label>
+          <p className="form-help">Changing the total creates a traceable correction. It does not rewrite purchases or repayments.</p>
+          {adjustReimbursement.error ? <p className="field-error" role="alert">{userFacingError(adjustReimbursement.error, "The Splitwise balance could not be updated.")}</p> : null}
+          <button className="primary-button" disabled={adjustReimbursement.isPending}>{adjustReimbursement.isPending ? "Saving…" : "Save balance"}</button>
+        </form>
+      </Drawer>
+      <ConfirmationDialog open={Boolean(settlement)} onClose={() => setSettlement(null)} eyebrow="Confirm actual money" title={settlement ? `Mark this item as ${settlementState(settlement.kind, Boolean(settlement.reimbursementPoolId))}?` : "Confirm item"}>
         {settlement ? <form className="settlement-confirmation" onSubmit={(event) => { event.preventDefault(); settle.mutate(); }}>
           <div className="settlement-confirmation-summary">
             <div><strong>{settlement.label}</strong><small>{dateLabel(settlement.expectedDate)}{settlement.planName ? ` · Plan: ${settlement.planName}` : ""}</small></div>
-            <strong className={settlement.kind === "expense" ? "negative" : settlement.kind === "income" ? "positive" : ""}>{settlement.kind === "expense" ? "−" : settlement.kind === "income" ? "+" : "↔"}{money(settlement.expectedAmountMinor, currency)}</strong>
+            <strong className={settlement.kind === "expense" ? "negative" : settlement.kind === "income" || settlement.reimbursementPoolId ? "positive" : ""}>{settlement.kind === "expense" ? "−" : settlement.kind === "income" || settlement.reimbursementPoolId ? "+" : "↔"}{money(settlement.expectedAmountMinor, currency)}</strong>
           </div>
-          <p className="muted">This records it in Activity and removes it from your forecast{settlement.planName ? " and Plan" : ""}.</p>
+          {settlement.reimbursementPoolId ? <><label className="settlement-amount-field">Amount received<input aria-label="Reimbursement amount received" value={repaymentAmount} onChange={(event) => setRepaymentAmount(event.target.value)} inputMode="decimal" required/></label><p className="muted">A partial repayment reduces the Splitwise balance and keeps the remainder in your forecast. This is a transfer from money owed to cash, not income.</p></> : <p className="muted">This records it in Activity and removes it from your forecast{settlement.planName ? " and Plan" : ""}.</p>}
           {settle.error ? <p className="field-error" role="alert">{userFacingError(settle.error, "This payment could not be recorded.")}</p> : null}
           <div className="confirmation-actions">
             <button className="secondary-button" type="button" onClick={() => setSettlement(null)} disabled={settle.isPending}>Cancel</button>
-            <button className="primary-button" disabled={settle.isPending}>{settle.isPending ? "Recording…" : settlementAction(settlement.kind)}</button>
+            <button className="primary-button" disabled={settle.isPending}>{settle.isPending ? "Recording…" : settlementAction(settlement.kind, Boolean(settlement.reimbursementPoolId))}</button>
           </div>
         </form> : null}
       </ConfirmationDialog>

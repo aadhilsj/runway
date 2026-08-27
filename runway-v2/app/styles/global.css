@@ -167,6 +167,14 @@ button:disabled { opacity: .48; cursor: not-allowed; }
 .quick-spend-category button { min-height:2.7rem; border:1px solid var(--color-line); border-radius:var(--radius-sm); background:transparent; color:var(--color-muted); cursor:pointer; font-size:.76rem; font-weight:700; }
 .quick-spend-category button.active { background:var(--color-ink); border-color:var(--color-ink); color:white; }
 .quick-spend-form > .primary-button { min-height:2.7rem; white-space:nowrap; }
+.reimbursement-toggle { grid-column:1 / span 2; display:flex !important; grid-template-rows:none !important; align-items:center; gap:.65rem !important; min-height:2.7rem; padding:.55rem .7rem; border:1px solid var(--color-line); border-radius:var(--radius-sm); background:color-mix(in srgb,var(--color-positive) 5%,var(--color-surface-strong)); cursor:pointer; }
+.reimbursement-toggle>input { flex:0 0 auto; width:1rem; min-height:1rem; margin:0; padding:0; accent-color:var(--color-positive); }
+.reimbursement-toggle>span { display:grid; gap:.08rem; min-width:0; }
+.reimbursement-toggle strong { color:var(--color-ink); font-size:.76rem; }
+.reimbursement-toggle small,.reimbursement-amount small { color:var(--color-muted); font-size:.67rem; font-weight:560; line-height:1.35; }
+.quick-spend-form .reimbursement-amount { grid-column:3 / span 2; grid-template-rows:1rem 2.7rem auto; }
+.activity-reimbursement-breakdown { display:flex; flex-wrap:wrap; gap:.25rem .65rem; margin-top:.3rem; color:var(--color-muted); font-size:.68rem; }
+.activity-reimbursement-breakdown span:last-child { color:var(--color-positive); font-weight:680; }
 .activity-history-panel { padding:var(--space-4); }
 .activity-history-panel .panel-heading { align-items:center; margin-bottom:var(--space-3); }
 .activity-history-panel .search-field { margin-bottom:var(--space-3); gap:.35rem; font-size:.72rem; }
@@ -239,6 +247,15 @@ button:disabled { opacity: .48; cursor: not-allowed; }
 .timeline-list .forecast-row-detailed > div:nth-of-type(1) { gap:.1rem; }
 .timeline-list .forecast-row-detailed > div:nth-of-type(1) > span,
 .timeline-list .forecast-row-detailed > div:nth-of-type(1) > small { line-height:1.25; }
+.reimbursement-forecast-row { border-color:color-mix(in srgb,var(--color-positive) 24%,var(--color-line)); }
+.reimbursement-breakdown { margin-top:.22rem; color:var(--color-muted); font-size:.66rem; }
+.reimbursement-breakdown>summary { width:max-content; max-width:100%; cursor:pointer; color:var(--color-positive); font-weight:680; }
+.reimbursement-breakdown>div { gap:0 !important; margin-top:.35rem; padding:.35rem .5rem; border-left:2px solid color-mix(in srgb,var(--color-positive) 35%,var(--color-line)); background:color-mix(in srgb,var(--color-positive) 4%,transparent); }
+.reimbursement-breakdown>div>span { display:flex; justify-content:space-between; gap:var(--space-3); padding:.18rem 0; }
+.reimbursement-breakdown>div>span>span { overflow-wrap:anywhere; }
+.reimbursement-breakdown>div strong { flex:0 0 auto; color:var(--color-positive); font-size:.66rem; white-space:nowrap; }
+.settlement-amount-field { display:grid; gap:.4rem; color:var(--color-muted); font-size:.76rem; font-weight:740; }
+.settlement-amount-field input { width:100%; min-height:2.75rem; padding:.72rem .8rem; border:1px solid var(--color-line); border-radius:var(--radius-sm); background:var(--color-surface-strong); color:var(--color-ink); font-size:1rem; }
 .timeline-money { min-width:8.5rem; justify-items:end; gap:.38rem !important; text-align:right; }
 .timeline-money > strong { white-space:nowrap; }
 .after-event-balance { color:var(--color-muted); font-size:.64rem !important; font-weight:560; line-height:1.25; white-space:nowrap; }
@@ -602,6 +619,8 @@ button:disabled { opacity: .48; cursor: not-allowed; }
   .quick-spend-heading .row-actions { display:grid; grid-template-columns:minmax(0,1fr); width:100%; gap:var(--space-2); }
   .quick-spend-heading .row-actions .standalone-label,.quick-spend-heading .row-actions button { width:100%; }
   .quick-spend-form .quick-spend-category,.quick-spend-form>label:nth-of-type(2),.quick-spend-form>.primary-button { grid-column:1/-1; }
+  .quick-spend-form .reimbursement-toggle,.quick-spend-form .reimbursement-amount { grid-column:1/-1; }
+  .reimbursement-toggle { min-height:2.75rem; }
   .quick-spend-form>.primary-button { width:100%; }
   .quick-spend-category button { min-height:2.75rem; }
   .activity-spending-panel,.activity-history-panel { padding:var(--space-3); }
@@ -706,6 +725,7 @@ button:disabled { opacity: .48; cursor: not-allowed; }
   .timeline-list .timeline-actions { grid-column:1 / -1; grid-row:3; grid-template-columns:auto 2.75rem; width:auto; justify-content:start; margin-top:.12rem; }
   .timeline-list .timeline-actions .timeline-settle-action { min-height:2.75rem; padding-inline:.25rem; text-align:left; }
   .timeline-list .timeline-overflow-trigger { width:2.75rem; height:2.75rem; }
+  .reimbursement-breakdown>div { max-width:min(20rem,calc(100vw - 6rem)); }
 
   .compact-plan-panel,.plan-items-panel { padding:.85rem; }
   .compact-plan-panel .panel-heading,.plan-items-panel .panel-heading { margin-bottom:.7rem; }
