@@ -15,7 +15,10 @@ describe("money boundary", () => {
   it("formats at the presentation boundary", () => {
     expect(formatMinorUnits(asMinorUnits(3_529_200), "NOK", "nb-NO")).toContain("35");
     expect(formatMinorUnits(asMinorUnits(1_195_600), "NOK", "nb-NO")).not.toContain(",00");
-    expect(formatMinorUnits(asMinorUnits(1_195_650), "NOK", "nb-NO")).toContain(",50");
+    expect(formatMinorUnits(asMinorUnits(50232), "NOK", "en-US")).toBe("NOK 502");
+    expect(formatMinorUnits(asMinorUnits(50280), "NOK", "en-US")).toBe("NOK 503");
+    expect(formatMinorUnits(asMinorUnits(-50280), "NOK", "en-US")).toBe("-NOK 503");
+    expect(parseDisplayAmountToMinor("502.32")).toBe(50232);
     expect(formatMinorAxis(14_000_000, "en-GB")).toBe("140k");
   });
 });

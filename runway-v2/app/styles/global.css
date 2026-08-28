@@ -777,3 +777,12 @@ button:disabled { opacity: .48; cursor: not-allowed; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
 }
+/* Keep cleanup records readable but visually secondary in Activity. */
+.activity-reversed, .activity-reversal { background: var(--surface, #fffaf3); color: #84786f; }
+.activity-reversed { position: relative; }
+.activity-reversed::after { content: ""; position: absolute; left: 12px; right: 12px; top: 50%; height: 1px; background: #b84c45; opacity: .65; pointer-events: none; }
+.activity-reversed strong { text-decoration: line-through; text-decoration-color: #b84c45; }
+.activity-reversal { border-style: dashed; }
+.activity-cleanup-label { font-size: .75rem; color: #9c4942; }
+.settlement-date-field { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: .875rem; }
+.settlement-date-field input { width: auto; min-width: 0; max-width: 60%; padding: 8px 10px; }

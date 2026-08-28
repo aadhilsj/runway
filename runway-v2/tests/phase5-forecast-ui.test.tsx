@@ -61,11 +61,13 @@ describe("Phase 5 forecast UI", () => {
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByRole("heading", { name: "Mark this item as paid?" })).toBeVisible();
     expect(screen.queryByLabelText("Exact amount")).not.toBeInTheDocument();
-    expect(screen.queryByLabelText("Actual date")).not.toBeInTheDocument();
+    const today = new Date();
+    const localDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+    expect(within(dialog).getByLabelText("Date paid")).toHaveValue(localDate);
     expect(within(dialog).getByRole("button", { name: "Cancel" })).toBeVisible();
     fireEvent.click(within(dialog).getByRole("button", { name: "Mark paid" }));
     await waitFor(() => expect(mocks.settleItem).toHaveBeenCalledWith(expect.objectContaining({
-      itemId: "base", actualAmountMinor: 100000, occurredAt: "2026-09-01T12:00:00.000Z",
+      itemId: "base", actualAmountMinor: 100000, occurredAt: `${localDate}T12:00:00.000Z`,
       sourceAccountId: mocks.account.id, destinationAccountId: null, categoryId: null, notes: null,
     })));
   });
@@ -98,10 +100,11 @@ describe("Phase 5 forecast UI", () => {
     fireEvent.click(screen.getAllByRole("button", { name: "Mark paid" }).find((button) => button.closest("article")?.textContent?.includes("Scenario expense"))!);
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByText(/Plan: Optional plan/)).toBeVisible();
+    fireEvent.change(within(dialog).getByLabelText("Date paid"), { target: { value: "2026-08-20" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Mark paid" }));
 
     await waitFor(() => expect(mocks.settlePlanItem).toHaveBeenCalledWith(expect.objectContaining({
-      scenarioChangeId: null, forecastItemId: "scenario-item", actualAmountMinor: 200000,
+      scenarioChangeId: null, forecastItemId: "scenario-item", actualAmountMinor: 200000, occurredAt: "2026-08-20T12:00:00.000Z",
       sourceAccountId: mocks.account.id, destinationAccountId: null,
     })));
   });

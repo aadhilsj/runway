@@ -42,6 +42,7 @@ export default function ForecastRoute() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [quickEntry, setQuickEntry] = useState(""); const [showDetails, setShowDetails] = useState(false);
   const [settlement, setSettlement] = useState<SettlementDraft | null>(null);
+  const [settlementDate, setSettlementDate] = useState(defaultLocalDate());
   const [repaymentAmount, setRepaymentAmount] = useState("");
   const [reimbursementEditId, setReimbursementEditId] = useState<string | null>(null);
   const [reimbursementTotal, setReimbursementTotal] = useState("");
@@ -124,12 +125,12 @@ export default function ForecastRoute() {
         poolId: settlement.reimbursementPoolId,
         destinationAccountId: settlement.destinationAccountId,
         amountMinor,
-        occurredAt: `${defaultLocalDate()}T12:00:00.000Z`,
+        occurredAt: `${settlementDate}T12:00:00.000Z`,
         notes: settlement.notes,
         idempotencyKey: crypto.randomUUID(),
       });
     }
-    const command = { actualAmountMinor: settlement.expectedAmountMinor, occurredAt: `${settlement.expectedDate}T12:00:00.000Z`,
+    const command = { actualAmountMinor: settlement.expectedAmountMinor, occurredAt: `${settlementDate}T12:00:00.000Z`,
       sourceAccountId: settlement.kind === "income" ? null : settlement.sourceAccountId,
       destinationAccountId: settlement.kind === "expense" ? null : settlement.destinationAccountId,
       categoryId: settlement.kind === "transfer" ? null : settlement.categoryId,
@@ -167,6 +168,7 @@ export default function ForecastRoute() {
   function submit(event: FormEvent) { event.preventDefault(); save.mutate(); }
   function beginSettlement(item: NonNullable<typeof model>["timeline"][number]) {
     if (item.sourceType === "budget_remaining") return;
+    setSettlementDate(defaultLocalDate());
     const sourceType = item.sourceType === "scenario_item"
       ? item.sourceId.startsWith("plan:") ? "plan_change" : "plan_forecast_item"
       : item.sourceType;
@@ -243,10 +245,11 @@ export default function ForecastRoute() {
       <ConfirmationDialog open={Boolean(settlement)} onClose={() => setSettlement(null)} eyebrow="Confirm actual money" title={settlement ? `Mark this item as ${settlementState(settlement.kind, Boolean(settlement.reimbursementPoolId))}?` : "Confirm item"}>
         {settlement ? <form className="settlement-confirmation" onSubmit={(event) => { event.preventDefault(); settle.mutate(); }}>
           <div className="settlement-confirmation-summary">
-            <div><strong>{settlement.label}</strong><small>{dateLabel(settlement.expectedDate)}{settlement.planName ? ` · Plan: ${settlement.planName}` : ""}</small></div>
+            <div><strong>{settlement.label}</strong><small>Planned for {dateLabel(settlement.expectedDate)}{settlement.planName ? ` · Plan: ${settlement.planName}` : ""}</small></div>
             <strong className={settlement.kind === "expense" ? "negative" : settlement.kind === "income" || settlement.reimbursementPoolId ? "positive" : ""}>{settlement.kind === "expense" ? "−" : settlement.kind === "income" || settlement.reimbursementPoolId ? "+" : "↔"}{money(settlement.expectedAmountMinor, currency)}</strong>
           </div>
           {settlement.reimbursementPoolId ? <><label className="settlement-amount-field">Amount received<input aria-label="Reimbursement amount received" value={repaymentAmount} onChange={(event) => setRepaymentAmount(event.target.value)} inputMode="decimal" required/></label><p className="muted">A partial repayment reduces the Splitwise balance and keeps the remainder in your forecast. This is a transfer from money owed to cash, not income.</p></> : <p className="muted">This records it in Activity and removes it from your forecast{settlement.planName ? " and Plan" : ""}.</p>}
+          <label className="settlement-date-field">Date {settlementState(settlement.kind, Boolean(settlement.reimbursementPoolId))}<input type="date" required max={defaultLocalDate()} value={settlementDate} onChange={(event) => setSettlementDate(event.target.value)}/></label>
           {settle.error ? <p className="field-error" role="alert">{userFacingError(settle.error, "This payment could not be recorded.")}</p> : null}
           <div className="confirmation-actions">
             <button className="secondary-button" type="button" onClick={() => setSettlement(null)} disabled={settle.isPending}>Cancel</button>

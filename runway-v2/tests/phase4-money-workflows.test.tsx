@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import AccountsRoute from "~/routes/money-accounts";
 import TransactionsRoute from "~/routes/money-transactions";
 import ForecastRoute from "~/routes/forecast";
+import { transactionsRepository } from "~/data/repositories/transactions-repository";
 
 const mocks = vi.hoisted(() => ({
   createAccount: vi.fn(), reconcileAccount: vi.fn(), postExpense: vi.fn(), reverseTransaction: vi.fn(), settleItem: vi.fn(),
@@ -75,6 +76,18 @@ function renderWithQuery(ui: React.ReactNode, initialEntry = "/") {
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
 describe("Phase 4 actual-money workflows", () => {
+  it("clearly distinguishes reversed originals and their cleanup entries", async () => {
+    const original = { id: "original", description: "Test purchase", kind: "expense", status: "posted", occurred_at: "2026-08-20T12:00:00Z", reverses_transaction_id: null, transaction_entries: [{ account_id: mocks.operatingAccount.id, amount_minor: -50232, category_id: null }] };
+    vi.mocked(transactionsRepository.listTransactions).mockResolvedValueOnce([
+      original,
+      { ...original, id: "reversal", description: "Reversal: Test purchase", reverses_transaction_id: "original", transaction_entries: [{ account_id: mocks.operatingAccount.id, amount_minor: 50232, category_id: null }] },
+    ] as any);
+    renderWithQuery(<TransactionsRoute />);
+    expect((await screen.findByText("Test purchase")).closest("article")).toHaveClass("activity-reversed");
+    expect(screen.getByText("Reversal of Test purchase").closest("article")).toHaveClass("activity-reversal");
+    expect(screen.getByText("Reversal · cancels original")).toBeVisible();
+    expect(screen.queryByRole("button", { name: /Reverse transaction:/ })).not.toBeInTheDocument();
+  });
   it("creates an account and requires explicit confirmation before reconciliation", async () => {
     mocks.createAccount.mockResolvedValue("new-account");
     mocks.reconcileAccount.mockResolvedValue({ difference_minor: 4400 });

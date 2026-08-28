@@ -19,12 +19,11 @@ export function formatMinorUnits(
   locale = "nb-NO",
 ): string {
   if (!Number.isSafeInteger(amountMinor)) throw new Error("Minor-unit amount must be a safe integer");
-  const hasMinorValue = Math.abs(amountMinor) % 100 !== 0;
   return new Intl.NumberFormat(locale, {
     style: "currency",
     currency,
-    minimumFractionDigits: hasMinorValue ? 2 : 0,
-    maximumFractionDigits: 2,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
   }).format(amountMinor / 100);
 }
 
