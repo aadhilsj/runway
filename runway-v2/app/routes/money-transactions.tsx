@@ -60,6 +60,21 @@ export default function TransactionsRoute() {
   const [limitsStart, setLimitsStart] = useState(defaultLocalDate().slice(0, 7));
   const [limitsEnd, setLimitsEnd] = useState(defaultLocalDate().slice(0, 7));
   const [pendingReversal, setPendingReversal] = useState<Transaction | null>(null);
+  const [pendingCleanup, setPendingCleanup] = useState<Transaction | null>(null);
+  const cleanup = useQuery({ queryKey: ["activity-history-cleanup"], queryFn: () => transactionsRepository.listHistoryCleanup() });
+  const removeHistory = useMutation({
+    mutationFn: async (transaction: Transaction) => {
+      const originalId = transaction.reverses_transaction_id ?? transaction.id;
+      const reversalId = transaction.reverses_transaction_id ? transaction.id
+        : (transactions.data ?? []).find((row) => row.reverses_transaction_id === originalId)?.id;
+      if (!reversalId) throw new Error("Only reversed entries can be deleted from history.");
+      await transactionsRepository.deleteFromHistory(originalId, reversalId);
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["activity-history-cleanup"] });
+      setPendingCleanup(null);
+    },
+  });
   const transactions = useQuery({ queryKey: ["transactions"], queryFn: () => transactionsRepository.listTransactions({ limit: 250 }) });
   const accounts = useQuery({ queryKey: ["accounts", "balances"], queryFn: () => accountsRepository.listAccountsWithBalances() });
   const categories = useQuery({ queryKey: ["categories"], queryFn: () => categoriesRepository.listCategories() });
@@ -151,6 +166,7 @@ export default function TransactionsRoute() {
   const applicableCategories = categoryRows.filter((category) => category.kind === (kind === "income" ? "income" : "expense"));
   const categoryNames = useMemo(() => new Map(categoryRows.map((category) => [category.id, category.name])), [categoryRows]);
   const filtered = (transactions.data ?? []).filter((transaction) => {
+    if ((cleanup.data ?? []).some((row) => row.original_id === transaction.id || row.reversal_id === transaction.id)) return false;
     const needle = search.trim().toLowerCase();
     return !needle || transaction.description.toLowerCase().includes(needle) || transaction.kind.includes(needle);
   });
@@ -270,9 +286,19 @@ export default function TransactionsRoute() {
           const reimbursementEntry = reimbursementEntryByTransaction.get(transaction.id);
           const reimbursableMinor = reimbursementEntry?.entry_kind === "expense_share" ? Number(reimbursementEntry.delta_minor) : 0;
           const personalMinor = reimbursableMinor ? Math.max(0, display.amount - reimbursableMinor) : 0;
-          return <article className={`transaction-row activity-transaction-row${reversed ? " activity-reversed" : isReversal ? " activity-reversal" : ""}`} key={transaction.id}><div className="transaction-icon" data-kind={iconKind}>{icon}</div><div><strong>{isReversal ? `Reversal of ${(transactions.data ?? []).find((original) => original.id === transaction.reverses_transaction_id)?.description ?? transaction.description.replace(/^Reversal: /, "")}` : transaction.description}</strong><p>{new Date(transaction.occurred_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} · {transaction.kind.replace("_", " ")}</p><small>{[display.category, ...display.accountNames].filter(Boolean).join(" · ")}</small>{reimbursableMinor ? <div className="activity-reimbursement-breakdown"><span>Your spending: {formatMinorUnits(asMinorUnits(personalMinor), "NOK")}</span><span>Owed back: {formatMinorUnits(asMinorUnits(reimbursableMinor), "NOK")}</span></div> : null}</div><div className="transaction-amount"><strong>{displayedAmount}</strong>{isReversal ? <span className="activity-cleanup-label">Reversal · cancels original</span> : reversed ? <span className="activity-cleanup-label">Reversed</span> : transaction.kind !== "opening_balance" ? <button type="button" aria-label={`Reverse transaction: ${transaction.description}`} disabled={reverse.isPending} onClick={() => setPendingReversal(transaction)}>Reverse</button> : <span>Opening state</span>}</div></article>;
+          return <article className={`transaction-row activity-transaction-row${reversed ? " activity-reversed" : isReversal ? " activity-reversal" : ""}`} key={transaction.id}><div className="transaction-icon" data-kind={iconKind}>{icon}</div><div><strong>{isReversal ? `Reversal of ${(transactions.data ?? []).find((original) => original.id === transaction.reverses_transaction_id)?.description ?? transaction.description.replace(/^Reversal: /, "")}` : transaction.description}</strong><p>{new Date(transaction.occurred_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} · {transaction.kind.replace("_", " ")}</p><small>{[display.category, ...display.accountNames].filter(Boolean).join(" · ")}</small>{reimbursableMinor ? <div className="activity-reimbursement-breakdown"><span>Your spending: {formatMinorUnits(asMinorUnits(personalMinor), "NOK")}</span><span>Owed back: {formatMinorUnits(asMinorUnits(reimbursableMinor), "NOK")}</span></div> : null}</div><div className="transaction-amount"><strong>{displayedAmount}</strong>{isReversal ? <span className="activity-cleanup-label">Reversal · cancels original</span> : reversed ? <span className="activity-cleanup-label">Reversed</span> : transaction.kind !== "opening_balance" ? <button type="button" aria-label={`Reverse transaction: ${transaction.description}`} disabled={reverse.isPending} onClick={() => setPendingReversal(transaction)}>Reverse</button> : <span>Opening state</span>}{isReversal || reversed ? <button type="button" aria-label={`Delete from history: ${transaction.description}`} disabled={cleanup.isLoading || Boolean(cleanup.error)} onClick={() => { removeHistory.reset(); setPendingCleanup(transaction); }}>Delete</button> : null}</div></article>;
         })}{!transactions.isLoading && filtered.length === 0 ? <p className="muted">No matching posted transactions.</p> : null}</div>
       </section>
+    <Drawer open={Boolean(pendingCleanup)} onClose={() => setPendingCleanup(null)} eyebrow="Clean up history" title="Delete from history?">
+      <div className="money-form">
+        <p>This removes the reversed entry and its matching correction from History. Any replacement stays visible. Your balances and spending totals will not change; bookkeeping records are retained.</p>
+        {removeHistory.error ? <p className="field-error" role="alert">{message(removeHistory.error)}</p> : null}
+        <div className="button-row">
+          <button className="secondary-button" onClick={() => setPendingCleanup(null)}>Keep entries</button>
+          <button className="primary-button" disabled={removeHistory.isPending} onClick={() => pendingCleanup && removeHistory.mutate(pendingCleanup)}>{removeHistory.isPending ? "Deleting…" : "Delete from history"}</button>
+        </div>
+      </div>
+    </Drawer>
     <Drawer open={Boolean(pendingReversal)} onClose={() => setPendingReversal(null)} eyebrow="Confirm correction" title="Reverse transaction?">
       {pendingReversal ? <div className="money-form reversal-confirmation">
         <div className="settlement-expected"><span>Transaction</span><strong>{pendingReversal.description}</strong><small>{new Date(pendingReversal.occurred_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</small></div>

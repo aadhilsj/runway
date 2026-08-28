@@ -48,6 +48,7 @@ vi.mock("~/data/repositories/budgets-repository", () => ({ budgetsRepository: {
   createPeriod: mocks.createBudgetPeriod, createLine: mocks.createBudgetLine, updateLine: mocks.updateBudgetLine, deleteLine: mocks.deleteBudgetLine,
 } }));
 vi.mock("~/data/repositories/transactions-repository", () => ({ transactionsRepository: {
+  listHistoryCleanup: vi.fn().mockResolvedValue([]), deleteFromHistory: vi.fn().mockResolvedValue(undefined),
   listTransactions: vi.fn().mockResolvedValue([]), postIncome: vi.fn(), postExpense: mocks.postExpense,
   postTransfer: vi.fn(), postDebtPayment: vi.fn(), reverseTransaction: mocks.reverseTransaction,
 } }));
@@ -87,6 +88,15 @@ describe("Phase 4 actual-money workflows", () => {
     expect(screen.getByText("Reversal of Test purchase").closest("article")).toHaveClass("activity-reversal");
     expect(screen.getByText("Reversal · cancels original")).toBeVisible();
     expect(screen.queryByRole("button", { name: /Reverse transaction:/ })).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Delete from history: Test purchase" })).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: "Delete from history: Test purchase" }));
+    expect(transactionsRepository.deleteFromHistory).not.toHaveBeenCalled();
+    vi.mocked(transactionsRepository.listHistoryCleanup).mockResolvedValueOnce([{ original_id: "original", reversal_id: "reversal" }] as any);
+    fireEvent.click(screen.getByRole("button", { name: "Delete from history" }));
+    await waitFor(() => expect(transactionsRepository.deleteFromHistory).toHaveBeenCalledWith("original", "reversal"));
+    await waitFor(() => expect(screen.queryByText("Reversal of Test purchase")).not.toBeInTheDocument());
+    expect(screen.queryByText("Test purchase")).not.toBeInTheDocument();
+    expect(mocks.reverseTransaction).not.toHaveBeenCalled();
   });
   it("creates an account and requires explicit confirmation before reconciliation", async () => {
     mocks.createAccount.mockResolvedValue("new-account");

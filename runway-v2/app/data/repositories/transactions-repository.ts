@@ -15,6 +15,21 @@ import {
 import { requireAuthenticatedUserId, requireSupabase, rpcNullable } from "./shared";
 
 export const transactionsRepository = {
+  async listHistoryCleanup() {
+    const client = requireSupabase();
+    const userId = await requireAuthenticatedUserId(client);
+    const { data, error } = await client.from("activity_history_cleanup").select("*").eq("user_id", userId);
+    if (error) throw error;
+    return data;
+  },
+  async deleteFromHistory(originalId: string, reversalId: string) {
+    const client = requireSupabase();
+    const userId = await requireAuthenticatedUserId(client);
+    const { error } = await client.from("activity_history_cleanup").upsert({
+      user_id: userId, original_id: originalId, reversal_id: reversalId,
+    }, { onConflict: "original_id", ignoreDuplicates: true });
+    if (error) throw error;
+  },
   async listTransactions({ limit = 100 }: { limit?: number } = {}) {
     const client = requireSupabase();
     const userId = await requireAuthenticatedUserId(client);

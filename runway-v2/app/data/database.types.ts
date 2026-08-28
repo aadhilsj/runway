@@ -14,6 +14,12 @@ export type Database = {
   }
   public: {
     Tables: {
+      activity_history_cleanup: {
+        Row: { user_id: string; original_id: string; reversal_id: string; created_at: string }
+        Insert: { user_id: string; original_id: string; reversal_id: string; created_at?: string }
+        Update: { user_id?: string; original_id?: string; reversal_id?: string; created_at?: string }
+        Relationships: []
+      }
       account_balance_snapshots: {
         Row: {
           account_id: string
