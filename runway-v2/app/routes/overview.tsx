@@ -4,6 +4,7 @@ import { Link } from "react-router";
 import { Drawer } from "~/components/drawer";
 import { Page } from "~/components/page";
 import { analyticsRepository } from "~/data/repositories/analytics-repository";
+import { accountsRepository } from "~/data/repositories/accounts-repository";
 import { snapshotsRepository } from "~/data/repositories/snapshots-repository";
 import { asMinorUnits, formatMinorUnits, parseDisplayAmountToMinor } from "~/domain/money";
 import { buildOverviewReadModel } from "~/read-models/overview";
@@ -25,6 +26,7 @@ export default function OverviewRoute() {
   const [balanceOpen, setBalanceOpen] = useState(false);
   const [balanceAmount, setBalanceAmount] = useState("");
   const [confirmBalance, setConfirmBalance] = useState(false);
+  const [startingBalance, setStartingBalance] = useState("");
   const workspace = useQuery({ queryKey: ["analytics-workspace"], queryFn: () => analyticsRepository.getWorkspace() });
   const model = useMemo(() => workspace.data ? buildOverviewReadModel(workspace.data, projectionDate) : null, [workspace.data, projectionDate]);
   const liquidAccounts = useMemo(() => workspace.data?.forecast.accounts.filter((account) => !account.is_system && !account.hidden_from_accounts && account.class === "asset" && (account.liquidity_class === "operating" || account.liquidity_class === "liquid")) ?? [], [workspace.data]);
@@ -46,10 +48,43 @@ export default function OverviewRoute() {
       await Promise.all([queryClient.invalidateQueries({ queryKey: ["analytics-workspace"] }), queryClient.invalidateQueries({ queryKey: ["forecast-workspace"] }), queryClient.invalidateQueries({ queryKey: ["accounts"] }), queryClient.invalidateQueries({ queryKey: ["net-worth"] }), queryClient.invalidateQueries({ queryKey: ["transactions"] })]);
     },
   });
+  const startUsingRunway = useMutation({
+    mutationFn: async () => {
+      const openingBalanceMinor = Number(parseDisplayAmountToMinor(startingBalance));
+      return accountsRepository.createAccount({
+        name: "Main account", class: "asset", subtype: "checking", currency: "NOK",
+        includeInNetWorth: true, liquidityClass: "operating", valuationMode: "ledger",
+        openedOn: new Date().toISOString().slice(0, 10), openingBalanceMinor,
+        openingOccurredAt: new Date().toISOString(), openingDescription: "Starting balance",
+        idempotencyKey: "first-account:" + crypto.randomUUID(),
+      });
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["analytics-workspace"] }),
+        queryClient.invalidateQueries({ queryKey: ["forecast-workspace"] }),
+        queryClient.invalidateQueries({ queryKey: ["accounts"] }),
+        queryClient.invalidateQueries({ queryKey: ["net-worth"] }),
+        queryClient.invalidateQueries({ queryKey: ["transactions"] }),
+      ]);
+    },
+  });
   useEffect(() => { window.localStorage.setItem(projectionStorageKey, projectionDate); }, [projectionDate]);
 
   if (workspace.isLoading) return <Page eyebrow="Today" title="Overview" description="Your money at a glance."><section className="cockpit-hero overview-skeleton" aria-label="Loading overview"><article/><div className="position-grid"><article/><article/><article/></div></section></Page>;
   if (!model) return <Page eyebrow="Today" title="Overview unavailable" description="Your current figures could not be loaded. Please try again."/>;
+  if (!primaryAccount) return <Page eyebrow="Start here" title="Set up your balance" description="Enter the money currently in your main bank account to begin using Runway.">
+    <section className="money-panel first-balance-panel">
+      <p className="section-kicker">Your starting point</p>
+      <h2>What is your current balance?</h2>
+      <p className="muted">This creates your main account and saves the amount as a starting balance. It is not treated as income.</p>
+      <form className="money-form" onSubmit={(event) => { event.preventDefault(); startUsingRunway.mutate(); }}>
+        <label>Main account balance<input aria-label="Main account balance" value={startingBalance} onChange={(event) => setStartingBalance(event.target.value)} inputMode="decimal" placeholder="0.00" required autoFocus/></label>
+        {startUsingRunway.error ? <p className="field-error" role="alert">{userFacingError(startUsingRunway.error, "Your account could not be created. Please try again.")}</p> : null}
+        <button className="primary-button" type="submit" disabled={startUsingRunway.isPending}>{startUsingRunway.isPending ? "Saving your balance…" : "Start with this balance"}</button>
+      </form>
+    </section>
+  </Page>;
 
   const c = model.currency, flow = model.currentFlow;
   return <Page eyebrow="Today" title="Overview" description="Your current balance, where it is allocated, and what is coming next.">

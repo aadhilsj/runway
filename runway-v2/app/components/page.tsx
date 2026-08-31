@@ -10,5 +10,5 @@ export function Page({ eyebrow, title, description, children, className = "" }: 
 }
 
 export function EmptyState() {
-  return <div className="empty-card"><div className="empty-rule" aria-hidden="true"/><h2>Ready for your data</h2><p>This workspace is wired for the normalized model planned in Phase 2. No financial values are being fabricated.</p></div>;
+  return <div className="empty-card"><div className="empty-rule" aria-hidden="true"/><h2>Nothing here yet</h2><p>Add your first item to begin.</p></div>;
 }
