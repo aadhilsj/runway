@@ -34,7 +34,6 @@ export default function SignInRoute() {
     const { error } = await client.auth.signInWithOtp({
       email: parsed.data,
       options: {
-        emailRedirectTo: window.location.origin,
         // First-time household members need to be able to create their own
         // account before the empty-workspace onboarding can appear.
         shouldCreateUser: true,
