@@ -35,7 +35,9 @@ export default function SignInRoute() {
       email: parsed.data,
       options: {
         emailRedirectTo: window.location.origin,
-        shouldCreateUser: false,
+        // First-time household members need to be able to create their own
+        // account before the empty-workspace onboarding can appear.
+        shouldCreateUser: true,
       },
     });
     setIsSubmitting(false);
