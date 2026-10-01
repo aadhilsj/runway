@@ -244,10 +244,12 @@ button:disabled { opacity: .48; cursor: not-allowed; }
 .timeline-list .forecast-row-detailed { grid-template-columns:6.75rem minmax(9rem,1fr) auto auto; gap:var(--space-3); padding:.65rem .8rem; }
 .timeline-list .forecast-row-expense { background:linear-gradient(90deg,color-mix(in srgb,#b74435 11%,var(--color-surface-strong)) 0%,color-mix(in srgb,#b74435 5%,var(--color-surface-strong)) 50%,color-mix(in srgb,#b74435 11%,var(--color-surface-strong)) 100%); }
 .timeline-list .forecast-row-income { background:linear-gradient(90deg,color-mix(in srgb,#43855e 11%,var(--color-surface-strong)) 0%,color-mix(in srgb,#43855e 5%,var(--color-surface-strong)) 50%,color-mix(in srgb,#43855e 11%,var(--color-surface-strong)) 100%); }
+.timeline-list .overdue-timeline-item { border-color:color-mix(in srgb,var(--color-negative) 45%,var(--color-line)); }
 .timeline-list .forecast-row-detailed > div:nth-of-type(1) { gap:.1rem; }
 .timeline-list .forecast-row-detailed > div:nth-of-type(1) > span,
 .timeline-list .forecast-row-detailed > div:nth-of-type(1) > small { line-height:1.25; }
 .reimbursement-forecast-row { border-color:color-mix(in srgb,var(--color-positive) 24%,var(--color-line)); }
+.overdue-badge { width:max-content; padding:.14rem .42rem; border-radius:999px; background:color-mix(in srgb,var(--color-negative) 12%,var(--color-surface)); color:var(--color-negative)!important; font-size:.62rem!important; font-weight:780; letter-spacing:.06em; line-height:1.2; text-transform:uppercase; }
 .reimbursement-breakdown { margin-top:.22rem; color:var(--color-muted); font-size:.66rem; }
 .reimbursement-breakdown>summary { width:max-content; max-width:100%; cursor:pointer; color:var(--color-positive); font-weight:680; }
 .reimbursement-breakdown>div { gap:0 !important; margin-top:.35rem; padding:.35rem .5rem; border-left:2px solid color-mix(in srgb,var(--color-positive) 35%,var(--color-line)); background:color-mix(in srgb,var(--color-positive) 4%,transparent); }

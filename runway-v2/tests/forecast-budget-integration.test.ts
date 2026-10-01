@@ -101,6 +101,21 @@ describe("monthly budgets in Forecast", () => {
     expect(screen.summary.projectedBalanceMinor).toBe(0);
   });
 
+  it("keeps unsettled past items in the timeline without applying them to the current forecast balance", () => {
+    const overdueItem = {
+      id: "phone-bill", kind: "expense", expected_date: "2026-08-20", amount_minor: 5_000,
+      source_account_id: "operating", destination_account_id: null, category_id: null,
+      label: "Phone bill", notes: null, confidence: "expected", scenario_id: null,
+      default_sort_order: 0, status: "expected",
+    };
+    const screen = buildForecastScreenModel(
+      forecastWorkspace(100_000, [overdueItem]), 1, [], "2026-08-24", budgetWorkspace(0),
+    );
+
+    expect(screen.timeline[0]).toMatchObject({ label: "Phone bill", date: "2026-08-20", isOverdue: true, runningBalanceMinor: null });
+    expect(screen.summary.projectedBalanceMinor).toBe(10_000);
+  });
+
   it("keeps Forecast, Overview, and plan comparisons on the same projected-balance path", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-08-24T12:00:00Z"));
