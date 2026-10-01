@@ -111,7 +111,25 @@ export interface ForecastScreenModel {
   result: ForecastResult;
   summary: { startingCashMinor: number; projectedBalanceMinor: number; lowestOperatingMinor: number; incomeMinor: number; expenseMinor: number; overdueCount: number };
   chart: Array<{ date: string; operatingCashMinor: number; liquidCashMinor: number; netWorthMinor: number }>;
-  timeline: Array<(ForecastResult["events"][number] | ForecastResult["overdueItems"][number]) & { accountImpact: string; runningBalanceMinor: number | null; isOverdue: boolean }>;
+  timeline: Array<(ForecastResult["events"][number] | ForecastResult["overdueItems"][number]) & { accountImpact: string; runningBalanceMinor: number; isOverdue: boolean }>;
+}
+
+function operatingCashAfterEvent(input: ForecastInput, event: ForecastResult["overdueItems"][number]): number {
+  const balances = new Map(input.accounts.map((account) => [account.id, account.balanceMinor]));
+  const accounts = new Map(input.accounts.map((account) => [account.id, account]));
+  const change = (accountId: string | null, direction: (account: ForecastInput["accounts"][number]) => number) => {
+    if (!accountId) return;
+    const account = accounts.get(accountId);
+    if (!account) return;
+    balances.set(accountId, (balances.get(accountId) ?? 0) + direction(account));
+  };
+  if (event.kind === "income") change(event.destinationAccountId, (account) => account.class === "liability" ? -event.amountMinor : event.amountMinor);
+  else if (event.kind === "expense") change(event.sourceAccountId, (account) => account.class === "liability" ? event.amountMinor : -event.amountMinor);
+  else {
+    change(event.sourceAccountId, (account) => account.class === "liability" ? event.amountMinor : -event.amountMinor);
+    change(event.destinationAccountId, (account) => account.class === "liability" ? -event.amountMinor : event.amountMinor);
+  }
+  return input.accounts.filter((account) => account.class === "asset" && account.liquidityClass === "operating").reduce((sum, account) => sum + (balances.get(account.id) ?? 0), 0);
 }
 
 export function buildForecastScreenModelFromResult(workspace: ForecastWorkspace, input: ForecastInput, result: ForecastResult): ForecastScreenModel {
@@ -121,7 +139,7 @@ export function buildForecastScreenModelFromResult(workspace: ForecastWorkspace,
     incomeMinor: result.totals.incomeMinor, expenseMinor: result.totals.expenseMinor, overdueCount: result.overdueItems.length },
     chart: result.dailySeries.map((point) => ({ date: point.date, operatingCashMinor: point.operatingCashMinor, liquidCashMinor: point.liquidCashMinor, netWorthMinor: point.netWorthMinor })),
     timeline: [...result.overdueItems.map((event) => ({ ...event, accountImpact: event.kind === "income" ? `Into ${accountNames.get(event.destinationAccountId ?? "") ?? "account"}` : event.kind === "expense" ? `From ${accountNames.get(event.sourceAccountId ?? "") ?? "account"}` : `${accountNames.get(event.sourceAccountId ?? "") ?? "account"} → ${accountNames.get(event.destinationAccountId ?? "") ?? "account"}`,
-      runningBalanceMinor: null, isOverdue: true })),
+      runningBalanceMinor: operatingCashAfterEvent(input, event), isOverdue: true })),
       ...result.events.map((event) => ({ ...event, accountImpact: event.kind === "income" ? `Into ${accountNames.get(event.destinationAccountId ?? "") ?? "account"}` : event.kind === "expense" ? `From ${accountNames.get(event.sourceAccountId ?? "") ?? "account"}` : `${accountNames.get(event.sourceAccountId ?? "") ?? "account"} → ${accountNames.get(event.destinationAccountId ?? "") ?? "account"}`,
         runningBalanceMinor: event.operatingCashMinor, isOverdue: false }))],
   };
