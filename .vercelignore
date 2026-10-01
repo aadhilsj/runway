@@ -4,7 +4,8 @@
 docs
 migration
 recovery-backup
-runway-v2
 supabase
 node_modules
 generate-pwa-icons.js
+
+
