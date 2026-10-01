@@ -208,9 +208,14 @@ button:disabled { opacity: .48; cursor: not-allowed; }
 .horizon-options button, .timeline-actions button, .timeline-overflow summary { border: 1px solid var(--color-line); background: transparent; color: var(--color-muted); border-radius: 999px; padding: .46rem .7rem; cursor: pointer; font-size: .76rem; font-weight: 720; }
 .horizon-options button.active { background: var(--color-ink); color: white; border-color: var(--color-ink); }
 .scenario-options label { display: flex; gap: var(--space-2); align-items: center; font-size: .78rem; color: var(--color-muted); }
-.forecast-plans-control { min-width:0; }
-.forecast-plans-control > summary { display:none; }
-.forecast-plans-control:not([open]) > .scenario-options { display:flex; }
+.forecast-plans-control { display:grid; gap:var(--space-2); min-width:0; }
+.forecast-plans-heading { display:flex; align-items:center; gap:var(--space-2); }
+.forecast-plans-heading > span { color:var(--color-muted); font-size:.72rem; font-weight:780; letter-spacing:.1em; text-transform:uppercase; }
+.forecast-plans-heading small { color:var(--color-muted); font-size:.72rem; }
+.forecast-plans-heading a { color:var(--color-accent-strong); font-size:.72rem; font-weight:700; }
+.forecast-plans-empty { margin:0; color:var(--color-muted); font-size:.78rem; }
+.overview-list .overdue-overview-item { border-color:color-mix(in srgb,var(--color-negative) 35%,var(--color-line)); }
+.overview-list .overdue-overview-item > span { display:flex; align-items:center; gap:var(--space-2); }
 .forecast-chart { height: clamp(20rem, 35vh, 25rem); min-width: 0; }
 .chart-legend { color: var(--color-muted); font-size: .76rem; }
 .forecast-layout { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(20rem, .55fr); gap: var(--space-5); align-items: start; }
@@ -570,10 +575,7 @@ button:disabled { opacity: .48; cursor: not-allowed; }
   .horizon-options { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); }
   .horizon-options button { min-height:2.75rem; padding:.45rem .25rem; }
   .forecast-plans-control { border-top:1px solid var(--color-line); padding-top:var(--space-3); }
-  .forecast-plans-control>summary { display:flex; align-items:center; justify-content:space-between; min-height:2.75rem; color:var(--color-muted); cursor:pointer; font-size:.72rem; font-weight:780; letter-spacing:.08em; list-style:none; text-transform:uppercase; }
-  .forecast-plans-control>summary::-webkit-details-marker { display:none; }
-  .forecast-plans-control>summary small { display:grid; width:1.55rem; height:1.55rem; place-items:center; border-radius:50%; background:var(--color-surface-strong); font-size:.68rem; }
-  .forecast-plans-control:not([open])>.scenario-options { display:none; }
+  .forecast-plans-heading { min-height:2.1rem; }
   .forecast-plans-control>.scenario-options { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--space-2); padding:var(--space-2) 0; }
   .scenario-options label { min-height:2.75rem; padding:.45rem .6rem; border:1px solid var(--color-line); border-radius:var(--radius-sm); background:var(--color-surface-strong); overflow-wrap:anywhere; }
   .scenario-options input { width:1.1rem; height:1.1rem; flex:0 0 auto; }
