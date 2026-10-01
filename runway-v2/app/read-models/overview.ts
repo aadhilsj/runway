@@ -189,13 +189,20 @@ export function buildOverviewReadModel(
     ruleReliability = new Map(
       workspace.forecast.rules.map((row) => [row.id, row.is_reliable_income]),
     );
-  const upcoming = active.result.events
-      .filter(
-        (row) =>
-          row.date >= active.result.asOfDate &&
-          row.date <= shift(active.result.asOfDate, 30) &&
-          row.confidence !== "tentative",
-      )
+  const upcoming = [
+      ...active.result.overdueItems
+        .filter((row) => row.confidence !== "tentative")
+        .map((row) => ({ ...row, isOverdue: true })),
+      ...active.result.events
+        .filter(
+          (row) =>
+            row.date >= active.result.asOfDate &&
+            row.date <= shift(active.result.asOfDate, 30) &&
+            row.confidence !== "tentative",
+        )
+        .map((row) => ({ ...row, isOverdue: false })),
+    ]
+      .toSorted((left, right) => left.date.localeCompare(right.date))
       .slice(0, 8),
     nextReliableIncome = active.result.events.find(
       (row) =>
