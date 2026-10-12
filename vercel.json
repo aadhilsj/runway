@@ -1,9 +1,0 @@
-{
-  "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "cd runway-v2 && pnpm run build",
-  "installCommand": "cd runway-v2 && pnpm install --frozen-lockfile",
-  "outputDirectory": "runway-v2/build/client",
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
-  ]
-}

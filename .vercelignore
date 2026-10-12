@@ -1,3 +1,8 @@
+# Vercel reads this file at the repository root for every Git build, including
+# Runway 2 builds whose Root Directory is runway-v2. Never list runway-v2 here:
+# stripping it makes Vercel fall back to building the repo root, whose
+# package.json has no build script, and the deployment fails with
+# "spawn build ENOENT". See docs/PRODUCTION_CUTOVER.md.
 .git
 .gstack
 .runway-private-backups
@@ -7,5 +12,3 @@ recovery-backup
 supabase
 node_modules
 generate-pwa-icons.js
-
-

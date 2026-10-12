@@ -12,7 +12,18 @@
 - Preview URL: `https://runway-dyz03g8le-aadhilshahjahan11-1221s-projects.vercel.app`
 - Supabase project: `kmbepvzsbmucrvhbjgbj`, schema version `7`
 
-Vercel installs with `pnpm install --frozen-lockfile`, builds with `pnpm build`, publishes `build/client`, and rewrites application routes to `index.html`. Only the client-safe Supabase URL and publishable key are configured in Vercel. Vercel link state and downloaded environment files remain ignored.
+Only the client-safe Supabase URL and publishable key are configured in Vercel. Vercel link state and downloaded environment files remain ignored.
+
+## Deployment configuration
+
+`runway-v2/vercel.json` is the single source of truth for the build. The Vercel project's Root Directory is `runway-v2`, so that file is found at the deployment root and its `installCommand`, `buildCommand`, and `outputDirectory` override the dashboard's Framework Settings. It installs with `pnpm install --frozen-lockfile`, builds with `pnpm run build`, publishes `build/client`, rewrites application routes to `index.html` while exempting `assets/` and `favicon.ico`, and sets the cache-control headers for HTML, the retired service worker, the manifest, and hashed assets.
+
+Two constraints keep Git builds working:
+
+- Do not add a competing `vercel.json` at the repository root. With Root Directory set to `runway-v2`, Vercel never reads it, so it is silently dead configuration that drifts from the real one.
+- Do not list `runway-v2` in the repository-root `.vercelignore`. Vercel applies that file to every Git build; stripping the app directory makes Vercel build the repository root instead, whose `package.json` has no `build` script, and the deployment fails with `spawn build ENOENT`.
+
+The dashboard Framework Settings currently hold repository-root-shaped overrides (`cd runway-v2 && …`, output `runway-v2/build/client`). They are inert because `runway-v2/vercel.json` takes precedence, but they are wrong for a Root Directory of `runway-v2` and should be cleared so the project falls back to the committed file if it is ever absent.
 
 ## Preserved legacy frontend
 
