@@ -74,7 +74,7 @@ function renderWithQuery(ui: React.ReactNode, initialEntry = "/") {
   return render(<MemoryRouter initialEntries={[initialEntry]}><QueryClientProvider client={client}>{ui}</QueryClientProvider></MemoryRouter>);
 }
 
-afterEach(() => { cleanup(); vi.clearAllMocks(); });
+afterEach(() => { cleanup(); vi.clearAllMocks(); vi.useRealTimers(); });
 
 describe("Phase 4 actual-money workflows", () => {
   it("clearly distinguishes reversed originals and their cleanup entries", async () => {
@@ -182,6 +182,12 @@ describe("Phase 4 actual-money workflows", () => {
   });
 
   it("edits one selected month and replaces a legacy shared limit", async () => {
+    // The drawer's save label depends on whether the selected range is the current month,
+    // and this case deliberately edits a month ahead of today. Pin the clock so the
+    // assertion does not change meaning once the real date reaches that month. Only Date
+    // is faked, so Testing Library's async helpers keep working.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-08-24T12:00:00Z"));
     const groceriesId = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
     const miscellaneousId = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
     mocks.getBudgetWorkspace.mockResolvedValueOnce({
@@ -196,7 +202,7 @@ describe("Phase 4 actual-money workflows", () => {
       .mockResolvedValueOnce({ id: "misc-line", budget_period_id: "period-october", category_id: miscellaneousId, group_id: null, budgeted_minor: 350000, rollover: false, notes: null });
     renderWithQuery(<TransactionsRoute />);
     fireEvent.change(await screen.findByLabelText("Limits month"), { target: { value: "2026-10" } });
-    fireEvent.click(screen.getByRole("button", { name: "Edit monthly limits" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Edit monthly limits" }));
     expect(screen.getByLabelText("Limits start month")).toHaveValue("2026-10");
     expect(screen.getByLabelText("Limits end month")).toHaveValue("2026-10");
     fireEvent.change(screen.getByLabelText("Groceries limit"), { target: { value: "1500" } });

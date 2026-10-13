@@ -23,7 +23,7 @@ vi.mock("~/data/repositories/recurring-repository", () => ({ recurringRepository
 vi.mock("~/data/repositories/plans-repository", () => ({ plansRepository: { getWorkspace: vi.fn().mockResolvedValue(mocks.planWorkspace), updatePlan: mocks.updatePlan, settleItem: mocks.settlePlanItem } }));
 vi.mock("~/data/repositories/reimbursements-repository", () => ({ reimbursementsRepository: { getWorkspace: vi.fn().mockResolvedValue({ pools: [], entries: [] }), recordRepayment: mocks.recordRepayment, adjustPool: mocks.adjustPool } }));
 function show(ui: React.ReactNode) { const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } }); return render(<MemoryRouter><QueryClientProvider client={client}>{ui}</QueryClientProvider></MemoryRouter>); }
-afterEach(() => { cleanup(); mocks.workspace.occurrences = []; mocks.workspace.scenarios[0].comparison_enabled = false; mocks.workspace.items = mocks.workspace.items.filter((item: { id: string }) => item.id !== "splitwise-item"); mocks.workspace.accounts = mocks.workspace.accounts.filter((item: { id: string }) => item.id !== "receivable-a"); mocks.workspace.balances = mocks.workspace.balances.filter((item: { account_id: string }) => item.account_id !== "receivable-a"); mocks.workspace.reimbursementPools = []; mocks.workspace.reimbursementEntries = []; mocks.planWorkspace.changes = []; vi.clearAllMocks(); });
+afterEach(() => { cleanup(); mocks.workspace.occurrences = []; mocks.workspace.scenarios[0].comparison_enabled = false; mocks.workspace.items = mocks.workspace.items.filter((item: { id: string }) => item.id !== "splitwise-item"); mocks.workspace.accounts = mocks.workspace.accounts.filter((item: { id: string }) => item.id !== "receivable-a"); mocks.workspace.balances = mocks.workspace.balances.filter((item: { account_id: string }) => item.account_id !== "receivable-a"); mocks.workspace.reimbursementPools = []; mocks.workspace.reimbursementEntries = []; mocks.planWorkspace.changes = []; vi.clearAllMocks(); vi.useRealTimers(); });
 
 describe("Phase 5 forecast UI", () => {
   it("extends a forecast horizon through the entire selected end month", () => {
@@ -157,6 +157,11 @@ describe("Phase 5 forecast UI", () => {
   });
 
   it("builds a monthly baseline in bulk and preserves existing monthly rules", async () => {
+    // Extending the horizon only saves when the chosen end month reaches past the profile's
+    // 12 months, so the assertion depends on today's date. Pin the clock; only Date is faked
+    // so Testing Library's async helpers keep working.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-08-24T12:00:00Z"));
     mocks.saveMonthlyBaseline.mockResolvedValue(undefined); show(<MonthlyForecastRoute/>);
     expect(await screen.findByDisplayValue("Monthly fixture")).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: "Paste a list" }));

@@ -33,4 +33,7 @@ it("only hides owned reversal pairs without altering financial records", async (
     await db.exec("set role anon");
     await expect(db.query("select * from public.activity_history_cleanup")).rejects.toThrow();
   } finally { await db.close(); }
-});
+// Unlike the other database suites this one boots PGlite and replays every migration
+// inside the test rather than in a beforeAll hook, so it has the 5s test budget rather
+// than the longer hook budget and times out when suites start in parallel.
+}, 30_000);
