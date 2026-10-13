@@ -63,7 +63,7 @@ export interface MonthlyForecastAggregate extends ForecastPoint {
   transfersOutMinor: number; netExternalCashFlowMinor: number;
 }
 export interface ForecastResult {
-  asOfDate: CalendarDate; endDate: CalendarDate; events: ProjectedTraceRow[]; overdueItems: ProjectedEvent[];
+  asOfDate: CalendarDate; endDate: CalendarDate; events: ProjectedTraceRow[]; overdueItems: ProjectedTraceRow[];
   dailySeries: ForecastPoint[]; monthly: MonthlyForecastAggregate[]; endingAccountBalances: Record<string, number>;
   endingOperatingCashMinor: number; endingLiquidCashMinor: number; endingNetWorthMinor: number;
   lowestOperatingCash: { date: CalendarDate; balanceMinor: number };
@@ -156,13 +156,12 @@ export function forecast(input: ForecastInput): ForecastResult {
   }
   const conflicts = [...overlayTargets].filter(([, ids]) => new Set(ids).size > 1).map(([sourceId, ids]) => ({ sourceId, scenarioIds: [...new Set(ids)].sort() }));
   if (conflicts.length) { const conflicted = new Set(conflicts.map((item) => item.sourceId)); all = all.filter((event) => !conflicted.has(event.sourceId)); }
-  const overdueItems = all.filter((event) => event.date < input.asOfDate).toSorted(compareProjectedEvents);
+  const overdueSource = all.filter((event) => event.date < input.asOfDate).toSorted(compareProjectedEvents);
   const events = all.filter((event) => event.date >= input.asOfDate && event.date <= input.endDate).toSorted(compareProjectedEvents);
   const accountById = new Map(input.accounts.map((account) => [account.id, account]));
   const balances: Record<string, number> = Object.fromEntries(input.accounts.map((account) => [account.id, account.balanceMinor]));
-  const baseline = accountTotals(input.accounts, balances); const trace: ProjectedTraceRow[] = [];
   const floorBreaches: ForecastResult["floorBreaches"] = []; const totals = { incomeMinor: 0, expenseMinor: 0, transferMinor: 0 };
-  for (const event of events) {
+  const applyEvent = (event: ProjectedEvent) => {
     if (event.kind === "income") { if (!event.destinationAccountId || !accountById.has(event.destinationAccountId)) throw new Error(`Income ${event.id} requires a destination account`);
       balances[event.destinationAccountId] = (balances[event.destinationAccountId] ?? 0) + event.amountMinor; totals.incomeMinor += event.amountMinor;
     } else if (event.kind === "expense") { if (!event.sourceAccountId || !accountById.has(event.sourceAccountId)) throw new Error(`Expense ${event.id} requires a source account`);
@@ -171,7 +170,16 @@ export function forecast(input: ForecastInput): ForecastResult {
       if (!source || !destination || source.id === destination.id) throw new Error(`Transfer ${event.id} requires distinct owned accounts`);
       balances[source.id] = (balances[source.id] ?? 0) + (source.class === "liability" ? event.amountMinor : -event.amountMinor);
       balances[destination.id] = (balances[destination.id] ?? 0) + (destination.class === "liability" ? -event.amountMinor : event.amountMinor); totals.transferMinor += event.amountMinor; }
-    const aggregate = accountTotals(input.accounts, balances); trace.push({ ...event, accountBalances: { ...balances }, ...aggregate });
+    return accountTotals(input.accounts, balances);
+  };
+  // An overdue item is still expected; it is late, not cancelled. Apply it before the horizon
+  // opens so it carries a real running balance and every later figure already contains it.
+  const overdueItems: ProjectedTraceRow[] = overdueSource.map((event) => {
+    const aggregate = applyEvent(event); return { ...event, accountBalances: { ...balances }, ...aggregate };
+  });
+  const baseline = accountTotals(input.accounts, balances); const trace: ProjectedTraceRow[] = [];
+  for (const event of events) {
+    const aggregate = applyEvent(event); trace.push({ ...event, accountBalances: { ...balances }, ...aggregate });
     if (aggregate.operatingCashMinor < input.operatingFloorMinor) floorBreaches.push({ date: event.date, balanceMinor: aggregate.operatingCashMinor,
       amountBelowFloorMinor: input.operatingFloorMinor - aggregate.operatingCashMinor, eventId: event.id });
   }

@@ -99,11 +99,17 @@ describe("forecast engine", () => {
     expect(result.events.map((event) => event.kind)).toEqual(["expense", "income", "transfer"]);
   });
 
-  it("excludes unresolved overdue items and surfaces them", () => {
+  it("applies unresolved overdue items before the horizon and still surfaces them separately", () => {
     const result = forecast(input({ asOfDate: "2026-02-01", forecastItems: [
       { id: "overdue", kind: "expense", date: "2026-01-31", amountMinor: 1_000, sourceAccountId: "operating", label: "Overdue", status: "expected" },
     ] }));
-    expect(result.events).toHaveLength(0); expect(result.overdueItems).toHaveLength(1); expect(result.endingOperatingCashMinor).toBe(100_000);
+    // Late, not cancelled: it stays out of the in-horizon events but its money is already counted.
+    expect(result.events).toHaveLength(0); expect(result.overdueItems).toHaveLength(1);
+    expect(result.overdueItems[0]!.operatingCashMinor).toBe(99_000);
+    expect(result.totals.expenseMinor).toBe(1_000);
+    expect(result.endingOperatingCashMinor).toBe(99_000);
+    expect(result.dailySeries[0]!.operatingCashMinor).toBe(99_000);
+    expect(result.lowestOperatingCash.balanceMinor).toBe(99_000);
   });
 
   it("applies selected scenarios without mutating base data and reports conflicts", () => {

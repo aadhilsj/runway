@@ -8,7 +8,7 @@ Posted transactions after the as-of date are excluded by policy in Phase 5. The 
 
 Income increases its destination asset. Expense decreases its source asset. Transfer moves value between two accounts. Investment contributions and principal payments are transfers and remain net-worth neutral. The projection reports Operating Cash, total liquid cash, assets, liabilities, and net worth separately.
 
-The default same-day order is expense, income, then transfer. An explicit `default_sort_order` overrides that policy. Lowest-balance and floor-breach calculations consider only the selected horizon. Overdue expected one-offs are excluded from forward totals and shown in Needs attention.
+The default same-day order is expense, income, then transfer. An explicit `default_sort_order` overrides that policy. Lowest-balance and floor-breach calculations consider only the selected horizon. Overdue expected one-offs are late, not cancelled. They are applied before the horizon opens, so they carry a real running balance and are already contained in the daily series, monthly aggregates, totals, lowest-balance, and ending figures. They remain listed separately as `overdueItems` so the timeline and Needs attention can still flag them. Starting cash stays actual money now, so the overdue amount appears in the rows rather than in the opening figure.
 
 ## Dates and horizon
 

@@ -111,7 +111,7 @@ export interface ForecastScreenModel {
   result: ForecastResult;
   summary: { startingCashMinor: number; projectedBalanceMinor: number; lowestOperatingMinor: number; incomeMinor: number; expenseMinor: number; overdueCount: number };
   chart: Array<{ date: string; operatingCashMinor: number; liquidCashMinor: number; netWorthMinor: number }>;
-  timeline: Array<(ForecastResult["events"][number] | ForecastResult["overdueItems"][number]) & { accountImpact: string; runningBalanceMinor: number | null; isOverdue: boolean }>;
+  timeline: Array<(ForecastResult["events"][number] | ForecastResult["overdueItems"][number]) & { accountImpact: string; runningBalanceMinor: number; isOverdue: boolean }>;
 }
 
 export function buildForecastScreenModelFromResult(workspace: ForecastWorkspace, input: ForecastInput, result: ForecastResult): ForecastScreenModel {
@@ -121,7 +121,7 @@ export function buildForecastScreenModelFromResult(workspace: ForecastWorkspace,
     incomeMinor: result.totals.incomeMinor, expenseMinor: result.totals.expenseMinor, overdueCount: result.overdueItems.length },
     chart: result.dailySeries.map((point) => ({ date: point.date, operatingCashMinor: point.operatingCashMinor, liquidCashMinor: point.liquidCashMinor, netWorthMinor: point.netWorthMinor })),
     timeline: [...result.overdueItems.map((event) => ({ ...event, accountImpact: event.kind === "income" ? `Into ${accountNames.get(event.destinationAccountId ?? "") ?? "account"}` : event.kind === "expense" ? `From ${accountNames.get(event.sourceAccountId ?? "") ?? "account"}` : `${accountNames.get(event.sourceAccountId ?? "") ?? "account"} → ${accountNames.get(event.destinationAccountId ?? "") ?? "account"}`,
-      runningBalanceMinor: null, isOverdue: true })),
+      runningBalanceMinor: event.operatingCashMinor, isOverdue: true })),
       ...result.events.map((event) => ({ ...event, accountImpact: event.kind === "income" ? `Into ${accountNames.get(event.destinationAccountId ?? "") ?? "account"}` : event.kind === "expense" ? `From ${accountNames.get(event.sourceAccountId ?? "") ?? "account"}` : `${accountNames.get(event.sourceAccountId ?? "") ?? "account"} → ${accountNames.get(event.destinationAccountId ?? "") ?? "account"}`,
         runningBalanceMinor: event.operatingCashMinor, isOverdue: false }))],
   };
