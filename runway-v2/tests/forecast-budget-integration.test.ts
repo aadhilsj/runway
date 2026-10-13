@@ -116,6 +116,37 @@ describe("monthly budgets in Forecast", () => {
     expect(screen.summary.projectedBalanceMinor).toBe(10_000);
   });
 
+  it("never shows a running balance on consecutive overdue items, and resumes the chain from starting cash", () => {
+    const overdue = (id: string, label: string, amountMinor: number) => ({
+      id, kind: "income", expected_date: "2026-08-20", amount_minor: amountMinor,
+      source_account_id: null, destination_account_id: "operating", category_id: null,
+      label, notes: null, confidence: "expected", scenario_id: null, default_sort_order: 0, status: "expected",
+    });
+    const later = {
+      id: "phone-bill", kind: "expense", expected_date: "2026-08-28", amount_minor: 56_800,
+      source_account_id: "operating", destination_account_id: null, category_id: null,
+      label: "Phone bill", notes: null, confidence: "expected", scenario_id: null, default_sort_order: 0, status: "expected",
+    };
+    const screen = buildForecastScreenModel(
+      forecastWorkspace(921_300, [overdue("mama", "Mama Repay", 76_400), overdue("isira", "Isira Splitwise", 42_500), later]),
+      1, [], "2026-08-24", budgetWorkspace(0),
+    );
+
+    // Both overdue rows report no balance rather than each restating starting cash plus themselves.
+    expect(screen.timeline.filter((row) => row.isOverdue).map((row) => [row.label, row.runningBalanceMinor]))
+      .toEqual([["Isira Splitwise", null], ["Mama Repay", null]]);
+    // The settled chain resumes from starting cash, excluding the unsettled 1 189.00,
+    // and every later row continues from the row before it rather than restating starting cash.
+    const settled = screen.timeline.filter((row) => !row.isOverdue);
+    expect(settled[0]).toMatchObject({ label: "Phone bill", runningBalanceMinor: 864_500 });
+    let running = screen.summary.startingCashMinor;
+    for (const row of settled) {
+      running += row.kind === "income" ? row.amountMinor : row.kind === "expense" ? -row.amountMinor : 0;
+      expect([row.label, row.runningBalanceMinor]).toEqual([row.label, running]);
+    }
+    expect(screen.summary.startingCashMinor).toBe(921_300);
+  });
+
   it("keeps Forecast, Overview, and plan comparisons on the same projected-balance path", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-08-24T12:00:00Z"));
