@@ -22,7 +22,7 @@ Allocated Fund money is subtracted exactly once. `fund_backing_summary` exposes 
 
 ## Budgets
 
-Budget periods contain lines targeted at either one category or one category group. Actual spend is derived from posted expense entries less posted refunds/reimbursements. Transfers, opening balances, forecast-only items, and virtual Fund movements are excluded. Committed spend is reported separately from expected forecast expenses.
+Budget periods contain lines targeted at either one category or one category group. Actual spend is derived from posted expense entries less posted refunds/reimbursements. Transfers, opening balances, forecast-only items, and virtual Fund movements are excluded. A reversal counts against the month of the transaction it reverses, not the month the correction was posted, so a corrected expense releases the budget it originally consumed and no phantom negative actual appears in the correction's month. The reversal itself keeps its real `occurred_at`, so balances, net-worth history, and the audit trail still record when the correction happened. Committed spend is reported separately from expected forecast expenses.
 
 The initial October configuration preserves Groceries + Misc as a combined NOK 5,000 group because the source plan does not justify an arbitrary split. Other base October category lines are derived from expected non-scenario forecast inputs and remain editable. The safely classified initial total is NOK 16,038; Runway does not duplicate the normalized Miscellaneous category merely to force the approximate NOK 16,538 planning figure.
 

@@ -18,6 +18,7 @@ const migrations = [
   "20260819190500_phase_6_budget_group_scope_fix.sql",
   "20260819200000_phase_6_1_budget_and_function_cleanup.sql",
   "20260827000819_add_reimbursement_tracking.sql",
+  "20261013090000_budget_actuals_reversal_month.sql",
 ];
 
 let db: PGlite;
@@ -133,10 +134,11 @@ describe.sequential("linked reimbursements", () => {
       select sum(delta_minor)::bigint amount from public.reimbursement_entries where pool_id=$1
     `, [poolId])).rows[0]!;
     expect(Number(outstanding.amount)).toBe(1794000);
-    const budget = (await db.query<{ actual: number }>(
-      "select actual_minor::bigint actual from public.budget_actuals where user_id=$1 and category_id=$2", [USER, categoryId],
-    )).rows[0]!;
-    expect(Number(budget.actual)).toBe(0);
+    const budgetMonths = (await db.query<{ month_start: string; actual: number }>(
+      "select month_start::text,actual_minor::bigint actual from public.budget_actuals where user_id=$1 and category_id=$2 order by month_start",
+      [USER, categoryId],
+    )).rows.map((row) => ({ month: row.month_start, actual: Number(row.actual) }));
+    expect(budgetMonths).toEqual([{ month: "2026-08-01", actual: 0 }]);
   });
 
   it("isolates reimbursement data and mutation RPCs by owner", async () => {
