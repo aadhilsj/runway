@@ -5,6 +5,7 @@ const HISTORY_WINDOW_HOURS = 12;
 const UNDO_VISIBLE_MS = 3000;
 const MOBILE_BREAKPOINT = 720;
 const BUILD_VERSION = window.RUNWAY_BUILD || "dev";
+const LEGACY_REFERENCE_ONLY = true;
 const DEFAULT_BUCKET_TEMPLATES = [
   { name: "Groceries", defaultBudget: 1000, isEnabledByDefault: true },
   { name: "Misc", defaultBudget: 1000, isEnabledByDefault: true }
@@ -641,6 +642,22 @@ function render() {
     syncTimelineCategoryOptions();
   }
   applyMobileLayout();
+  applyReferenceOnlyControls();
+}
+
+function applyReferenceOnlyControls() {
+  if (!LEGACY_REFERENCE_ONLY) return;
+  const allowedIds = new Set([
+    "auth-submit", "auth-change-email", "sign-out-button", "manual-refresh-button",
+    "clarity-toggle-button", "timeline-search", "timeline-status-filter",
+    "timeline-category-filter", "timeline-month-filter", "selected-date"
+  ]);
+  document.querySelectorAll("#app-shell button, #app-shell input, #app-shell select, #app-shell textarea").forEach((control) => {
+    if (allowedIds.has(control.id) || control.matches("[data-mobile-tab-target]")) return;
+    control.disabled = true;
+    control.setAttribute("title", "Legacy Runway is reference only");
+  });
+  if (elements.syncBadge) elements.syncBadge.textContent = "Reference only";
 }
 
 function showUpdateBanner() {
@@ -2500,6 +2517,7 @@ async function refreshRemoteState(options = {}) {
 }
 
 async function saveRemoteState() {
+  if (LEGACY_REFERENCE_ONLY) return false;
   if (!authUser || !supabaseClient) return false;
 
   ensureStateMeta(state);

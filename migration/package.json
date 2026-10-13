@@ -1,0 +1,11 @@
+{
+  "name": "runway-legacy-migration",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dry-run": "node src/cli.ts"
+  },
+  "engines": {
+    "node": ">=22.18"
+  }
+}

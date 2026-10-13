@@ -1,0 +1,244 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { MemoryRouter } from "react-router";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import AccountsRoute from "~/routes/money-accounts";
+import TransactionsRoute from "~/routes/money-transactions";
+import ForecastRoute from "~/routes/forecast";
+import { transactionsRepository } from "~/data/repositories/transactions-repository";
+
+const mocks = vi.hoisted(() => ({
+  createAccount: vi.fn(), reconcileAccount: vi.fn(), postExpense: vi.fn(), reverseTransaction: vi.fn(), settleItem: vi.fn(),
+  createBudgetPeriod: vi.fn(), createBudgetLine: vi.fn(), updateBudgetLine: vi.fn(), deleteBudgetLine: vi.fn(), getBudgetWorkspace: vi.fn(),
+  postSplitExpense: vi.fn(),
+  operatingAccount: {
+    id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", user_id: "owner", name: "Operating Cash", class: "asset" as const,
+    subtype: "checking" as const, currency: "NOK", liquidity_class: "operating" as const, valuation_mode: "ledger" as const,
+    include_in_net_worth: true, is_system: false, archived_at: null, opened_on: "2026-08-19", created_at: "2026-08-19T00:00:00Z",
+    updated_at: "2026-08-19T00:00:00Z", ledger_balance_minor: 1195600, display_balance_minor: 1195600,
+  },
+}));
+
+vi.mock("~/data/repositories/accounts-repository", () => ({ accountsRepository: {
+  listAccountsWithBalances: vi.fn().mockResolvedValue([mocks.operatingAccount]),
+  listAccountTransactions: vi.fn().mockResolvedValue([]), createAccount: mocks.createAccount,
+  renameAccount: vi.fn(), archiveAccount: vi.fn(),
+} }));
+vi.mock("~/data/repositories/balances-repository", () => ({ balancesRepository: {
+  getCurrentNetWorth: vi.fn().mockResolvedValue([{ net_worth_minor: 1195600 }]),
+} }));
+vi.mock("~/data/repositories/snapshots-repository", () => ({ snapshotsRepository: {
+  listBalanceSnapshots: vi.fn().mockResolvedValue([]), createBalanceSnapshot: vi.fn(), reconcileAccount: mocks.reconcileAccount,
+} }));
+vi.mock("~/data/repositories/categories-repository", () => ({ categoriesRepository: {
+  listCategories: vi.fn().mockResolvedValue([
+    { id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", name: "Housing", kind: "expense" },
+    { id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd", name: "Groceries", kind: "expense" },
+    { id: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee", name: "Miscellaneous", kind: "expense" },
+  ]),
+} }));
+vi.mock("~/data/repositories/budgets-repository", () => ({ budgetsRepository: {
+  getWorkspace: mocks.getBudgetWorkspace.mockResolvedValue({
+    periods: [], lines: [], groups: [], groupCategories: [], actuals: [],
+    categories: [
+      { id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd", name: "Groceries", kind: "expense" },
+      { id: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee", name: "Miscellaneous", kind: "expense" },
+    ], currency: "NOK",
+  }),
+  createPeriod: mocks.createBudgetPeriod, createLine: mocks.createBudgetLine, updateLine: mocks.updateBudgetLine, deleteLine: mocks.deleteBudgetLine,
+} }));
+vi.mock("~/data/repositories/transactions-repository", () => ({ transactionsRepository: {
+  listHistoryCleanup: vi.fn().mockResolvedValue([]), deleteFromHistory: vi.fn().mockResolvedValue(undefined),
+  listTransactions: vi.fn().mockResolvedValue([]), postIncome: vi.fn(), postExpense: mocks.postExpense,
+  postTransfer: vi.fn(), postDebtPayment: vi.fn(), reverseTransaction: mocks.reverseTransaction,
+} }));
+vi.mock("~/data/repositories/reimbursements-repository", () => ({ reimbursementsRepository: {
+  getWorkspace: vi.fn().mockResolvedValue({ pools: [{ id: "pool-a", name: "Splitwise" }], entries: [] }),
+  postSplitExpense: mocks.postSplitExpense, recordRepayment: vi.fn(), adjustPool: vi.fn(),
+} }));
+vi.mock("~/data/repositories/forecast-repository", () => ({ forecastRepository: {
+  getWorkspace: vi.fn().mockResolvedValue({
+    profile: { base_currency: "NOK", timezone: "Europe/Oslo", operating_floor_minor: 1500000, forecast_horizon_months: 12 },
+    accounts: [mocks.operatingAccount], balances: [{ account_id: mocks.operatingAccount.id, display_balance_minor: 1195600 }],
+    items: [{ id: "forecast-a", expected_date: "2026-09-01", kind: "income", amount_minor: 200000, label: "Invented future income",
+      category_id: null, confidence: "expected", destination_account_id: mocks.operatingAccount.id, source_account_id: null, notes: null,
+      scenario_id: null, default_sort_order: null, status: "expected" }],
+    rules: [], occurrences: [], scenarios: [], categories: [{ id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc", name: "Income", kind: "income" }], transactions: [], funds: [], fundBalances: [], portfolioSnapshots: [],
+  }),
+  saveHorizon: vi.fn(), createItem: vi.fn(), updateItem: vi.fn(), purgeExpiredRecoverableItems: vi.fn().mockResolvedValue(undefined), matchItem: vi.fn(), settleItem: mocks.settleItem,
+} }));
+vi.mock("~/data/repositories/recurring-repository", () => ({ recurringRepository: { matchOccurrence: vi.fn(), setException: vi.fn(), settleOccurrence: vi.fn() } }));
+
+function renderWithQuery(ui: React.ReactNode, initialEntry = "/") {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+  return render(<MemoryRouter initialEntries={[initialEntry]}><QueryClientProvider client={client}>{ui}</QueryClientProvider></MemoryRouter>);
+}
+
+afterEach(() => { cleanup(); vi.clearAllMocks(); vi.useRealTimers(); });
+
+describe("Phase 4 actual-money workflows", () => {
+  it("clearly distinguishes reversed originals and their cleanup entries", async () => {
+    const original = { id: "original", description: "Test purchase", kind: "expense", status: "posted", occurred_at: "2026-08-20T12:00:00Z", reverses_transaction_id: null, transaction_entries: [{ account_id: mocks.operatingAccount.id, amount_minor: -50232, category_id: null }] };
+    vi.mocked(transactionsRepository.listTransactions).mockResolvedValueOnce([
+      original,
+      { ...original, id: "reversal", description: "Reversal: Test purchase", reverses_transaction_id: "original", transaction_entries: [{ account_id: mocks.operatingAccount.id, amount_minor: 50232, category_id: null }] },
+    ] as any);
+    renderWithQuery(<TransactionsRoute />);
+    expect((await screen.findByText("Test purchase")).closest("article")).toHaveClass("activity-reversed");
+    expect(screen.getByText("Reversal of Test purchase").closest("article")).toHaveClass("activity-reversal");
+    expect(screen.getByText("Reversal · cancels original")).toBeVisible();
+    expect(screen.queryByRole("button", { name: /Reverse transaction:/ })).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Delete from history: Test purchase" })).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: "Delete from history: Test purchase" }));
+    expect(transactionsRepository.deleteFromHistory).not.toHaveBeenCalled();
+    vi.mocked(transactionsRepository.listHistoryCleanup).mockResolvedValueOnce([{ original_id: "original", reversal_id: "reversal" }] as any);
+    fireEvent.click(screen.getByRole("button", { name: "Delete from history" }));
+    await waitFor(() => expect(transactionsRepository.deleteFromHistory).toHaveBeenCalledWith("original", "reversal"));
+    await waitFor(() => expect(screen.queryByText("Reversal of Test purchase")).not.toBeInTheDocument());
+    expect(screen.queryByText("Test purchase")).not.toBeInTheDocument();
+    expect(mocks.reverseTransaction).not.toHaveBeenCalled();
+  });
+  it("creates an account and requires explicit confirmation before reconciliation", async () => {
+    mocks.createAccount.mockResolvedValue("new-account");
+    mocks.reconcileAccount.mockResolvedValue({ difference_minor: 4400 });
+    renderWithQuery(<AccountsRoute />);
+    expect((await screen.findAllByText((_, element) => element?.textContent?.replace(/\s/g, "") === "11956kr", { selector: "strong, span" })).length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole("button", { name: "Add account" }));
+    fireEvent.change(screen.getByLabelText("Account name"), { target: { value: "Savings" } });
+    fireEvent.click(screen.getByRole("button", { name: "Create account" }));
+    await waitFor(() => expect(mocks.createAccount).toHaveBeenCalledOnce());
+    fireEvent.click(screen.getByRole("button", { name: /Operating Cash/ }));
+    const actual = await screen.findByLabelText("Actual bank balance");
+    fireEvent.change(actual, { target: { value: "12000" } });
+    const adjustment = screen.getByRole("button", { name: "Create adjustment" });
+    expect(adjustment).toBeDisabled();
+    fireEvent.click(screen.getByLabelText("Create a confirmed adjustment"));
+    fireEvent.click(adjustment);
+    await waitFor(() => expect(mocks.reconcileAccount).toHaveBeenCalledOnce());
+  });
+
+  it("posts an expense through the actual transaction workflow", async () => {
+    mocks.postExpense.mockResolvedValue("transaction-a");
+    renderWithQuery(<TransactionsRoute />);
+    fireEvent.click(await screen.findByRole("button", { name: "Add transaction" }));
+    await screen.findByRole("option", { name: "Operating Cash" });
+    const dialog = screen.getByRole("dialog");
+    fireEvent.change(within(dialog).getByLabelText("Amount"), { target: { value: "125.50" } });
+    fireEvent.change(within(dialog).getByLabelText("Description"), { target: { value: "Invented purchase" } });
+    fireEvent.click(screen.getByRole("button", { name: "Post expense" }));
+    await waitFor(() => expect(mocks.postExpense).toHaveBeenCalledWith(expect.objectContaining({ amountMinor: 12550, description: "Invented purchase" })));
+  });
+
+  it("logs variable spending directly from Activity", async () => {
+    mocks.postExpense.mockResolvedValue("transaction-quick");
+    renderWithQuery(<TransactionsRoute />);
+    await screen.findByRole("button", { name: "Set monthly limits" });
+    fireEvent.change(screen.getByLabelText("Quick spend amount"), { target: { value: "300" } });
+    fireEvent.change(screen.getByLabelText("Quick spend description"), { target: { value: "Invented grocery shop" } });
+    fireEvent.click(screen.getByRole("button", { name: "Log expense" }));
+    await waitFor(() => expect(mocks.postExpense).toHaveBeenCalledWith(expect.objectContaining({
+      accountId: mocks.operatingAccount.id,
+      amountMinor: 30000,
+      categoryId: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+      description: "Invented grocery shop",
+    })));
+  });
+
+  it("logs only the personal share as spending while tracking the amount owed back", async () => {
+    mocks.postSplitExpense.mockResolvedValue("transaction-split");
+    renderWithQuery(<TransactionsRoute />);
+    await screen.findByRole("button", { name: "Set monthly limits" });
+    fireEvent.change(screen.getByLabelText("Quick spend amount"), { target: { value: "300" } });
+    fireEvent.change(screen.getByLabelText("Quick spend description"), { target: { value: "Shared groceries" } });
+    fireEvent.click(screen.getByRole("checkbox", { name: /Someone owes me part of this/i }));
+    fireEvent.change(screen.getByLabelText("Amount owed back"), { target: { value: "60" } });
+    fireEvent.click(screen.getByRole("button", { name: "Log expense" }));
+    await waitFor(() => expect(mocks.postSplitExpense).toHaveBeenCalledWith(expect.objectContaining({
+      sourceAccountId: mocks.operatingAccount.id,
+      amountMinor: 30000,
+      reimbursableMinor: 6000,
+      poolId: "pool-a",
+      categoryId: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+      description: "Shared groceries",
+    })));
+    expect(mocks.postExpense).not.toHaveBeenCalled();
+  });
+
+  it("sets the current month's everyday spending limits from Activity", async () => {
+    const currentMonth = new Date();
+    const monthStart = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, "0")}-01`;
+    mocks.createBudgetPeriod.mockResolvedValue({ id: "period-a", month_start: monthStart, currency: "NOK", status: "planned", notes: null });
+    mocks.createBudgetLine
+      .mockResolvedValueOnce({ id: "line-groceries", budget_period_id: "period-a", category_id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd", group_id: null, budgeted_minor: 100000, rollover: false, notes: null })
+      .mockResolvedValueOnce({ id: "line-misc", budget_period_id: "period-a", category_id: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee", group_id: null, budgeted_minor: 100000, rollover: false, notes: null });
+    renderWithQuery(<TransactionsRoute />);
+    fireEvent.click(await screen.findByRole("button", { name: "Set monthly limits" }));
+    fireEvent.change(screen.getByLabelText("Groceries limit"), { target: { value: "1000" } });
+    fireEvent.change(screen.getByLabelText("Miscellaneous limit"), { target: { value: "1000" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save monthly limits" }));
+    await waitFor(() => expect(mocks.createBudgetPeriod).toHaveBeenCalledWith(monthStart, "NOK"));
+    expect(mocks.createBudgetLine).toHaveBeenCalledWith("period-a", "dddddddd-dddd-4ddd-8ddd-dddddddddddd", 100000);
+    expect(mocks.createBudgetLine).toHaveBeenCalledWith("period-a", "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee", 100000);
+  });
+
+  it("edits one selected month and replaces a legacy shared limit", async () => {
+    // The drawer's save label depends on whether the selected range is the current month,
+    // and this case deliberately edits a month ahead of today. Pin the clock so the
+    // assertion does not change meaning once the real date reaches that month. Only Date
+    // is faked, so Testing Library's async helpers keep working.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-08-24T12:00:00Z"));
+    const groceriesId = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+    const miscellaneousId = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
+    mocks.getBudgetWorkspace.mockResolvedValueOnce({
+      periods: [{ id: "period-october", month_start: "2026-10-01", currency: "NOK", status: "planned", notes: null }],
+      lines: [{ id: "shared-line", budget_period_id: "period-october", category_id: null, group_id: "shared-group", budgeted_minor: 550000, rollover: false, notes: null }],
+      groups: [{ id: "shared-group", name: "Groceries + Misc" }],
+      groupCategories: [{ group_id: "shared-group", category_id: groceriesId }, { group_id: "shared-group", category_id: miscellaneousId }],
+      actuals: [], categories: [{ id: groceriesId, name: "Groceries", kind: "expense" }, { id: miscellaneousId, name: "Miscellaneous", kind: "expense" }], currency: "NOK",
+    });
+    mocks.createBudgetLine
+      .mockResolvedValueOnce({ id: "groceries-line", budget_period_id: "period-october", category_id: groceriesId, group_id: null, budgeted_minor: 150000, rollover: false, notes: null })
+      .mockResolvedValueOnce({ id: "misc-line", budget_period_id: "period-october", category_id: miscellaneousId, group_id: null, budgeted_minor: 350000, rollover: false, notes: null });
+    renderWithQuery(<TransactionsRoute />);
+    fireEvent.change(await screen.findByLabelText("Limits month"), { target: { value: "2026-10" } });
+    fireEvent.click(await screen.findByRole("button", { name: "Edit monthly limits" }));
+    expect(screen.getByLabelText("Limits start month")).toHaveValue("2026-10");
+    expect(screen.getByLabelText("Limits end month")).toHaveValue("2026-10");
+    fireEvent.change(screen.getByLabelText("Groceries limit"), { target: { value: "1500" } });
+    fireEvent.change(screen.getByLabelText("Miscellaneous limit"), { target: { value: "3500" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save limits for selected months" }));
+    await waitFor(() => expect(mocks.deleteBudgetLine).toHaveBeenCalledWith("shared-line"));
+    expect(mocks.createBudgetLine).toHaveBeenCalledWith("period-october", groceriesId, 150000);
+    expect(mocks.createBudgetLine).toHaveBeenCalledWith("period-october", miscellaneousId, 350000);
+  });
+
+  it("supports direct links to the expense form", async () => {
+    renderWithQuery(<TransactionsRoute />, "/money/transactions?new=expense");
+    expect(await screen.findByRole("button", { name: "Post expense" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Expense" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("keeps migrated plans visibly separate from actual money", async () => {
+    renderWithQuery(<ForecastRoute />);
+    expect(await screen.findByText("Invented future income")).toBeInTheDocument();
+    expect(screen.getByText(/never changes your actual account balances/i)).toBeInTheDocument();
+    expect(screen.getByText((_, element) => element?.textContent?.replace(/\s/g, "") === "+2000kr", { selector: "strong" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Mark received" })).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Mark received" }));
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByRole("heading", { name: "Mark this item as received?" })).toBeVisible();
+    expect(within(dialog).getByText((_, element) => element?.textContent?.replace(/\s/g, "") === "+2000kr", { selector: "strong" })).toBeVisible();
+    expect(screen.queryByLabelText("Exact amount")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Actual date")).not.toBeInTheDocument();
+    expect(within(dialog).getByText(/records it in Activity/i)).toBeVisible();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    const more = screen.getByLabelText("More actions for Invented future income");
+    expect(more).toHaveAttribute("aria-label", "More actions for Invented future income");
+    fireEvent.click(more);
+    expect(screen.getByRole("button", { name: "Edit" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Skip" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Delete" })).toBeVisible();
+    expect(screen.queryByText("Match transaction…")).not.toBeInTheDocument();
+  });
+});
