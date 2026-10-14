@@ -158,7 +158,9 @@ button:disabled { opacity: .48; cursor: not-allowed; }
 .quick-spend-trackers span { color:var(--color-muted); font-size:.68rem; font-weight:780; letter-spacing:.08em; text-transform:uppercase; }
 .quick-spend-trackers strong { font-family:var(--font-display); font-size:1.05rem; font-weight:610; text-align:right; }
 .quick-spend-trackers small { grid-column:1 / -1; color:var(--color-muted); font-size:.7rem; }
-.quick-spend-form { display:grid; grid-template-columns:minmax(7rem,.55fr) minmax(13rem,1fr) minmax(9.5rem,.65fr) minmax(12rem,1fr) auto; gap:var(--space-3); align-items:end; }
+/* Four tracks: the submit button now takes its own full-width row, so a fifth track would
+   collapse to zero and still leave its gap, making the first row end short of the others. */
+.quick-spend-form { display:grid; grid-template-columns:minmax(7rem,.55fr) minmax(13rem,1fr) minmax(9.5rem,.65fr) minmax(12rem,1fr); gap:var(--space-3); align-items:end; }
 .quick-spend-form label,.quick-spend-form .quick-spend-category { display:grid; grid-template-rows:1rem 2.7rem; gap:.42rem; min-width:0; margin:0; color:var(--color-muted); font-size:.72rem; font-weight:740; }
 .quick-spend-form .field-label { display:flex; align-items:baseline; gap:.28rem; min-height:1rem; line-height:1rem; white-space:nowrap; }
 .quick-spend-form .field-label .optional { color:var(--color-muted); font-size:.68rem; font-weight:500; }
@@ -167,16 +169,22 @@ button:disabled { opacity: .48; cursor: not-allowed; }
 .quick-spend-category button { min-height:2.7rem; border:1px solid var(--color-line); border-radius:var(--radius-sm); background:transparent; color:var(--color-muted); cursor:pointer; font-size:.76rem; font-weight:700; }
 .quick-spend-category button.active { background:var(--color-ink); border-color:var(--color-ink); color:white; }
 .quick-spend-form > .primary-button { min-height:2.7rem; white-space:nowrap; }
-.reimbursement-toggle { grid-column:1 / span 2; display:flex !important; grid-template-rows:none !important; align-items:center; gap:.65rem !important; min-height:2.7rem; padding:.55rem .7rem; border:1px solid var(--color-line); border-radius:var(--radius-sm); background:color-mix(in srgb,var(--color-positive) 5%,var(--color-surface-strong)); cursor:pointer; }
-.reimbursement-toggle>input { flex:0 0 auto; width:1rem; min-height:1rem; margin:0; padding:0; accent-color:var(--color-positive); }
-.reimbursement-toggle>span { display:grid; gap:.08rem; min-width:0; }
-.reimbursement-toggle strong { color:var(--color-ink); font-size:.76rem; }
-.reimbursement-toggle small,.reimbursement-amount small { color:var(--color-muted); font-size:.67rem; font-weight:560; line-height:1.35; }
-.quick-spend-form .reimbursement-amount { grid-column:3 / span 2; grid-template-rows:1rem 2.7rem auto; }
-.reimbursement-toggle small,.reimbursement-amount small,.reimbursement-tracker-name small { color:var(--color-muted); font-size:.67rem; font-weight:560; line-height:1.35; }
-.quick-spend-form .reimbursement-tracker { grid-column:1 / span 2; }
-.quick-spend-form .reimbursement-tracker-name { grid-column:3 / span 1; grid-template-rows:1rem 2.7rem auto; }
-.quick-spend-form .reimbursement-tracker-date { grid-column:4 / span 1; }
+/* The reimbursement controls sit in their own four-column sub-grid rather than on the main
+   form's uneven tracks, so paired fields get identical widths. Every item repeats the same
+   label / control / help stack and the row aligns to start, which lines the visible boxes up
+   with each other instead of only lining up their outer boxes. */
+.quick-spend-form .reimbursement-row { grid-column:1 / -1; display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:var(--space-3); align-items:start; }
+.quick-spend-form .reimbursement-row > label { display:grid; grid-template-rows:1rem 2.7rem auto; gap:.42rem; min-width:0; margin:0; color:var(--color-muted); font-size:.72rem; font-weight:740; }
+.quick-spend-form .reimbursement-toggle,.quick-spend-form .reimbursement-amount,.quick-spend-form .reimbursement-tracker { grid-column:span 2; }
+.quick-spend-form .reimbursement-tracker-name,.quick-spend-form .reimbursement-tracker-date { grid-column:span 1; }
+.reimbursement-toggle-control { display:flex; align-items:center; gap:.65rem; min-width:0; height:2.7rem; padding:0 .72rem; border:1px solid var(--color-line); border-radius:var(--radius-sm); background:color-mix(in srgb,var(--color-positive) 5%,var(--color-surface-strong)); cursor:pointer; }
+.reimbursement-toggle-control>input { flex:0 0 auto; width:1rem; height:1rem; margin:0; padding:0; accent-color:var(--color-positive); }
+.reimbursement-toggle-control>strong { min-width:0; overflow:hidden; color:var(--color-ink); font-size:.76rem; text-overflow:ellipsis; white-space:nowrap; }
+.reimbursement-amount small,.reimbursement-tracker-name small { color:var(--color-muted); font-size:.67rem; font-weight:560; line-height:1.35; }
+/* Native select arrows crowd the border, so draw our own and reserve room for it. */
+.quick-spend-form select { appearance:none; -webkit-appearance:none; padding-right:2.4rem; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1 1.5 6 6.5l5-5' stroke='%23786860' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right .9rem center; background-size:.75rem .5rem; }
+/* Its own row, right aligned, so it keeps one width in every state of the form. */
+.quick-spend-form > .primary-button { grid-column:1 / -1; justify-self:end; min-width:13rem; }
 .activity-reimbursement-breakdown { display:flex; flex-wrap:wrap; gap:.25rem .65rem; margin-top:.3rem; color:var(--color-muted); font-size:.68rem; }
 .activity-reimbursement-breakdown span:last-child { color:var(--color-positive); font-weight:680; }
 .activity-history-panel { padding:var(--space-4); }
@@ -627,7 +635,8 @@ button:disabled { opacity: .48; cursor: not-allowed; }
   .quick-spend-heading .row-actions { display:grid; grid-template-columns:minmax(0,1fr); width:100%; gap:var(--space-2); }
   .quick-spend-heading .row-actions .standalone-label,.quick-spend-heading .row-actions button { width:100%; }
   .quick-spend-form .quick-spend-category,.quick-spend-form>label:nth-of-type(2),.quick-spend-form>.primary-button { grid-column:1/-1; }
-  .quick-spend-form .reimbursement-toggle,.quick-spend-form .reimbursement-amount,.quick-spend-form .reimbursement-tracker,.quick-spend-form .reimbursement-tracker-name,.quick-spend-form .reimbursement-tracker-date { grid-column:1/-1; }
+  .quick-spend-form .reimbursement-row { grid-template-columns:minmax(0,1fr); }
+  .quick-spend-form .reimbursement-row > label { grid-column:1/-1 !important; }
   .reimbursement-toggle { min-height:2.75rem; }
   .quick-spend-form>.primary-button { width:100%; }
   .quick-spend-category button { min-height:2.75rem; }
