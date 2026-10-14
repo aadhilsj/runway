@@ -296,7 +296,8 @@ export default function TransactionsRoute() {
         <div className="quick-spend-category"><span className="field-label">Category</span><div role="group" aria-label="Expense category">{quickCategories.map((category) => <button type="button" key={category.id} className={selectedQuickCategory?.id === category.id ? "active" : ""} aria-pressed={selectedQuickCategory?.id === category.id} onClick={() => setQuickCategoryId(category.id)}>{category.name}</button>)}</div></div>
         <label><span className="field-label">Date</span><input aria-label="Quick spend date" type="date" value={quickDate} onChange={(event) => setQuickDate(event.target.value)} required/></label>
         <label><span className="field-label">Description <span className="optional">optional</span></span><input aria-label="Quick spend description" value={quickDescription} onChange={(event) => setQuickDescription(event.target.value)} maxLength={240} placeholder="What was it?"/></label>
-        <label className="reimbursement-toggle"><input type="checkbox" checked={quickHasReimbursement} onChange={(event) => { const on = event.target.checked; setQuickHasReimbursement(on); if (on) { setQuickPoolId(activePools[0]?.pool.id ?? NEW_TRACKER); setQuickPoolDate(defaultExpectedBack(quickDate)); } }}/><span><strong>Someone owes me part of this</strong><small>Only your own share counts against your limit.</small></span></label>
+        <div className="reimbursement-row">
+          <label className="reimbursement-toggle"><span className="field-label">Shared expense</span><span className="reimbursement-toggle-control"><input type="checkbox" checked={quickHasReimbursement} onChange={(event) => { const on = event.target.checked; setQuickHasReimbursement(on); if (on) { setQuickPoolId(activePools[0]?.pool.id ?? NEW_TRACKER); setQuickPoolDate(defaultExpectedBack(quickDate)); } }}/><strong>Someone owes me part of this</strong></span></label>
         {quickHasReimbursement ? <>
           <label className="reimbursement-amount"><span className="field-label">Amount owed back</span><input aria-label="Amount owed back" value={quickReimbursableAmount} onChange={(event) => setQuickReimbursableAmount(event.target.value)} inputMode="decimal" placeholder="0.00" required/><small>Only the remainder counts against your {selectedQuickCategory?.name ?? "spending"} limit.</small></label>
           <label className="reimbursement-tracker"><span className="field-label">Who owes you</span>
@@ -310,6 +311,7 @@ export default function TransactionsRoute() {
             <label className="reimbursement-tracker-date"><span className="field-label">Expected back</span><input aria-label="Expected back" type="date" value={quickPoolDate || defaultExpectedBack(quickDate)} onChange={(event) => setQuickPoolDate(event.target.value)} required/></label>
           </> : null}
         </> : null}
+        </div>
         <button className="primary-button" type="submit" disabled={quickSpend.isPending || !selectedQuickCategory || !operatingAccount}>{quickSpend.isPending ? "Logging…" : "Log expense"}</button>
       </form>
       {quickSpend.error ? <p className="field-error" role="alert">{message(quickSpend.error)}</p> : null}
