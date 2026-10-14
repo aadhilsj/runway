@@ -19,6 +19,15 @@ function message(error: unknown): string { return userFacingError(error, "The tr
 function newKey(prefix: string): string { return `${prefix}:${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`}`; }
 function defaultLocalDateTime(): string { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); }
 function defaultLocalDate(): string { return defaultLocalDateTime().slice(0, 10); }
+const NEW_TRACKER = "new";
+// A tracker covers one occasion, so the money is normally due within the week. Suggested,
+// never silently applied: the field stays editable before the expense is logged.
+function defaultExpectedBack(expenseDate: string): string {
+  const date = new Date(`${expenseDate}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return expenseDate;
+  date.setDate(date.getDate() + 7);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
 function monthStart(date: Date): string { return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-01`; }
 function monthLabel(value: string): string { return new Date(`${value.slice(0, 7)}-01T12:00:00`).toLocaleDateString("en-GB", { month: "long", year: "numeric" }); }
 function monthStartsBetween(first: string, last: string): string[] {
@@ -53,6 +62,9 @@ export default function TransactionsRoute() {
   const [quickDescription, setQuickDescription] = useState("");
   const [quickHasReimbursement, setQuickHasReimbursement] = useState(false);
   const [quickReimbursableAmount, setQuickReimbursableAmount] = useState("");
+  const [quickPoolId, setQuickPoolId] = useState(NEW_TRACKER);
+  const [quickPoolName, setQuickPoolName] = useState("");
+  const [quickPoolDate, setQuickPoolDate] = useState("");
   const [limitsOpen, setLimitsOpen] = useState(false);
   const [trackerMonth, setTrackerMonth] = useState(defaultLocalDate().slice(0, 7));
   const [groceriesLimit, setGroceriesLimit] = useState("");
@@ -136,17 +148,30 @@ export default function TransactionsRoute() {
         const reimbursableMinor = Number(parseDisplayAmountToMinor(quickReimbursableAmount));
         if (reimbursableMinor <= 0) throw new Error("Enter the amount you expect back.");
         if (reimbursableMinor > amountMinor) throw new Error("The amount owed back cannot exceed the purchase total.");
-        const pool = reimbursements.data?.pools[0];
-        if (!pool) throw new Error("Your Splitwise tracker is not ready yet.");
-        return reimbursementsRepository.postSplitExpense({
+        const shared = {
           sourceAccountId: operatingAccount.id,
           amountMinor,
           reimbursableMinor,
-          poolId: pool.id,
           categoryId: selectedQuickCategory.id,
           occurredAt: new Date(`${quickDate}T12:00:00`).toISOString(),
           description,
           notes: null,
+        };
+        if (quickPoolId === NEW_TRACKER) {
+          const poolName = quickPoolName.trim();
+          if (!poolName) throw new Error("Name who owes you, for example Paddle (Tom, Mina, Sam).");
+          return reimbursementsRepository.postSplitExpenseToNewPool({
+            ...shared,
+            poolName,
+            expectedDate: quickPoolDate || defaultExpectedBack(quickDate),
+            idempotencyKey: newKey("split-expense-new"),
+          });
+        }
+        const pool = activePools.find((row) => row.pool.id === quickPoolId)?.pool;
+        if (!pool) throw new Error("Choose who owes you, or start a new tracker.");
+        return reimbursementsRepository.postSplitExpense({
+          ...shared,
+          poolId: pool.id,
           idempotencyKey: newKey("split-expense"),
         });
       }
@@ -190,6 +215,16 @@ export default function TransactionsRoute() {
     const totalSpentMinor = groupLine ? (budgetWorkspace.data?.actuals ?? []).filter((row) => row.month_start === trackerMonthStart && groupCategoryIds.includes(row.category_id)).reduce((sum, row) => sum + Number(row.actual_minor), 0) : spentMinor;
     return { category, spentMinor, budgetedMinor, remainingMinor: budgetedMinor === null ? null : budgetedMinor - totalSpentMinor, groupName: group?.name };
   });
+  // A tracker is settled the moment its balance reaches zero, so it drops out of the picker
+  // while its history stays on file. Next month's game with other people opens a new one.
+  const activePools = (reimbursements.data?.pools ?? [])
+    .map((pool) => ({
+      pool,
+      outstandingMinor: (reimbursements.data?.entries ?? [])
+        .filter((entry) => entry.pool_id === pool.id)
+        .reduce((sum, entry) => sum + Number(entry.delta_minor), 0),
+    }))
+    .filter((row) => row.outstandingMinor > 0);
   const trackerCurrency = budgetWorkspace.data?.currency ?? "NOK";
   const currentMonth = currentMonthStart.slice(0, 7);
   const maxRepeatMonth = (() => { const date = new Date(`${currentMonthStart}T12:00:00`); date.setMonth(date.getMonth() + 23); return monthStart(date).slice(0, 7); })();
@@ -261,8 +296,20 @@ export default function TransactionsRoute() {
         <div className="quick-spend-category"><span className="field-label">Category</span><div role="group" aria-label="Expense category">{quickCategories.map((category) => <button type="button" key={category.id} className={selectedQuickCategory?.id === category.id ? "active" : ""} aria-pressed={selectedQuickCategory?.id === category.id} onClick={() => setQuickCategoryId(category.id)}>{category.name}</button>)}</div></div>
         <label><span className="field-label">Date</span><input aria-label="Quick spend date" type="date" value={quickDate} onChange={(event) => setQuickDate(event.target.value)} required/></label>
         <label><span className="field-label">Description <span className="optional">optional</span></span><input aria-label="Quick spend description" value={quickDescription} onChange={(event) => setQuickDescription(event.target.value)} maxLength={240} placeholder="What was it?"/></label>
-        <label className="reimbursement-toggle"><input type="checkbox" checked={quickHasReimbursement} onChange={(event) => setQuickHasReimbursement(event.target.checked)}/><span><strong>Someone owes me part of this</strong><small>Track their share in {reimbursements.data?.pools[0]?.name ?? "Splitwise"}.</small></span></label>
-        {quickHasReimbursement ? <label className="reimbursement-amount"><span className="field-label">Amount owed back</span><input aria-label="Amount owed back" value={quickReimbursableAmount} onChange={(event) => setQuickReimbursableAmount(event.target.value)} inputMode="decimal" placeholder="0.00" required/><small>Only the remainder counts against your {selectedQuickCategory?.name ?? "spending"} limit.</small></label> : null}
+        <label className="reimbursement-toggle"><input type="checkbox" checked={quickHasReimbursement} onChange={(event) => { const on = event.target.checked; setQuickHasReimbursement(on); if (on) { setQuickPoolId(activePools[0]?.pool.id ?? NEW_TRACKER); setQuickPoolDate(defaultExpectedBack(quickDate)); } }}/><span><strong>Someone owes me part of this</strong><small>Only your own share counts against your limit.</small></span></label>
+        {quickHasReimbursement ? <>
+          <label className="reimbursement-amount"><span className="field-label">Amount owed back</span><input aria-label="Amount owed back" value={quickReimbursableAmount} onChange={(event) => setQuickReimbursableAmount(event.target.value)} inputMode="decimal" placeholder="0.00" required/><small>Only the remainder counts against your {selectedQuickCategory?.name ?? "spending"} limit.</small></label>
+          <label className="reimbursement-tracker"><span className="field-label">Who owes you</span>
+            <select aria-label="Who owes you" value={quickPoolId} onChange={(event) => setQuickPoolId(event.target.value)}>
+              {activePools.map(({ pool, outstandingMinor }) => <option key={pool.id} value={pool.id}>{pool.name} · {formatMinorUnits(asMinorUnits(outstandingMinor), trackerCurrency)} owed</option>)}
+              <option value={NEW_TRACKER}>New tracker…</option>
+            </select>
+          </label>
+          {quickPoolId === NEW_TRACKER ? <>
+            <label className="reimbursement-tracker-name"><span className="field-label">Tracker name</span><input aria-label="Tracker name" value={quickPoolName} onChange={(event) => setQuickPoolName(event.target.value)} placeholder="Paddle (Tom, Mina, Sam)" maxLength={100} required/><small>Name the occasion, not each person. Next time is a new tracker.</small></label>
+            <label className="reimbursement-tracker-date"><span className="field-label">Expected back</span><input aria-label="Expected back" type="date" value={quickPoolDate || defaultExpectedBack(quickDate)} onChange={(event) => setQuickPoolDate(event.target.value)} required/></label>
+          </> : null}
+        </> : null}
         <button className="primary-button" type="submit" disabled={quickSpend.isPending || !selectedQuickCategory || !operatingAccount}>{quickSpend.isPending ? "Logging…" : "Log expense"}</button>
       </form>
       {quickSpend.error ? <p className="field-error" role="alert">{message(quickSpend.error)}</p> : null}

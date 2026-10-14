@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   createAccount: vi.fn(), reconcileAccount: vi.fn(), postExpense: vi.fn(), reverseTransaction: vi.fn(), settleItem: vi.fn(),
   createBudgetPeriod: vi.fn(), createBudgetLine: vi.fn(), updateBudgetLine: vi.fn(), deleteBudgetLine: vi.fn(), getBudgetWorkspace: vi.fn(),
   postSplitExpense: vi.fn(),
+  postSplitExpenseToNewPool: vi.fn(),
   operatingAccount: {
     id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", user_id: "owner", name: "Operating Cash", class: "asset" as const,
     subtype: "checking" as const, currency: "NOK", liquidity_class: "operating" as const, valuation_mode: "ledger" as const,
@@ -53,8 +54,13 @@ vi.mock("~/data/repositories/transactions-repository", () => ({ transactionsRepo
   postTransfer: vi.fn(), postDebtPayment: vi.fn(), reverseTransaction: mocks.reverseTransaction,
 } }));
 vi.mock("~/data/repositories/reimbursements-repository", () => ({ reimbursementsRepository: {
-  getWorkspace: vi.fn().mockResolvedValue({ pools: [{ id: "pool-a", name: "Splitwise" }], entries: [] }),
-  postSplitExpense: mocks.postSplitExpense, recordRepayment: vi.fn(), adjustPool: vi.fn(),
+  getWorkspace: vi.fn().mockResolvedValue({
+    // Outstanding, so it is still an active tracker; a settled one drops out of the picker.
+    pools: [{ id: "pool-a", name: "Splitwise (incl. May rent)" }],
+    entries: [{ pool_id: "pool-a", delta_minor: 1822948 }],
+  }),
+  postSplitExpense: mocks.postSplitExpense, postSplitExpenseToNewPool: mocks.postSplitExpenseToNewPool,
+  recordRepayment: vi.fn(), adjustPool: vi.fn(),
 } }));
 vi.mock("~/data/repositories/forecast-repository", () => ({ forecastRepository: {
   getWorkspace: vi.fn().mockResolvedValue({
@@ -161,6 +167,40 @@ describe("Phase 4 actual-money workflows", () => {
       categoryId: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
       description: "Shared groceries",
     })));
+    expect(mocks.postExpense).not.toHaveBeenCalled();
+  });
+
+  it("opens a named tracker for a different group instead of charging the flatmate's balance", async () => {
+    // Paddle court costs 600; three others owe 450, so only 150 is the owner's own spending.
+    mocks.postSplitExpenseToNewPool.mockResolvedValue("transaction-paddle");
+    renderWithQuery(<TransactionsRoute />);
+    await screen.findByRole("button", { name: "Set monthly limits" });
+    fireEvent.change(screen.getByLabelText("Quick spend amount"), { target: { value: "600" } });
+    fireEvent.change(screen.getByLabelText("Quick spend description"), { target: { value: "Paddle court" } });
+    fireEvent.change(screen.getByLabelText("Quick spend date"), { target: { value: "2026-10-14" } });
+    fireEvent.click(screen.getByRole("checkbox", { name: /Someone owes me part of this/i }));
+    fireEvent.change(screen.getByLabelText("Amount owed back"), { target: { value: "450" } });
+
+    // The flatmate's tracker is preselected because it is the only active one, so a different
+    // group has to be chosen deliberately rather than landing on his balance by default.
+    const picker = screen.getByLabelText("Who owes you");
+    expect(picker).toHaveValue("pool-a");
+    fireEvent.change(picker, { target: { value: "new" } });
+    fireEvent.change(screen.getByLabelText("Tracker name"), { target: { value: "Paddle (Tom, Mina, Sam)" } });
+    // Suggested a week out, and editable before logging.
+    expect(screen.getByLabelText("Expected back")).toHaveValue("2026-10-21");
+    fireEvent.change(screen.getByLabelText("Expected back"), { target: { value: "2026-10-16" } });
+    fireEvent.click(screen.getByRole("button", { name: "Log expense" }));
+
+    await waitFor(() => expect(mocks.postSplitExpenseToNewPool).toHaveBeenCalledWith(expect.objectContaining({
+      sourceAccountId: mocks.operatingAccount.id,
+      amountMinor: 60000,
+      reimbursableMinor: 45000,
+      poolName: "Paddle (Tom, Mina, Sam)",
+      expectedDate: "2026-10-16",
+      description: "Paddle court",
+    })));
+    expect(mocks.postSplitExpense).not.toHaveBeenCalled();
     expect(mocks.postExpense).not.toHaveBeenCalled();
   });
 
