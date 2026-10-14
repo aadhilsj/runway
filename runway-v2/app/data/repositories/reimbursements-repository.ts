@@ -12,6 +12,11 @@ export interface PostSplitExpenseCommand {
   idempotencyKey: string;
 }
 
+export interface PostSplitExpenseToNewPoolCommand extends Omit<PostSplitExpenseCommand, "poolId"> {
+  poolName: string;
+  expectedDate: string;
+}
+
 export interface RecordReimbursementCommand {
   poolId: string;
   destinationAccountId: string;
@@ -56,6 +61,23 @@ export const reimbursementsRepository = {
       p_amount_minor: command.amountMinor,
       p_reimbursable_minor: command.reimbursableMinor,
       p_pool_id: command.poolId,
+      p_category_id: command.categoryId,
+      p_occurred_at: command.occurredAt,
+      p_description: command.description,
+      p_notes: rpcNullable(command.notes),
+      p_idempotency_key: command.idempotencyKey,
+    });
+    if (error) throw error;
+    return data;
+  },
+
+  async postSplitExpenseToNewPool(command: PostSplitExpenseToNewPoolCommand): Promise<string> {
+    const { data, error } = await requireSupabase().rpc("post_split_expense_to_new_pool", {
+      p_source_account_id: command.sourceAccountId,
+      p_amount_minor: command.amountMinor,
+      p_reimbursable_minor: command.reimbursableMinor,
+      p_pool_name: command.poolName,
+      p_expected_date: command.expectedDate,
       p_category_id: command.categoryId,
       p_occurred_at: command.occurredAt,
       p_description: command.description,

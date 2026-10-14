@@ -2285,6 +2285,21 @@ export type Database = {
         }
         Returns: string
       }
+      post_split_expense_to_new_pool: {
+        Args: {
+          p_amount_minor: number
+          p_category_id: string
+          p_description: string
+          p_expected_date: string
+          p_idempotency_key: string
+          p_notes: string
+          p_occurred_at: string
+          p_pool_name: string
+          p_reimbursable_minor: number
+          p_source_account_id: string
+        }
+        Returns: string
+      }
       post_transaction: {
         Args: {
           p_currency: string
